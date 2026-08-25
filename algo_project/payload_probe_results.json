@@ -1,0 +1,287 @@
+[
+  [
+    "quote",
+    {
+      "mode": "LTP",
+      "exchangeTokens": [
+        "99926000"
+      ]
+    },
+    400,
+    "",
+    {
+      "Content-Length": "0",
+      "Connection": "keep-alive",
+      "Date": "Tue, 11 Aug 2026 20:37:49 GMT",
+      "x-request-id": "a50ebcb2-f59b-4eef-a271-a08399d72935",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Expose-Headers": "accept,Authorization,Content-type,Origin,X-ClientLocalIP,X-ClientPublicIP,x-forwarded-for,X-Forwarded-For,X-MACaddress,X-PrivateKey,x-request-id,X-Requested-With,X-SourceID,X-UserType,Client-Real-Ip,X-ALGO-EXCH-ID,X-ALGO-ID,X-API-KEY,X-CLIENT-ID,X-VENDOR-CODE,X-VENDOR-EXCH-CODE",
+      "Set-Cookie": "TS0179ac75=0167ca9f9bc86c9fd516fee0d873f25a0ad3abbb05407c619950bd0b80530d3f4d40aa5f97420f37f0481b3ca826a4de182e6960f0; Path=/; Domain=.apiconnect.angelone.in"
+    }
+  ],
+  [
+    "quote",
+    {
+      "mode": "LTP",
+      "exchangeTokens": [
+        "NFO:99926000"
+      ]
+    },
+    400,
+    "",
+    {
+      "Content-Length": "0",
+      "Connection": "keep-alive",
+      "Date": "Tue, 11 Aug 2026 20:37:49 GMT",
+      "x-request-id": "3bad9826-91a8-48f6-be20-414b01f1e410",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Expose-Headers": "accept,Authorization,Content-type,Origin,X-ClientLocalIP,X-ClientPublicIP,x-forwarded-for,X-Forwarded-For,X-MACaddress,X-PrivateKey,x-request-id,X-Requested-With,X-SourceID,X-UserType,Client-Real-Ip,X-ALGO-EXCH-ID,X-ALGO-ID,X-API-KEY,X-CLIENT-ID,X-VENDOR-CODE,X-VENDOR-EXCH-CODE",
+      "Set-Cookie": "TS0179ac75=0167ca9f9b14bb1f8d2e91b358a285f4d929e84f53edf7d7e415b578c5747b7a1c19d4f40214dc55bab225f78d7f6a04c21662e5e2; Path=/; Domain=.apiconnect.angelone.in"
+    }
+  ],
+  [
+    "quote",
+    {
+      "mode": "LTP",
+      "exchangeTokens": [
+        {
+          "exchange": "NFO",
+          "token": "99926000"
+        }
+      ]
+    },
+    400,
+    "",
+    {
+      "Content-Length": "0",
+      "Connection": "keep-alive",
+      "Date": "Tue, 11 Aug 2026 20:37:50 GMT",
+      "x-request-id": "8563358f-f2eb-4fcd-a4c6-9a9e17749f63",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Expose-Headers": "accept,Authorization,Content-type,Origin,X-ClientLocalIP,X-ClientPublicIP,x-forwarded-for,X-Forwarded-For,X-MACaddress,X-PrivateKey,x-request-id,X-Requested-With,X-SourceID,X-UserType,Client-Real-Ip,X-ALGO-EXCH-ID,X-ALGO-ID,X-API-KEY,X-CLIENT-ID,X-VENDOR-CODE,X-VENDOR-EXCH-CODE",
+      "Set-Cookie": "TS0179ac75=0167ca9f9beff201d11ba0f9d475b4a2b01d58bf201c6797443c2ecf5ab31b5572ef475a4cc2b8ff05884f75d6d1b0c2375684f841; Path=/; Domain=.apiconnect.angelone.in"
+    }
+  ],
+  [
+    "quote",
+    {
+      "mode": "LTP",
+      "exchangeTokens": [
+        {
+          "exch": "NFO",
+          "token": "99926000"
+        }
+      ]
+    },
+    400,
+    "",
+    {
+      "Content-Length": "0",
+      "Connection": "keep-alive",
+      "Date": "Tue, 11 Aug 2026 20:37:51 GMT",
+      "x-request-id": "84823596-23a4-40e4-a7f7-13d418725ed3",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Expose-Headers": "accept,Authorization,Content-type,Origin,X-ClientLocalIP,X-ClientPublicIP,x-forwarded-for,X-Forwarded-For,X-MACaddress,X-PrivateKey,x-request-id,X-Requested-With,X-SourceID,X-UserType,Client-Real-Ip,X-ALGO-EXCH-ID,X-ALGO-ID,X-API-KEY,X-CLIENT-ID,X-VENDOR-CODE,X-VENDOR-EXCH-CODE",
+      "Set-Cookie": "TS0179ac75=0167ca9f9b955bc6d2dee39cbb4d70dd97c888146470fff5a5a013af6bb36bc9c28613d347ee6b33a53a6882171112f400c78fbdc8; Path=/; Domain=.apiconnect.angelone.in"
+    }
+  ],
+  [
+    "quote",
+    {
+      "mode": "LTP",
+      "tokens": [
+        "99926000"
+      ]
+    },
+    200,
+    "{\"message\":\"Null or Empty exchange tokens.\",\"errorcode\":\"AB4018\",\"status\":false,\"data\":null}",
+    {
+      "Content-Type": "application/json",
+      "Content-Length": "92",
+      "Connection": "keep-alive",
+      "Date": "Tue, 11 Aug 2026 20:37:51 GMT",
+      "Strict-Transport-Security": "max-age=31536000",
+      "x-request-id": "e00fd851-535d-45c8-9ae7-d7c50f35128a",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Expose-Headers": "accept,Authorization,Content-type,Origin,X-ClientLocalIP,X-ClientPublicIP,x-forwarded-for,X-Forwarded-For,X-MACaddress,X-PrivateKey,x-request-id,X-Requested-With,X-SourceID,X-UserType,Client-Real-Ip,X-ALGO-EXCH-ID,X-ALGO-ID,X-API-KEY,X-CLIENT-ID,X-VENDOR-CODE,X-VENDOR-EXCH-CODE",
+      "Set-Cookie": "TS0179ac75=0167ca9f9b33fc049f11b4af9c4ff3bbaa5bc83fb08275c6e343141654318d39e8e8ae71d2a65b2a40e34b2a9faef67acd70742779; Path=/; Domain=.apiconnect.angelone.in"
+    }
+  ],
+  [
+    "quote",
+    {
+      "mode": "LTP",
+      "tokens": [
+        {
+          "exchange": "NFO",
+          "token": "99926000"
+        }
+      ]
+    },
+    200,
+    "{\"message\":\"Null or Empty exchange tokens.\",\"errorcode\":\"AB4018\",\"status\":false,\"data\":null}",
+    {
+      "Content-Type": "application/json",
+      "Content-Length": "92",
+      "Connection": "keep-alive",
+      "Date": "Tue, 11 Aug 2026 20:37:52 GMT",
+      "Strict-Transport-Security": "max-age=31536000",
+      "x-request-id": "eccc4ab8-0a1a-4090-a9d3-a7a1afe46d7e",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Expose-Headers": "accept,Authorization,Content-type,Origin,X-ClientLocalIP,X-ClientPublicIP,x-forwarded-for,X-Forwarded-For,X-MACaddress,X-PrivateKey,x-request-id,X-Requested-With,X-SourceID,X-UserType,Client-Real-Ip,X-ALGO-EXCH-ID,X-ALGO-ID,X-API-KEY,X-CLIENT-ID,X-VENDOR-CODE,X-VENDOR-EXCH-CODE",
+      "Set-Cookie": "TS0179ac75=0167ca9f9b90cec4650d0feb4750a6c50c520ae8172c87bf149fed09aa8f426b63c255253036dcdf04fc1a8efc60c027e18925067e; Path=/; Domain=.apiconnect.angelone.in"
+    }
+  ],
+  [
+    "quote",
+    {
+      "mode": "LTP",
+      "tokens": [
+        {
+          "exch": "NFO",
+          "token": "99926000"
+        }
+      ]
+    },
+    200,
+    "{\"message\":\"Null or Empty exchange tokens.\",\"errorcode\":\"AB4018\",\"status\":false,\"data\":null}",
+    {
+      "Content-Type": "application/json",
+      "Content-Length": "92",
+      "Connection": "keep-alive",
+      "Date": "Tue, 11 Aug 2026 20:37:52 GMT",
+      "Strict-Transport-Security": "max-age=31536000",
+      "x-request-id": "4260617a-d4f6-4fc3-930e-b09010ee9888",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Expose-Headers": "accept,Authorization,Content-type,Origin,X-ClientLocalIP,X-ClientPublicIP,x-forwarded-for,X-Forwarded-For,X-MACaddress,X-PrivateKey,x-request-id,X-Requested-With,X-SourceID,X-UserType,Client-Real-Ip,X-ALGO-EXCH-ID,X-ALGO-ID,X-API-KEY,X-CLIENT-ID,X-VENDOR-CODE,X-VENDOR-EXCH-CODE",
+      "Set-Cookie": "TS0179ac75=0167ca9f9b9064a3d6a623ce215f74f573f49f9c88dc786085202c44857dd5627677e898ef617bc45e1b1a9dd7fd9f1bf8b22952d8; Path=/; Domain=.apiconnect.angelone.in"
+    }
+  ],
+  [
+    "quote",
+    {
+      "mode": "LTP",
+      "exchangeTokens": [
+        {
+          "exchange": "NSE",
+          "token": "99926000"
+        }
+      ]
+    },
+    400,
+    "",
+    {
+      "Content-Length": "0",
+      "Connection": "keep-alive",
+      "Date": "Tue, 11 Aug 2026 20:37:53 GMT",
+      "x-request-id": "b411dfd7-4de1-4239-b1de-a407045dc221",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Expose-Headers": "accept,Authorization,Content-type,Origin,X-ClientLocalIP,X-ClientPublicIP,x-forwarded-for,X-Forwarded-For,X-MACaddress,X-PrivateKey,x-request-id,X-Requested-With,X-SourceID,X-UserType,Client-Real-Ip,X-ALGO-EXCH-ID,X-ALGO-ID,X-API-KEY,X-CLIENT-ID,X-VENDOR-CODE,X-VENDOR-EXCH-CODE",
+      "Set-Cookie": "TS0179ac75=0167ca9f9bd28768fa1b4a94fbb3894571600ac6700e45e3f2a3ca5717b74c615f79f822e0f0e981b993a720bf7ef4fb20a535bfe7; Path=/; Domain=.apiconnect.angelone.in"
+    }
+  ],
+  [
+    "candle",
+    {
+      "exchange": "NFO",
+      "symboltoken": "99926000",
+      "interval": "ONE_MINUTE",
+      "fromdate": "11-08-2026",
+      "todate": "12-08-2026"
+    },
+    400,
+    "",
+    {
+      "Content-Length": "0",
+      "Connection": "keep-alive",
+      "Date": "Tue, 11 Aug 2026 20:37:54 GMT",
+      "x-request-id": "84514d37-5913-4f74-a571-9410e4833897",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Expose-Headers": "accept,Authorization,Content-type,Client-Real-Ip,Origin,X-ClientLocalIP,X-ClientPublicIP,x-forwarded-for,X-Forwarded-For,X-MACaddress,X-PrivateKey,x-request-id,X-Requested-With,X-SourceID,X-UserType",
+      "Set-Cookie": "TS0179ac75=0167ca9f9b3a5f58072db3e66a5b91ebfc2c8da5e16e36835962aa2013a93d0f3f7962ff50d123fe9d09bac83eef9c779068f868bb; Path=/; Domain=.apiconnect.angelone.in"
+    }
+  ],
+  [
+    "candle",
+    {
+      "exchange": "NSE",
+      "symboltoken": "99926000",
+      "interval": "ONE_MINUTE",
+      "fromdate": "11-08-2026",
+      "todate": "12-08-2026"
+    },
+    400,
+    "",
+    {
+      "Content-Length": "0",
+      "Connection": "keep-alive",
+      "Date": "Tue, 11 Aug 2026 20:37:54 GMT",
+      "x-request-id": "9046663b-6037-4bf4-9d67-c3619b574312",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Expose-Headers": "accept,Authorization,Content-type,Client-Real-Ip,Origin,X-ClientLocalIP,X-ClientPublicIP,x-forwarded-for,X-Forwarded-For,X-MACaddress,X-PrivateKey,x-request-id,X-Requested-With,X-SourceID,X-UserType",
+      "Set-Cookie": "TS0179ac75=0167ca9f9b2c3abc2e321f39f5acf3fc87310e3d08cbf0ee2e5391f16ba850aa06d94353744c4851439b34bee957bf68caffa2e2c0; Path=/; Domain=.apiconnect.angelone.in"
+    }
+  ],
+  [
+    "candle",
+    {
+      "exchange": "NFO",
+      "symbolToken": "99926000",
+      "interval": "ONE_MINUTE",
+      "fromdate": "11-08-2026",
+      "todate": "12-08-2026"
+    },
+    400,
+    "",
+    {
+      "Content-Length": "0",
+      "Connection": "keep-alive",
+      "Date": "Tue, 11 Aug 2026 20:37:55 GMT",
+      "x-request-id": "46b945ae-dd49-457c-914e-57a98e433ea7",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Expose-Headers": "accept,Authorization,Content-type,Client-Real-Ip,Origin,X-ClientLocalIP,X-ClientPublicIP,x-forwarded-for,X-Forwarded-For,X-MACaddress,X-PrivateKey,x-request-id,X-Requested-With,X-SourceID,X-UserType",
+      "Set-Cookie": "TS0179ac75=0167ca9f9b0cacdb206aaf6ed7d10b04da05b092d8b37b9d24077d4a809cc26b24558c3b7d0664f8c7a9c37016a727654bc3f30ed8; Path=/; Domain=.apiconnect.angelone.in"
+    }
+  ],
+  [
+    "candle",
+    {
+      "symboltoken": "99926000",
+      "interval": "ONE_MINUTE",
+      "fromdate": "11-08-2026",
+      "todate": "12-08-2026"
+    },
+    400,
+    "",
+    {
+      "Content-Length": "0",
+      "Connection": "keep-alive",
+      "Date": "Tue, 11 Aug 2026 20:37:55 GMT",
+      "x-request-id": "88e5ac45-9ac4-4e1c-9169-300f93b38890",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Expose-Headers": "accept,Authorization,Content-type,Client-Real-Ip,Origin,X-ClientLocalIP,X-ClientPublicIP,x-forwarded-for,X-Forwarded-For,X-MACaddress,X-PrivateKey,x-request-id,X-Requested-With,X-SourceID,X-UserType",
+      "Set-Cookie": "TS0179ac75=0167ca9f9b51a3344892e9d05dbbb791964b3f8062310579f2d69e877b540be9997b5b614f1c20f04a54f6da2d1b6c75c2a0d850c3; Path=/; Domain=.apiconnect.angelone.in"
+    }
+  ],
+  [
+    "candle",
+    {
+      "symboltoken": "99926000",
+      "exchange": "NFO",
+      "interval": "ONE_MINUTE",
+      "fromdate": "11-08-2026",
+      "todate": "12-08-2026"
+    },
+    400,
+    "",
+    {
+      "Content-Length": "0",
+      "Connection": "keep-alive",
+      "Date": "Tue, 11 Aug 2026 20:37:56 GMT",
+      "x-request-id": "21cf9aa9-7974-4bde-ab26-9a803000172c",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Expose-Headers": "accept,Authorization,Content-type,Client-Real-Ip,Origin,X-ClientLocalIP,X-ClientPublicIP,x-forwarded-for,X-Forwarded-For,X-MACaddress,X-PrivateKey,x-request-id,X-Requested-With,X-SourceID,X-UserType",
+      "Set-Cookie": "TS0179ac75=0167ca9f9bc28c65656a1113574723130c261e4d905cf28315dbbde0be15744c0eb5ab8e2a9ccd8205cc354d0c9d67789e53ccef2d; Path=/; Domain=.apiconnect.angelone.in"
+    }
+  ]
+]

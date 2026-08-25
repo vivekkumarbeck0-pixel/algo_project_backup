@@ -1,0 +1,42 @@
+{
+  "date": "2026-08-25",
+  "positions": [
+    {
+      "symbol": "NIFTY",
+      "strike": 24150.0,
+      "option_type": "PE",
+      "side": "BUY",
+      "quantity": 65,
+      "entry_price": 32.95,
+      "trade_number": 1,
+      "index_entry": 24153.7,
+      "index_sl": 24178.7,
+      "index_target": 24070.866666666665,
+      "opened_at": "2026-08-25T10:15:55.527402",
+      "exit_price": 25.2,
+      "closed_at": "2026-08-25T10:55:27.262249",
+      "close_reason": "REVERSAL",
+      "status": "CLOSED"
+    },
+    {
+      "symbol": "NIFTY",
+      "strike": 24150.0,
+      "option_type": "CE",
+      "side": "BUY",
+      "quantity": 65,
+      "entry_price": 52.0,
+      "trade_number": 2,
+      "index_entry": 24171.5,
+      "index_sl": 24146.5,
+      "index_target": 24214.0,
+      "opened_at": "2026-08-25T12:32:04.533966",
+      "exit_price": 27.75,
+      "closed_at": "2026-08-25T13:06:10.888729",
+      "close_reason": "SL_HIT",
+      "status": "CLOSED"
+    }
+  ],
+  "trades_today": 2,
+  "consecutive_stop_losses": 1,
+  "daily_realized_pnl": -2080.0
+}

@@ -1,0 +1,13 @@
+2026-08-22 10:35:12 | INFO     | engine.trading_session | [SYSTEM] Pivot S/R Loaded Successfully: S1=24228.86666666667, R1=24354.56666666667
+2026-08-22 10:35:12 | INFO     | angel_one.market_data | Fetching candles: exchange=NSE token=26000 interval=ONE_DAY from=2026-08-17 09:15 to=2026-08-21 15:30
+2026-08-22 10:35:13 | WARNING  | angel_one.market_data | No historical candles for index NIFTY (token=26000); falling back to nearest futures contract NIFTY25AUG26FUT (token=58072, NFO) as an index proxy
+2026-08-22 10:35:13 | INFO     | angel_one.market_data | Fetching candles: exchange=NFO token=58072 interval=ONE_DAY from=2026-08-17 09:15 to=2026-08-21 15:30
+2026-08-22 10:35:14 | INFO     | engine.trading_session | [SYSTEM] Pivot S/R Loaded Successfully: S1=24228.86666666667, R1=24354.56666666667
+2026-08-22 10:35:14 | INFO     | engine.trading_session | Starting live paper trading session (interval=5.0s)
+2026-08-22 10:35:47 | INFO     | engine.trading_session | [SYSTEM] Pivot S/R Loaded Successfully: S1=24228.86666666667, R1=24354.56666666667
+2026-08-22 10:35:47 | INFO     | angel_one.market_data | Fetching candles: exchange=NSE token=26000 interval=ONE_DAY from=2026-08-17 09:15 to=2026-08-21 15:30
+2026-08-22 10:35:47 | WARNING  | angel_one.market_data | No historical candles for index NIFTY (token=26000); falling back to nearest futures contract NIFTY25AUG26FUT (token=58072, NFO) as an index proxy
+2026-08-22 10:35:47 | INFO     | angel_one.market_data | Fetching candles: exchange=NFO token=58072 interval=ONE_DAY from=2026-08-17 09:15 to=2026-08-21 15:30
+2026-08-22 10:35:48 | INFO     | engine.trading_session | [SYSTEM] Pivot S/R Loaded Successfully: S1=24228.86666666667, R1=24354.56666666667
+2026-08-22 10:35:48 | INFO     | engine.trading_session | Restored 0 positions from today's persisted trading state
+2026-08-22 10:35:48 | INFO     | engine.trading_session | Starting live paper trading session (interval=5.0s)
