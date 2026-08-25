@@ -1,4 +1,7 @@
-SmartApi-python
+smartapi-python
+pyotp
+logzero
+pycryptodome
 pandas
 numpy
 requests

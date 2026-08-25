@@ -1,7 +1,24 @@
 {
   "date": "2026-08-25",
-  "position": null,
-  "trail_distance": 17.42857142857143,
+  "position": {
+    "side": "CE",
+    "strike": 7850,
+    "entry_price": 356.5,
+    "entry_time": "2026-08-25T21:53:02.354405",
+    "stop_loss": 348.42857142857144,
+    "target_price": 372.64285714285717,
+    "trailing_stop": 348.42857142857144,
+    "atr_value": 5.428571428571429,
+    "futures_entry": 7843.0,
+    "futures_entry_oi": 1190500.0,
+    "scenario": "Long Buildup",
+    "is_real": false,
+    "option_token": "576365",
+    "option_symbol": "CRUDEOIL17SEP267850CE",
+    "quantity": 100,
+    "entry_order_id": ""
+  },
+  "trail_distance": 13.142857142857142,
   "paper_realized_pnl": 6290.000000000004,
   "paper_wins": 4,
   "paper_losses": 1
