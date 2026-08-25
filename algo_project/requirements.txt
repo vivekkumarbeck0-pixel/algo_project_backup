@@ -4,3 +4,4 @@ numpy
 requests
 python-dotenv
 yfinance
+websocket-client
