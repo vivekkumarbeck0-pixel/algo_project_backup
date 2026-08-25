@@ -1284,8 +1284,9 @@ class CrudeOptionBuyer:
             return None
 
         now = time.monotonic()
+        # A websocket value of 0 is treated as missing so the REST fallback runs.
         if (
-            self._option_ltp is not None
+            self._option_ltp
             and self._option_ltp_token == token
             and (now - self._option_ltp_time) <= self._option_ltp_max_age
         ):
@@ -1301,25 +1302,66 @@ class CrudeOptionBuyer:
         return live
 
     def _fetch_option_ltp(self, contract: Dict[str, Any]) -> Optional[float]:
+        """REST fallback chain for the option premium: ltpData, then the FULL quote.
+
+        ltpData occasionally throttles (AB1004) or returns an empty body while other
+        pollers are active, so transient failures are retried before the alternate
+        marketData endpoint is tried. Only a real traded price is accepted; a 0
+        means the strike has not printed and the entry still stays skipped.
+        """
         if not self._ensure_rest_client():
             return None
+
+        from angel_one.market_data import is_rate_limit_error
+
+        exchange = self.settings.option_exchange
+        symbol = contract.get("symbol")
+        token = str(contract.get("token"))
+
+        for attempt in range(3):
+            try:
+                if hasattr(self._rest_client, "get_ltp"):
+                    response = self._rest_client.get_ltp(exchange, symbol, token)
+                else:
+                    response = self._rest_client.get_api().ltpData(exchange, symbol, token)
+                ltp = self._parse_ltp_response(response)
+                if ltp is not None:
+                    return ltp
+            except Exception as exc:
+                logger.warning(
+                    "Could not fetch option LTP for %s (attempt %d/3): %s",
+                    symbol, attempt + 1, exc,
+                )
+                if not is_rate_limit_error(exc):
+                    break
+            if attempt < 2:
+                time.sleep(0.75 * (attempt + 1))
+
+        return self._fetch_option_quote(exchange, symbol, token)
+
+    @staticmethod
+    def _parse_ltp_response(response: Any) -> Optional[float]:
+        data = response.get("data") if isinstance(response, dict) else None
+        if not isinstance(data, dict):
+            return None
+        ltp = float(data.get("ltp") or data.get("last_traded_price") or 0.0)
+        if data.get("last_traded_price") is not None and data.get("ltp") is None:
+            ltp /= 100.0
+        return ltp if ltp > 0 else None
+
+    def _fetch_option_quote(self, exchange: str, symbol: Any, token: str) -> Optional[float]:
+        """FULL market-data quote: a separate endpoint that often still carries the
+        last traded price when ltpData is throttled or momentarily empty."""
         try:
-            exchange = self.settings.option_exchange
-            symbol = contract.get("symbol")
-            token = str(contract.get("token"))
-            if hasattr(self._rest_client, "get_ltp"):
-                response = self._rest_client.get_ltp(exchange, symbol, token)
-            else:
-                response = self._rest_client.get_api().ltpData(exchange, symbol, token)
-            data = response.get("data") if isinstance(response, dict) else None
-            if isinstance(data, dict):
-                ltp = float(data.get("ltp") or data.get("last_traded_price") or 0.0)
-                if data.get("last_traded_price") is not None and data.get("ltp") is None:
-                    ltp /= 100.0
-                return ltp if ltp > 0 else None
+            response = self._rest_client.get_market_data("FULL", {exchange: [token]})
         except Exception as exc:
-            logger.warning("Could not fetch option LTP for %s: %s", contract.get("symbol"), exc)
-        return None
+            logger.warning("Could not fetch FULL option quote for %s: %s", symbol, exc)
+            return None
+        data = response.get("data") if isinstance(response, dict) else None
+        fetched = data.get("fetched") if isinstance(data, dict) else None
+        if not isinstance(fetched, list) or not fetched or not isinstance(fetched[0], dict):
+            return None
+        return self._parse_ltp_response({"data": fetched[0]})
 
     def _close_position(self, option_price: float, reason: str):
         position = self._position
