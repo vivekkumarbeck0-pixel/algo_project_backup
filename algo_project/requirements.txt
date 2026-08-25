@@ -1,4 +1,4 @@
-smartapi-python
+SmartApi-python
 pandas
 numpy
 requests
