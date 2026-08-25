@@ -34,9 +34,26 @@
       "closed_at": "2026-08-25T13:06:10.888729",
       "close_reason": "SL_HIT",
       "status": "CLOSED"
+    },
+    {
+      "symbol": "NIFTY",
+      "strike": 24150.0,
+      "option_type": "PE",
+      "side": "BUY",
+      "quantity": 65,
+      "entry_price": 28.1,
+      "trade_number": 3,
+      "index_entry": 24134.65,
+      "index_sl": 24159.65,
+      "index_target": 24070.866666666665,
+      "opened_at": "2026-08-25T13:36:43.438848",
+      "exit_price": null,
+      "closed_at": null,
+      "close_reason": null,
+      "status": "OPEN"
     }
   ],
-  "trades_today": 2,
+  "trades_today": 3,
   "consecutive_stop_losses": 1,
   "daily_realized_pnl": -2080.0
 }

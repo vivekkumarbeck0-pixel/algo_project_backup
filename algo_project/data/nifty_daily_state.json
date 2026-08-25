@@ -1,0 +1,25 @@
+{
+  "date": "2026-08-25",
+  "positions": [
+    {
+      "symbol": "NIFTY",
+      "strike": 24150.0,
+      "option_type": "PE",
+      "side": "BUY",
+      "quantity": 65,
+      "entry_price": 24.0,
+      "trade_number": 1,
+      "index_entry": 24142.0,
+      "index_sl": 24167.0,
+      "index_target": 24070.866666666665,
+      "opened_at": "2026-08-25T13:43:29.763362",
+      "exit_price": 13.45,
+      "closed_at": "2026-08-25T14:13:00.313771",
+      "close_reason": "REVERSAL",
+      "status": "CLOSED"
+    }
+  ],
+  "trades_today": 1,
+  "consecutive_stop_losses": 0,
+  "daily_realized_pnl": -685.75
+}

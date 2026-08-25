@@ -1,25 +1,8 @@
 {
   "date": "2026-08-25",
-  "position": {
-    "side": "PE",
-    "strike": 8100,
-    "entry_price": 389.0,
-    "entry_time": "2026-08-25T12:44:01.551211",
-    "stop_loss": 380.07142857142856,
-    "target_price": 406.85714285714283,
-    "trailing_stop": 380.07142857142856,
-    "atr_value": 6.571428571428571,
-    "futures_entry": 8085.0,
-    "futures_entry_oi": 1190300.0,
-    "scenario": "Short Buildup",
-    "is_real": false,
-    "option_token": "576523",
-    "option_symbol": "CRUDEOIL17SEP268100PE",
-    "quantity": 100,
-    "entry_order_id": ""
-  },
-  "trail_distance": 14.857142857142858,
-  "paper_realized_pnl": 2440.0000000000036,
-  "paper_wins": 2,
-  "paper_losses": 0
+  "position": null,
+  "trail_distance": 17.42857142857143,
+  "paper_realized_pnl": 6290.000000000004,
+  "paper_wins": 4,
+  "paper_losses": 1
 }
