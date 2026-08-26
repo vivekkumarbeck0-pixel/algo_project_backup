@@ -652,6 +652,7 @@ class CrudeOptionBuyer:
         if not isinstance(quote, dict):
             return False
 
+        quote = {**quote, "token": str(quote.get("token") or quote.get("symbolToken") or token)}
         self._handle_tick({"data": quote})
         return True
 
@@ -665,7 +666,7 @@ class CrudeOptionBuyer:
             )
             data = response.get("data") if isinstance(response, dict) else response
             if isinstance(data, dict):
-                self._handle_tick({"data": data})
+                self._handle_tick({"data": {**data, "token": str(data.get("token") or data.get("symbolToken") or token)}})
         except Exception as exc:
             logger.error("REST ticker fallback failed: %s", exc)
             self._rest_client = None
@@ -680,6 +681,7 @@ class CrudeOptionBuyer:
         """
         override = os.getenv("MCX_CRUDE_FUTURE_TOKEN", "").strip()
         if override:
+            self._futures_token_cache = override
             return override
 
         if self._futures_token_cache:
@@ -743,13 +745,16 @@ class CrudeOptionBuyer:
             if ltp <= 0:
                 return
 
-            # The option leg shares this stream, so route its ticks away from the futures bars.
+            # The futures and option legs share one SmartStream connection. Only the
+            # active MCX futures token is allowed to update the scanning price.
             token = str(raw_data.get("token") or raw_data.get("symbolToken") or "").strip()
-            position = self._position
-            if position is not None and token and token == position.option_token:
-                self._option_ltp = ltp
-                self._option_ltp_token = token
-                self._option_ltp_time = time.monotonic()
+            futures_token = self._resolve_futures_token()
+            if not token or not futures_token or token != str(futures_token):
+                position = self._position
+                if position is not None and token and token == position.option_token:
+                    self._option_ltp = ltp
+                    self._option_ltp_token = token
+                    self._option_ltp_time = time.monotonic()
                 return
 
             now = datetime.now()
@@ -1659,11 +1664,12 @@ class CrudeOptionBuyer:
             self._recover_futures_feed()
 
     def _recover_futures_feed(self) -> None:
-        """Re-subscribe the websocket, or fall back to REST polling if it is down."""
+        """Re-subscribe only the active MCX Crude futures token after a timeout."""
         token = self._resolve_futures_token()
 
         if self._smart_stream.connected and token:
             self._smart_stream.subscribe_futures(str(token), exchange=self.instrument.exchange)
+            logger.info("Re-subscribed MCX Crude futures token %s after tick timeout.", token)
             return
 
         if not self._rest_fallback:
