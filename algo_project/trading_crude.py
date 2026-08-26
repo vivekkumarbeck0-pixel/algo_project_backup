@@ -62,6 +62,22 @@ if not logger.handlers:
     logger.addHandler(handler)
 logger.setLevel(getattr(logging, settings.log_level.upper(), logging.INFO))
 
+from flask import Flask
+
+_flask_app = Flask(__name__)
+
+@_flask_app.route('/')
+@_flask_app.route('/health')
+def _health():
+    return "MCX Crude Algo Engine Alive", 200
+
+def _run_health_server():
+    port = int(os.environ.get("PORT", 10000))
+    _flask_app.run(host="0.0.0.0", port=port, use_reloader=False)
+
+threading.Thread(target=_run_health_server, daemon=True).start()
+logger.info("Render Health Check server started on Port 10000.")
+
 
 @dataclass
 class Bar:
@@ -430,6 +446,74 @@ class CrudeOptionBuyer:
         self._smart_stream.close()
         self.nymex_filter.stop()
         _clear_status_line()
+        self.print_daily_summary()
+
+    def print_daily_summary(self) -> None:
+        """Print all of today's persisted Crude paper trades at shutdown."""
+        today = datetime.now(IST).date().isoformat()
+        entries: dict[str, list[dict[str, Any]]] = {}
+        completed: list[tuple[dict[str, Any], dict[str, Any]]] = []
+
+        try:
+            lines = self.paper_log_path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            lines = []
+
+        for line in lines:
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(record, dict) or not str(record.get("timestamp", "")).startswith(today):
+                continue
+
+            symbol = str(record.get("symbol") or "")
+            if record.get("status") == "entry":
+                entries.setdefault(symbol, []).append(record)
+            elif record.get("status") == "exit" and entries.get(symbol):
+                completed.append((entries[symbol].pop(0), record))
+
+        wins = sum(1 for _, exit_record in completed if float(exit_record.get("pnl_amount") or 0.0) > 0)
+        losses = sum(1 for _, exit_record in completed if float(exit_record.get("pnl_amount") or 0.0) < 0)
+
+        print()
+        print("=" * 132)
+        print(f"DAILY MCX CRUDE TRADING SUMMARY - {today}")
+        print("=" * 132)
+        print(f"Completed Trades : {len(completed)}")
+        print(f"Win / Loss Count : {wins} / {losses}")
+        print("-" * 132)
+        header = (
+            f"{'#':<4}{'Symbol':<27}{'Entry Time':<20}{'Exit Time':<20}"
+            f"{'Entry':<12}{'Exit':<12}{'Realized P&L':<16}{'Exit Reason'}"
+        )
+        print(header)
+        print("-" * 132)
+
+        if not completed:
+            print("No completed Crude trades today.")
+        else:
+            for number, (entry, exit_record) in enumerate(completed, start=1):
+                print(
+                    f"{number:<4}{str(exit_record.get('symbol') or entry.get('symbol') or '--'):<27}"
+                    f"{str(entry.get('timestamp', '--')):<20}{str(exit_record.get('timestamp', '--')):<20}"
+                    f"{float(entry.get('entry_premium') or 0.0):<12.2f}"
+                    f"{float(exit_record.get('exit_premium') or 0.0):<12.2f}"
+                    f"{float(exit_record.get('pnl_amount') or 0.0):<+16.2f}"
+                    f"{exit_record.get('reason') or '--'}"
+                )
+
+        if self._position is not None:
+            position = self._position
+            print("-" * 132)
+            print(
+                f"OPEN {position.option_symbol:<22}{position.entry_time.strftime('%Y-%m-%d %H:%M:%S'):<20}"
+                f"{'--':<20}{position.entry_price:<12.2f}{'--':<12}{'--':<16}OPEN"
+            )
+
+        print("-" * 132)
+        print(f"Net Realized P&L Today : {self.paper_realized_pnl:+,.2f}")
+        print("=" * 132)
 
     def _persist_state(self) -> None:
         position = asdict(self._position) if self._position is not None else None

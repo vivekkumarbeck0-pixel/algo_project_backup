@@ -1,10 +1,10 @@
 {
-  "total_paper_records": 7,
-  "realized_pnl": 1860.0,
+  "total_paper_records": 15,
+  "realized_pnl": -3140.0,
   "wins": 2,
-  "losses": 3,
+  "losses": 7,
   "latest_status": "entry",
   "latest_scenario": "Short Buildup",
   "latest_side": "PE",
-  "latest_strike": 7600
+  "latest_strike": 7650
 }
