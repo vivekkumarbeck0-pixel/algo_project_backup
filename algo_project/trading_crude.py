@@ -372,6 +372,8 @@ class CrudeOptionBuyer:
         self._option_ltp_max_age = 5.0
         self._last_option_poll = 0.0
         self._option_poll_interval = 2.0
+        self._option_ltp_warning_interval = 60.0
+        self._option_ltp_warnings: dict[str, float] = {}
 
         self.futures_bars: Deque[Bar] = deque(maxlen=self.settings.max_futures_history_bars)
         self._last_tick_time: Optional[datetime] = None
@@ -949,9 +951,82 @@ class CrudeOptionBuyer:
         return price <= level - buffer_points, name, level
 
     def _nearest_atm_strike(self, futures_price: float) -> int:
+        """Choose the closest currently listed MCX Crude option strike.
+
+        The instrument master stores MCX strikes multiplied by 100.  Rounding
+        a bad or differently-scaled futures tick directly can otherwise create
+        non-existent strikes such as 350, which have no option LTP.
+        """
+        reference_price = float(futures_price)
+        previous_close = getattr(self, "_last_close", None)
+        if reference_price < 1000 and previous_close is not None:
+            try:
+                previous_close = float(previous_close)
+                if previous_close >= 1000:
+                    reference_price = previous_close
+            except (TypeError, ValueError):
+                pass
+        try:
+            from angel_one.instrument_reader import InstrumentReader
+
+            reader = InstrumentReader()
+            reader.load()
+            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            strikes: set[int] = set()
+            for contract in reader.instruments:
+                if (
+                    str(contract.get("name", "")).upper() != self.instrument.symbol.upper()
+                    or str(contract.get("instrumenttype", "")).upper()
+                    != self.instrument.option_instrument_type.upper()
+                    or str(contract.get("exch_seg", "")).upper()
+                    != self.settings.option_exchange.upper()
+                    or not str(contract.get("symbol", "")).upper().endswith(("CE", "PE"))
+                ):
+                    continue
+                try:
+                    expiry = datetime.strptime(str(contract.get("expiry", "")), "%d%b%Y")
+                    strike = int(round(float(contract.get("strike", 0)) / 100.0))
+                except (TypeError, ValueError):
+                    continue
+                if expiry >= today and strike >= 1000:
+                    strikes.add(strike)
+
+            if strikes:
+                if reference_price < 1000:
+                    # No credible futures level yet: prefer the center of the
+                    # active listed chain over manufacturing a 3-digit strike.
+                    ordered_strikes = sorted(strikes)
+                    reference_price = ordered_strikes[len(ordered_strikes) // 2]
+                    logger.warning(
+                        "Invalid MCX Crude futures price %.2f for strike selection; using listed-chain center %.0f.",
+                        futures_price,
+                        reference_price,
+                    )
+                return min(strikes, key=lambda strike: abs(strike - reference_price))
+        except Exception as exc:
+            logger.debug("Could not load listed MCX Crude strikes; using price grid: %s", exc)
+
         step = self.instrument.strike_step
-        rounded = round(futures_price / step) * step
+        rounded = round(reference_price / step) * step
         return int(rounded)
+
+    def _warn_option_ltp_unavailable(self, contract: Dict[str, Any], message: str, *args: Any) -> None:
+        """Log one temporary option-LTP warning per contract each minute."""
+        key = str(contract.get("token") or contract.get("symbol") or "unknown-option")
+        now = time.monotonic()
+        warnings = getattr(self, "_option_ltp_warnings", {})
+        interval = getattr(self, "_option_ltp_warning_interval", 60.0)
+        if now - warnings.get(key, float("-inf")) < interval:
+            return
+        warnings[key] = now
+        self._option_ltp_warnings = warnings
+        logger.warning(message, *args)
+
+    def _clear_option_ltp_warning(self, contract: Dict[str, Any]) -> None:
+        key = str(contract.get("token") or contract.get("symbol") or "unknown-option")
+        warnings = getattr(self, "_option_ltp_warnings", None)
+        if warnings is not None:
+            warnings.pop(key, None)
 
     def _write_paper_trade_log(self, record: Dict[str, Any]):
         entry = {"timestamp": datetime.now().isoformat(timespec="seconds"), **record}
@@ -1167,7 +1242,8 @@ class CrudeOptionBuyer:
         entry_option_price = self._entry_option_ltp(contract) if contract.get("token") else None
         if not entry_option_price:
             # Paper results are only meaningful at a real tradable premium, so never invent one.
-            logger.warning(
+            self._warn_option_ltp_unavailable(
+                contract,
                 "Entry skipped: no broker LTP for %s %s %s.",
                 self.instrument.symbol, strike, option_type,
             )
@@ -1299,6 +1375,7 @@ class CrudeOptionBuyer:
             self._option_ltp = live
             self._option_ltp_token = token
             self._option_ltp_time = now
+            self._clear_option_ltp_warning(contract)
         return live
 
     def _fetch_option_ltp(self, contract: Dict[str, Any]) -> Optional[float]:
@@ -1328,7 +1405,8 @@ class CrudeOptionBuyer:
                 if ltp is not None:
                     return ltp
             except Exception as exc:
-                logger.warning(
+                self._warn_option_ltp_unavailable(
+                    contract,
                     "Could not fetch option LTP for %s (attempt %d/3): %s",
                     symbol, attempt + 1, exc,
                 )
@@ -1337,7 +1415,10 @@ class CrudeOptionBuyer:
             if attempt < 2:
                 time.sleep(0.75 * (attempt + 1))
 
-        return self._fetch_option_quote(exchange, symbol, token)
+        ltp = self._fetch_option_quote(exchange, symbol, token)
+        if ltp is not None:
+            self._clear_option_ltp_warning(contract)
+        return ltp
 
     @staticmethod
     def _parse_ltp_response(response: Any) -> Optional[float]:
@@ -1355,7 +1436,12 @@ class CrudeOptionBuyer:
         try:
             response = self._rest_client.get_market_data("FULL", {exchange: [token]})
         except Exception as exc:
-            logger.warning("Could not fetch FULL option quote for %s: %s", symbol, exc)
+            self._warn_option_ltp_unavailable(
+                {"symbol": symbol, "token": token},
+                "Could not fetch FULL option quote for %s: %s",
+                symbol,
+                exc,
+            )
             return None
         data = response.get("data") if isinstance(response, dict) else None
         fetched = data.get("fetched") if isinstance(data, dict) else None
