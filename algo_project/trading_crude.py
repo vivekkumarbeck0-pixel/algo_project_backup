@@ -110,6 +110,7 @@ class Position:
     quantity: int = 0
     entry_order_id: str = ""
     pivot_level: Optional[float] = None
+    nymex_trend: str = "NEUTRAL"
 
 
 class AngelSmartWebSocketClient:
@@ -1372,6 +1373,7 @@ class CrudeOptionBuyer:
             quantity=quantity,
             entry_order_id=order_id,
             pivot_level=signal.get("pivot_level"),
+            nymex_trend=str(signal.get("nymex_trend") or "NEUTRAL"),
         )
         self._trail_distance = trail_distance
         self._option_ltp = entry_option_price
@@ -1643,6 +1645,7 @@ class CrudeOptionBuyer:
             "OI_Change": oi_change,
             "Scenario": market_scenario,
             "Pivot_Level": pivot_level,
+            "NYMEX_Trend": position.nymex_trend,
         }
         try:
             log_trade(trade_info)

@@ -102,6 +102,7 @@ def test_crude_exit_logs_complete_trade_data_to_google_sheets():
         option_symbol="CRUDEOIL17SEP267200CE",
         quantity=100,
         pivot_level=7175.0,
+        nymex_trend="GREEN",
     )
 
     with patch("trading_crude.log_trade") as log_trade:
@@ -119,5 +120,6 @@ def test_crude_exit_logs_complete_trade_data_to_google_sheets():
             "OI_Change": 250.0,
             "Scenario": "Long Buildup",
             "Pivot_Level": 7175.0,
+            "NYMEX_Trend": "GREEN",
         }
     )
