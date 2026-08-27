@@ -8,6 +8,28 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive"
 ]
 
+SHEET_COLUMNS = [
+    "Timestamp",
+    "Symbol",
+    "Action",
+    "Buy_Action",
+    "Sell_Action",
+    "Strike",
+    "Entry_Price",
+    "Exit_Price",
+    "Entry_Order_ID",
+    "Exit_Order_ID",
+    "PnL",
+    "OI",
+    "OI_Change",
+    "Entry_Vol",
+    "Exit_Vol",
+    "Vol",
+    "Scenario",
+    "Pivot_Level",
+    "NYMEX_Trend",
+]
+
 def get_gspread_client():
     # Render cloud Environment check
     json_env = os.environ.get("GOOGLE_JSON_KEY")
@@ -36,20 +58,29 @@ def log_trade(trade_data: dict):
         # Check current rows in worksheet
         all_values = worksheet.get_all_values()
         
-        # 1. Headers auto-create agar sheet bilkul empty hai
         headers = all_values[0] if all_values else []
         if not headers:
-            headers = list(trade_data.keys())
+            headers = [key for key in SHEET_COLUMNS if key in trade_data]
+            headers.extend(key for key in trade_data if key not in headers)
             worksheet.append_row(headers)
         else:
-            # 2. Dynamic Header sync (agar nayi column jaise NYMEX_Trend add hoti hai)
-            for key in trade_data.keys():
-                if key not in headers:
-                    headers.append(key)
-            if headers != all_values[0]:
-                worksheet.update('1:1', [headers])
+            ordered_headers = [key for key in SHEET_COLUMNS if key in headers]
+            ordered_headers.extend(key for key in headers if key not in ordered_headers)
+            ordered_headers.extend(key for key in trade_data if key not in ordered_headers)
+            if ordered_headers != headers:
+                existing_rows = [
+                    dict(zip(headers, row)) for row in all_values[1:]
+                ]
+                migrated_values = [
+                    ordered_headers,
+                    *([
+                        [row.get(header, "") for header in ordered_headers]
+                        for row in existing_rows
+                    ]),
+                ]
+                worksheet.update("A1", migrated_values)
+                headers = ordered_headers
             
-        # Append trade data values in order
         row_values = [trade_data.get(header, "") for header in headers]
         worksheet.append_row(row_values)
         print("Successfully logged trade to Google Sheet!")
