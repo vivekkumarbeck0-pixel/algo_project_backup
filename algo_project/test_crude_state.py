@@ -3,7 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import ANY, Mock, patch
 
-from trading_crude import CrudeOptionBuyer, Position
+from trading_crude import Bar, CrudeOptionBuyer, Position
 
 
 def _make_engine(state_path):
@@ -85,6 +85,16 @@ def test_crude_exit_logs_complete_trade_data_to_google_sheets():
     engine.settings = Mock(option_lot_size=100)
     engine.current_price = 7_200.0
     engine.current_oi = 1_250.0
+    engine.futures_bars = [
+        Bar(
+            timestamp=datetime.now(),
+            open=7_200.0,
+            high=7_205.0,
+            low=7_195.0,
+            close=7_200.0,
+            volume=321.0,
+        )
+    ]
     engine._write_paper_trade_log = Mock()
     engine._persist_state = Mock()
     engine._position = Position(
@@ -118,6 +128,7 @@ def test_crude_exit_logs_complete_trade_data_to_google_sheets():
             "PnL": 1_000.0,
             "OI": 1_250.0,
             "OI_Change": 250.0,
+            "Vol": 321.0,
             "Scenario": "Long Buildup",
             "Pivot_Level": 7175.0,
             "NYMEX_Trend": "GREEN",

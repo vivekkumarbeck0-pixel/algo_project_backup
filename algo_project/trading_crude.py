@@ -1632,6 +1632,7 @@ class CrudeOptionBuyer:
             if current_oi is not None
             else None
         )
+        bar_volume = self.futures_bars[-1].volume if getattr(self, "futures_bars", None) else None
         market_scenario = position.scenario
         pivot_level = position.pivot_level
         trade_info = {
@@ -1643,6 +1644,7 @@ class CrudeOptionBuyer:
             "PnL": pnl,
             "OI": current_oi,
             "OI_Change": oi_change,
+            "Vol": bar_volume,
             "Scenario": market_scenario,
             "Pivot_Level": pivot_level,
             "NYMEX_Trend": position.nymex_trend,
