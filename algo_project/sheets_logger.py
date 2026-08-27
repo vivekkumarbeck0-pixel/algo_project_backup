@@ -12,22 +12,15 @@ SHEET_COLUMNS = [
     "Timestamp",
     "Symbol",
     "Action",
-    "Buy_Action",
-    "Sell_Action",
-    "Strike",
     "Entry_Price",
     "Exit_Price",
-    "Entry_Order_ID",
-    "Exit_Order_ID",
     "PnL",
     "OI",
     "OI_Change",
-    "Entry_Vol",
-    "Exit_Vol",
-    "Vol",
     "Scenario",
     "Pivot_Level",
     "NYMEX_Trend",
+    "Vol",
 ]
 
 def get_gspread_client():
@@ -60,26 +53,22 @@ def log_trade(trade_data: dict):
         
         headers = all_values[0] if all_values else []
         if not headers:
-            headers = [key for key in SHEET_COLUMNS if key in trade_data]
-            headers.extend(key for key in trade_data if key not in headers)
+            headers = SHEET_COLUMNS.copy()
             worksheet.append_row(headers)
         else:
-            ordered_headers = [key for key in SHEET_COLUMNS if key in headers]
-            ordered_headers.extend(key for key in headers if key not in ordered_headers)
-            ordered_headers.extend(key for key in trade_data if key not in ordered_headers)
-            if ordered_headers != headers:
+            if headers != SHEET_COLUMNS:
                 existing_rows = [
                     dict(zip(headers, row)) for row in all_values[1:]
                 ]
                 migrated_values = [
-                    ordered_headers,
+                    SHEET_COLUMNS,
                     *([
-                        [row.get(header, "") for header in ordered_headers]
+                        [row.get(header, "") for header in SHEET_COLUMNS]
                         for row in existing_rows
                     ]),
                 ]
                 worksheet.update("A1", migrated_values)
-                headers = ordered_headers
+                headers = SHEET_COLUMNS.copy()
             
         row_values = [trade_data.get(header, "") for header in headers]
         worksheet.append_row(row_values)
