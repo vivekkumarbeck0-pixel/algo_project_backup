@@ -122,15 +122,60 @@ def test_crude_exit_logs_complete_trade_data_to_google_sheets():
         {
             "Timestamp": ANY,
             "Symbol": "CRUDEOIL17SEP267200CE",
-            "Action": "EXIT CE",
+            "Action": "BUY CE / SELL CE",
+            "Buy_Action": "BUY CE",
+            "Sell_Action": "SELL CE",
+            "Strike": 7200,
             "Entry_Price": 80.0,
             "Exit_Price": 90.0,
+            "Entry_Order_ID": "",
+            "Exit_Order_ID": "",
             "PnL": 1_000.0,
             "OI": 1_250.0,
             "OI_Change": 250.0,
+            "Entry_Vol": None,
+            "Exit_Vol": 321.0,
             "Vol": 321.0,
             "Scenario": "Long Buildup",
             "Pivot_Level": 7175.0,
             "NYMEX_Trend": "GREEN",
         }
     )
+
+
+def test_crude_pe_exit_keeps_pe_in_combined_google_sheets_record():
+    engine = _make_engine("unused.json")
+    engine.settings = Mock(option_lot_size=100)
+    engine.current_price = 7_100.0
+    engine.current_oi = 900.0
+    engine.futures_bars = []
+    engine._write_paper_trade_log = Mock()
+    engine._persist_state = Mock()
+    engine._position = Position(
+        side="PE",
+        strike=7100,
+        entry_price=75.0,
+        entry_time=datetime.now(),
+        stop_loss=60.0,
+        target_price=95.0,
+        trailing_stop=65.0,
+        atr_value=10.0,
+        futures_entry=7_120.0,
+        futures_entry_oi=950.0,
+        scenario="Short Buildup",
+        option_symbol="CRUDEOIL17SEP267100PE",
+        quantity=100,
+        entry_order_id="BUY-PE-1",
+    )
+
+    with patch("trading_crude.log_trade") as log_trade:
+        engine._close_position(85.0, "TARGET HIT")
+
+    payload = log_trade.call_args.args[0]
+    assert payload["Symbol"].endswith("PE")
+    assert payload["Action"] == "BUY PE / SELL PE"
+    assert payload["Buy_Action"] == "BUY PE"
+    assert payload["Sell_Action"] == "SELL PE"
+    assert payload["Strike"] == 7100
+    assert payload["Entry_Price"] == 75.0
+    assert payload["Exit_Price"] == 85.0

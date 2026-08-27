@@ -37,18 +37,20 @@ def log_trade(trade_data: dict):
         all_values = worksheet.get_all_values()
         
         # 1. Headers auto-create agar sheet bilkul empty hai
-        if len(all_values) == 0:
-            worksheet.append_row(list(trade_data.keys()))
+        headers = all_values[0] if all_values else []
+        if not headers:
+            headers = list(trade_data.keys())
+            worksheet.append_row(headers)
         else:
             # 2. Dynamic Header sync (agar nayi column jaise NYMEX_Trend add hoti hai)
-            existing_headers = all_values[0]
             for key in trade_data.keys():
-                if key not in existing_headers:
-                    existing_headers.append(key)
-                    worksheet.update('1:1', [existing_headers])
+                if key not in headers:
+                    headers.append(key)
+            if headers != all_values[0]:
+                worksheet.update('1:1', [headers])
             
         # Append trade data values in order
-        row_values = [trade_data.get(header, "") for header in worksheet.get_all_values()[0]]
+        row_values = [trade_data.get(header, "") for header in headers]
         worksheet.append_row(row_values)
         print("Successfully logged trade to Google Sheet!")
     except Exception as e:

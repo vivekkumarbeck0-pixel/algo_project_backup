@@ -109,6 +109,7 @@ class Position:
     option_symbol: str = ""
     quantity: int = 0
     entry_order_id: str = ""
+    entry_volume: Optional[float] = None
     pivot_level: Optional[float] = None
     nymex_trend: str = "NEUTRAL"
 
@@ -1296,7 +1297,10 @@ class CrudeOptionBuyer:
             return
 
         strike = int(signal["strike"])
-        option_type = signal["side"]
+        option_type = str(signal["side"]).upper()
+        if option_type not in {"CE", "PE"}:
+            logger.error("Entry skipped: unsupported option side %r.", signal["side"])
+            return
         price = float(signal["futures_price"])
         atr = float(signal.get("atr") or 0.0)
 
@@ -1372,6 +1376,7 @@ class CrudeOptionBuyer:
             option_symbol=str(contract.get("symbol", f"{self.instrument.symbol} {strike} {option_type}")),
             quantity=quantity,
             entry_order_id=order_id,
+            entry_volume=signal.get("volume"),
             pivot_level=signal.get("pivot_level"),
             nymex_trend=str(signal.get("nymex_trend") or "NEUTRAL"),
         )
@@ -1621,8 +1626,9 @@ class CrudeOptionBuyer:
             }
         )
         current_timestamp_str = datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
-        symbol = position.option_symbol
-        trade_action = f"EXIT {position.side}"
+        option_type = str(position.side).upper()
+        symbol = position.option_symbol or f"{self.instrument.symbol} {position.strike} {option_type}"
+        trade_action = f"BUY {option_type} / SELL {option_type}"
         entry_price = position.entry_price
         exit_price = option_price
         pnl = pnl_amount
@@ -1639,11 +1645,18 @@ class CrudeOptionBuyer:
             "Timestamp": current_timestamp_str,
             "Symbol": symbol,
             "Action": trade_action,
+            "Buy_Action": f"BUY {option_type}",
+            "Sell_Action": f"SELL {option_type}",
+            "Strike": position.strike,
             "Entry_Price": entry_price,
             "Exit_Price": exit_price,
+            "Entry_Order_ID": position.entry_order_id,
+            "Exit_Order_ID": exit_order_id,
             "PnL": pnl,
             "OI": current_oi,
             "OI_Change": oi_change,
+            "Entry_Vol": position.entry_volume,
+            "Exit_Vol": bar_volume,
             "Vol": bar_volume,
             "Scenario": market_scenario,
             "Pivot_Level": pivot_level,
