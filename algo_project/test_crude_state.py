@@ -1,7 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import Mock
+from unittest.mock import ANY, Mock, patch
 
 from trading_crude import CrudeOptionBuyer, Position
 
@@ -78,3 +78,46 @@ def test_crude_stop_persists_open_position_without_closing_it():
         assert engine.state_path.exists()
         engine._smart_stream.close.assert_called_once()
         engine.nymex_filter.stop.assert_called_once()
+
+
+def test_crude_exit_logs_complete_trade_data_to_google_sheets():
+    engine = _make_engine("unused.json")
+    engine.settings = Mock(option_lot_size=100)
+    engine.current_price = 7_200.0
+    engine.current_oi = 1_250.0
+    engine._write_paper_trade_log = Mock()
+    engine._persist_state = Mock()
+    engine._position = Position(
+        side="CE",
+        strike=7200,
+        entry_price=80.0,
+        entry_time=datetime.now(),
+        stop_loss=70.0,
+        target_price=100.0,
+        trailing_stop=75.0,
+        atr_value=10.0,
+        futures_entry=7180.0,
+        futures_entry_oi=1_000.0,
+        scenario="Long Buildup",
+        option_symbol="CRUDEOIL17SEP267200CE",
+        quantity=100,
+        pivot_level=7175.0,
+    )
+
+    with patch("trading_crude.log_trade") as log_trade:
+        engine._close_position(90.0, "TARGET HIT")
+
+    log_trade.assert_called_once_with(
+        {
+            "Timestamp": ANY,
+            "Symbol": "CRUDEOIL17SEP267200CE",
+            "Action": "EXIT CE",
+            "Entry_Price": 80.0,
+            "Exit_Price": 90.0,
+            "PnL": 1_000.0,
+            "OI": 1_250.0,
+            "OI_Change": 250.0,
+            "Scenario": "Long Buildup",
+            "Pivot_Level": 7175.0,
+        }
+    )

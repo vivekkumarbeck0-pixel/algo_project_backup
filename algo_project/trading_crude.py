@@ -33,6 +33,7 @@ import pandas as pd
 import yfinance as yf
 
 from config import MCX_CRUDE_FUTURE, settings
+from sheets_logger import log_trade
 
 
 IST = ZoneInfo("Asia/Kolkata")
@@ -108,6 +109,7 @@ class Position:
     option_symbol: str = ""
     quantity: int = 0
     entry_order_id: str = ""
+    pivot_level: Optional[float] = None
 
 
 class AngelSmartWebSocketClient:
@@ -1369,6 +1371,7 @@ class CrudeOptionBuyer:
             option_symbol=str(contract.get("symbol", f"{self.instrument.symbol} {strike} {option_type}")),
             quantity=quantity,
             entry_order_id=order_id,
+            pivot_level=signal.get("pivot_level"),
         )
         self._trail_distance = trail_distance
         self._option_ltp = entry_option_price
@@ -1615,6 +1618,36 @@ class CrudeOptionBuyer:
                 "total_pnl": round(self.paper_realized_pnl, 2),
             }
         )
+        current_timestamp_str = datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
+        symbol = position.option_symbol
+        trade_action = f"EXIT {position.side}"
+        entry_price = position.entry_price
+        exit_price = option_price
+        pnl = pnl_amount
+        current_oi = self.current_oi
+        oi_change = (
+            current_oi - position.futures_entry_oi
+            if current_oi is not None
+            else None
+        )
+        market_scenario = position.scenario
+        pivot_level = position.pivot_level
+        trade_info = {
+            "Timestamp": current_timestamp_str,
+            "Symbol": symbol,
+            "Action": trade_action,
+            "Entry_Price": entry_price,
+            "Exit_Price": exit_price,
+            "PnL": pnl,
+            "OI": current_oi,
+            "OI_Change": oi_change,
+            "Scenario": market_scenario,
+            "Pivot_Level": pivot_level,
+        }
+        try:
+            log_trade(trade_info)
+        except Exception:
+            logger.exception("Failed to log crude trade exit to Google Sheets.")
         self._position = None
         self._option_ltp = None
         self._option_ltp_token = ""

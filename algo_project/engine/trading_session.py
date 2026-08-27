@@ -7,6 +7,7 @@ a live P&L dashboard, a clear message whenever a trade closes, and a
 running end-of-day summary table.
 """
 
+import math
 import sys
 import time
 from datetime import datetime, time as dt_time
@@ -105,7 +106,7 @@ class LivePaperTradingSession:
         self._last_trade_ready_at = 0.0
 
     def _has_fresh_live_confirmation(self) -> bool:
-        """Only allow a trade after a fresh, live tick is in flight and moving."""
+        """Only allow a trade after a fresh, valid live quote is available."""
         if time.monotonic() < self._startup_trade_locked_until:
             log.info("Trade blocked: waiting for fresh live tick confirmation after startup.")
             return False
@@ -144,15 +145,12 @@ class LivePaperTradingSession:
         except (TypeError, ValueError):
             return False
 
-        previous = self._last_live_tick_price
-        self._last_live_tick_price = current
-        if previous is None:
+        if not math.isfinite(current) or current <= 0:
             return False
 
-        breakout = abs(current - previous) >= 0.05
-        if breakout:
-            self._last_trade_ready_at = time.monotonic()
-        return breakout
+        self._last_live_tick_price = current
+        self._last_trade_ready_at = time.monotonic()
+        return True
 
     def _session_symbol(self) -> str:
         return self._active_symbol

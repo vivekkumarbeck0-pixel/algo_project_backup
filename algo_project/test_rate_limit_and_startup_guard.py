@@ -36,3 +36,21 @@ def test_trade_gate_requires_fresh_live_breakout():
     session.market_data = DummyMarketData()
 
     assert session._has_fresh_live_confirmation() is False
+
+
+def test_trade_gate_accepts_a_fresh_quote_without_price_movement():
+    session = object.__new__(LivePaperTradingSession)
+    session._startup_trade_locked_until = 0.0
+    session._last_live_tick_price = None
+    session._last_trade_ready_at = 0.0
+    session._active_symbol = "NIFTY"
+    session._resolve_underlying = lambda symbol: {"token": "26000"}
+
+    class DummyMarketData:
+        def _live_quote(self, token, exchange):
+            return {"ltp": 24_500.0, "time": time.time()}
+
+    session.market_data = DummyMarketData()
+
+    assert session._has_fresh_live_confirmation() is True
+    assert session._has_fresh_live_confirmation() is True

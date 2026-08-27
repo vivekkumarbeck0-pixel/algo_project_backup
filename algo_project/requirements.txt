@@ -9,3 +9,5 @@ python-dotenv
 yfinance
 websocket-client
 Flask
+gspread
+google-auth
