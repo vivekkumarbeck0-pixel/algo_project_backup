@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import ANY, Mock, patch
+from zoneinfo import ZoneInfo
 
 from trading_crude import Bar, CrudeOptionBuyer, Position
 
@@ -144,6 +145,40 @@ def test_crude_exit_logs_complete_trade_data_to_google_sheets():
             "Exit Volume": 321.0,
         }
     )
+
+
+def test_crude_exit_logs_sheet_timestamps_in_ist_format():
+    engine = _make_engine("unused.json")
+    engine.settings = Mock(option_lot_size=100)
+    engine.current_price = 7_200.0
+    engine.current_oi = 1_250.0
+    engine.futures_bars = []
+    engine._write_paper_trade_log = Mock()
+    engine._persist_state = Mock()
+    engine.nymex_filter = Mock(trend="GREEN")
+    engine._position = Position(
+        side="CE",
+        strike=7200,
+        entry_price=80.0,
+        entry_time=datetime(2026, 8, 28, 9, 15, tzinfo=timezone.utc),
+        stop_loss=70.0,
+        target_price=100.0,
+        trailing_stop=75.0,
+        atr_value=10.0,
+        futures_entry=7180.0,
+        futures_entry_oi=1_000.0,
+        scenario="Long Buildup",
+        option_symbol="CRUDEOIL17SEP267200CE",
+        quantity=100,
+    )
+
+    fixed_exit_ist = datetime(2026, 8, 28, 15, 30, tzinfo=ZoneInfo("Asia/Kolkata"))
+    with patch("trading_crude._now_ist", return_value=fixed_exit_ist), patch("trading_crude.log_trade") as log_trade:
+        engine._close_position(90.0, "TARGET HIT")
+
+    payload = log_trade.call_args.args[0]
+    assert payload["Entry Timestamp"] == "2026-08-28 14:45:00"
+    assert payload["Exit Timestamp"] == "2026-08-28 15:30:00"
 
 
 def test_crude_pe_exit_keeps_pe_in_combined_google_sheets_record():

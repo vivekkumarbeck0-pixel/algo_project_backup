@@ -21,7 +21,7 @@ class RiskLimits:
     max_quantity_per_trade: int = 500
     max_daily_loss: float = 5000.0
     max_trades_per_day: int = 10
-    max_consecutive_stop_losses: int = 3
+    max_consecutive_stop_losses: int | None = None
 
     def __post_init__(self):
         # Fetch limits safely from settings module with fallback defaults
@@ -82,17 +82,6 @@ class RiskManager:
         if daily_pnl <= -abs(self.limits.max_daily_loss):
             reasons.append(
                 f"Daily loss limit breached (Current Realized P&L: {daily_pnl} <= Limit: -{abs(self.limits.max_daily_loss)})"
-            )
-
-        # 5. Consecutive stop-loss lock for the remainder of the session.
-        consecutive_stop_losses = self.tracker.consecutive_stop_losses()
-        if (
-            self.limits.max_consecutive_stop_losses is not None
-            and consecutive_stop_losses >= self.limits.max_consecutive_stop_losses
-        ):
-            reasons.append(
-                "Trading locked after "
-                f"{consecutive_stop_losses} consecutive stop-loss exits today"
             )
 
         approved = not reasons

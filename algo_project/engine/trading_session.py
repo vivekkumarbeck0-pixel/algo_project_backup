@@ -945,9 +945,7 @@ class LivePaperTradingSession:
         print("=" * 78)
         now = datetime.now()
         market_status = decision.market_status if decision else snapshot.get("market_status", "CLOSED")
-        max_stop_losses = self.risk_manager.limits.max_consecutive_stop_losses
-        stop_locked = max_stop_losses is not None and self.tracker.consecutive_stop_losses() >= max_stop_losses
-        status = "LOCKED" if stop_locked else ("MARKET CLOSED" if market_status == "CLOSED" else "ACTIVE")
+        status = "MARKET CLOSED" if market_status == "CLOSED" else "ACTIVE"
         print(f"TRADING DASHBOARD | {now.strftime('%Y-%m-%d %H:%M:%S')} | MODE: {self.order_manager.mode.value} | {status}")
         print("=" * 78)
         

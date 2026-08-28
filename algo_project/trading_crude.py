@@ -37,8 +37,23 @@ from sheets_logger import log_trade
 
 
 IST = ZoneInfo("Asia/Kolkata")
+TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 _status_line_width = 0
+
+
+def _now_ist() -> datetime:
+    return datetime.now(IST)
+
+
+def _as_ist(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=IST)
+    return value.astimezone(IST)
+
+
+def _format_ist_timestamp(value: Optional[datetime] = None) -> str:
+    return _as_ist(value or _now_ist()).strftime(TIMESTAMP_FORMAT)
 
 
 def _clear_status_line() -> None:
@@ -1125,7 +1140,7 @@ class CrudeOptionBuyer:
             warnings.pop(key, None)
 
     def _write_paper_trade_log(self, record: Dict[str, Any]):
-        entry = {"timestamp": datetime.now().isoformat(timespec="seconds"), **record}
+        entry = {"timestamp": _format_ist_timestamp(), **record}
         self.paper_trade_history.append(entry)
         with self.paper_log_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(entry, default=str) + "\n")
@@ -1366,7 +1381,7 @@ class CrudeOptionBuyer:
             side=option_type,
             strike=strike,
             entry_price=entry_option_price,
-            entry_time=datetime.now(),
+            entry_time=_now_ist(),
             stop_loss=stop_loss,
             target_price=target_price,
             trailing_stop=stop_loss,
@@ -1397,7 +1412,7 @@ class CrudeOptionBuyer:
         self._print_block(
             f"{mode} BUY {option_type}  |  {self._position.option_symbol}",
             [
-                ("Time", self._position.entry_time.strftime("%Y-%m-%d %H:%M:%S")),
+                ("Time", _format_ist_timestamp(self._position.entry_time)),
                 ("Scenario", signal["scenario"]),
                 ("Side", option_type),
                 ("Strike", strike),
@@ -1581,11 +1596,12 @@ class CrudeOptionBuyer:
             self.paper_losses += 1
 
         mode = "REAL" if position.is_real else "PAPER"
-        held = datetime.now() - position.entry_time
+        exit_time = _now_ist()
+        held = exit_time - _as_ist(position.entry_time)
         self._print_block(
             f"{mode} EXIT {position.side}  |  {reason}",
             [
-                ("Time", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                ("Time", _format_ist_timestamp(exit_time)),
                 ("Scenario", position.scenario),
                 ("Symbol", position.option_symbol),
                 ("Side / Strike", f"{position.side} {position.strike}"),
@@ -1629,7 +1645,7 @@ class CrudeOptionBuyer:
                 "total_pnl": round(self.paper_realized_pnl, 2),
             }
         )
-        current_timestamp_str = datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
+        current_timestamp_str = _format_ist_timestamp(exit_time)
         option_type = str(position.side).upper()
         symbol = position.option_symbol or f"{self.instrument.symbol} {position.strike} {option_type}"
         entry_price = position.entry_price
@@ -1644,7 +1660,7 @@ class CrudeOptionBuyer:
         bar_volume = self.futures_bars[-1].volume if getattr(self, "futures_bars", None) else None
         exit_nymex_trend = getattr(getattr(self, "nymex_filter", None), "trend", None)
         trade_info = {
-            "Entry Timestamp": position.entry_time.strftime("%Y-%m-%d %H:%M:%S"),
+            "Entry Timestamp": _format_ist_timestamp(position.entry_time),
             "Exit Timestamp": current_timestamp_str,
             "Symbol": symbol,
             "Action": option_type,

@@ -153,7 +153,8 @@ class Settings:
     # Daily trade count is intentionally uncapped; other gates still apply.
     max_trades_per_day: int = 1_000_000
     max_daily_loss: float = 5000.0
-    max_consecutive_stop_losses: int = 3
+    # Consecutive stop-loss lock removed: never halt the session on SL streaks.
+    max_consecutive_stop_losses: int | None = None
 
     # Logging
     log_level: str = _getenv("LOG_LEVEL", "INFO")
