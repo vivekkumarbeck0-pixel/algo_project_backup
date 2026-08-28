@@ -97,6 +97,7 @@ def test_crude_exit_logs_complete_trade_data_to_google_sheets():
     ]
     engine._write_paper_trade_log = Mock()
     engine._persist_state = Mock()
+    engine.nymex_filter = Mock(trend="RED")
     engine._position = Position(
         side="CE",
         strike=7200,
@@ -113,6 +114,8 @@ def test_crude_exit_logs_complete_trade_data_to_google_sheets():
         quantity=100,
         pivot_level=7175.0,
         nymex_trend="GREEN",
+        entry_volume=150.0,
+        entry_oi_change=50.0,
     )
 
     with patch("trading_crude.log_trade") as log_trade:
@@ -120,25 +123,25 @@ def test_crude_exit_logs_complete_trade_data_to_google_sheets():
 
     log_trade.assert_called_once_with(
         {
-            "Timestamp": ANY,
+            "Entry Timestamp": ANY,
+            "Exit Timestamp": ANY,
             "Symbol": "CRUDEOIL17SEP267200CE",
-            "Action": "BUY CE / SELL CE",
-            "Buy_Action": "BUY CE",
-            "Sell_Action": "SELL CE",
-            "Strike": 7200,
-            "Entry_Price": 80.0,
-            "Exit_Price": 90.0,
-            "Entry_Order_ID": "",
-            "Exit_Order_ID": "",
+            "Action": "CE",
+            "Entry Price": 80.0,
+            "Exit Price": 90.0,
+            "SL": 70.0,
+            "TP": 100.0,
             "PnL": 1_000.0,
-            "OI": 1_250.0,
-            "OI_Change": 250.0,
-            "Entry_Vol": None,
-            "Exit_Vol": 321.0,
-            "Vol": 321.0,
-            "Scenario": "Long Buildup",
-            "Pivot_Level": 7175.0,
-            "NYMEX_Trend": "GREEN",
+            "Entry Scenario": "Long Buildup",
+            "Exit Scenario": "TARGET HIT",
+            "Entry OI": 1_000.0,
+            "Exit OI": 1_250.0,
+            "Entry OI_Change": 50.0,
+            "Exit OI_Change": 250.0,
+            "Entry NYMEX_Trend": "GREEN",
+            "Exit NYMEX_Trend": "RED",
+            "Entry Volume": 150.0,
+            "Exit Volume": 321.0,
         }
     )
 
@@ -151,6 +154,7 @@ def test_crude_pe_exit_keeps_pe_in_combined_google_sheets_record():
     engine.futures_bars = []
     engine._write_paper_trade_log = Mock()
     engine._persist_state = Mock()
+    engine.nymex_filter = Mock(trend="NEUTRAL")
     engine._position = Position(
         side="PE",
         strike=7100,
@@ -173,9 +177,6 @@ def test_crude_pe_exit_keeps_pe_in_combined_google_sheets_record():
 
     payload = log_trade.call_args.args[0]
     assert payload["Symbol"].endswith("PE")
-    assert payload["Action"] == "BUY PE / SELL PE"
-    assert payload["Buy_Action"] == "BUY PE"
-    assert payload["Sell_Action"] == "SELL PE"
-    assert payload["Strike"] == 7100
-    assert payload["Entry_Price"] == 75.0
-    assert payload["Exit_Price"] == 85.0
+    assert payload["Action"] == "PE"
+    assert payload["Entry Price"] == 75.0
+    assert payload["Exit Price"] == 85.0

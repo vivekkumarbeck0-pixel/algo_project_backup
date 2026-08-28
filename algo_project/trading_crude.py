@@ -110,6 +110,7 @@ class Position:
     quantity: int = 0
     entry_order_id: str = ""
     entry_volume: Optional[float] = None
+    entry_oi_change: Optional[float] = None
     pivot_level: Optional[float] = None
     nymex_trend: str = "NEUTRAL"
 
@@ -966,12 +967,14 @@ class CrudeOptionBuyer:
 
         self._last_signal_bar = current_bar.timestamp
         strike = self._nearest_atm_strike(current_price)
+        oi_change = current_bar.oi - ois[-2] if len(ois) >= 2 else None
         return {
             "scenario": scenario,
             "side": side,
             "strike": strike,
             "futures_price": current_price,
             "oi": current_bar.oi,
+            "oi_change": oi_change,
             "volume": current_bar.volume,
             "atr": atr_value,
             "pivot": pivots,
@@ -1377,6 +1380,7 @@ class CrudeOptionBuyer:
             quantity=quantity,
             entry_order_id=order_id,
             entry_volume=signal.get("volume"),
+            entry_oi_change=signal.get("oi_change"),
             pivot_level=signal.get("pivot_level"),
             nymex_trend=str(signal.get("nymex_trend") or "NEUTRAL"),
         )
@@ -1628,39 +1632,37 @@ class CrudeOptionBuyer:
         current_timestamp_str = datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
         option_type = str(position.side).upper()
         symbol = position.option_symbol or f"{self.instrument.symbol} {position.strike} {option_type}"
-        trade_action = f"BUY {option_type} / SELL {option_type}"
         entry_price = position.entry_price
         exit_price = option_price
         pnl = pnl_amount
         current_oi = self.current_oi
-        oi_change = (
+        exit_oi_change = (
             current_oi - position.futures_entry_oi
             if current_oi is not None
             else None
         )
         bar_volume = self.futures_bars[-1].volume if getattr(self, "futures_bars", None) else None
-        market_scenario = position.scenario
-        pivot_level = position.pivot_level
+        exit_nymex_trend = getattr(getattr(self, "nymex_filter", None), "trend", None)
         trade_info = {
-            "Timestamp": current_timestamp_str,
+            "Entry Timestamp": position.entry_time.strftime("%Y-%m-%d %H:%M:%S"),
+            "Exit Timestamp": current_timestamp_str,
             "Symbol": symbol,
-            "Action": trade_action,
-            "Buy_Action": f"BUY {option_type}",
-            "Sell_Action": f"SELL {option_type}",
-            "Strike": position.strike,
-            "Entry_Price": entry_price,
-            "Exit_Price": exit_price,
-            "Entry_Order_ID": position.entry_order_id,
-            "Exit_Order_ID": exit_order_id,
+            "Action": option_type,
+            "Entry Price": entry_price,
+            "Exit Price": exit_price,
+            "SL": position.stop_loss,
+            "TP": position.target_price,
             "PnL": pnl,
-            "OI": current_oi,
-            "OI_Change": oi_change,
-            "Entry_Vol": position.entry_volume,
-            "Exit_Vol": bar_volume,
-            "Vol": bar_volume,
-            "Scenario": market_scenario,
-            "Pivot_Level": pivot_level,
-            "NYMEX_Trend": position.nymex_trend,
+            "Entry Scenario": position.scenario,
+            "Exit Scenario": reason,
+            "Entry OI": position.futures_entry_oi,
+            "Exit OI": current_oi,
+            "Entry OI_Change": position.entry_oi_change,
+            "Exit OI_Change": exit_oi_change,
+            "Entry NYMEX_Trend": position.nymex_trend,
+            "Exit NYMEX_Trend": exit_nymex_trend,
+            "Entry Volume": position.entry_volume,
+            "Exit Volume": bar_volume,
         }
         try:
             log_trade(trade_info)

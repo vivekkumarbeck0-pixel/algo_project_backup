@@ -9,18 +9,25 @@ SCOPES = [
 ]
 
 SHEET_COLUMNS = [
-    "Timestamp",
+    "Entry Timestamp",
+    "Exit Timestamp",
     "Symbol",
     "Action",
-    "Entry_Price",
-    "Exit_Price",
+    "Entry Price",
+    "Exit Price",
+    "SL",
+    "TP",
     "PnL",
-    "OI",
-    "OI_Change",
-    "Scenario",
-    "Pivot_Level",
-    "NYMEX_Trend",
-    "Vol",
+    "Entry Scenario",
+    "Exit Scenario",
+    "Entry OI",
+    "Exit OI",
+    "Entry OI_Change",
+    "Exit OI_Change",
+    "Entry NYMEX_Trend",
+    "Exit NYMEX_Trend",
+    "Entry Volume",
+    "Exit Volume",
 ]
 
 def get_gspread_client():
