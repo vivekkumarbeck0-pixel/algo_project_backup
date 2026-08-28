@@ -1323,17 +1323,11 @@ class CrudeOptionBuyer:
             )
             return None
 
-        nearest_pivot, pivot_number, pivot_price = self._nearest_pivot_info(current_price, pivots)
         return {
             "stop_distance": stop_distance,
             "trail_distance": trail_distance,
             "stop_loss": entry_price - stop_distance,
             "target_price": entry_price + max(1.5 * atr, 2.0 * stop_distance),
-            "entry_index_value": current_price,
-            "entry_nearest_pivot": nearest_pivot,
-            "entry_pivot_number": pivot_number,
-            "entry_pivot_price": pivot_price,
-            "entry_candle": current_bar,
         }
 
     def _place_entry_order(self, signal: Dict[str, Any]):
