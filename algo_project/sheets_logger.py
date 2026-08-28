@@ -28,8 +28,23 @@ SHEET_COLUMNS = [
     "Exit NYMEX_Trend",
     "Entry Volume",
     "Exit Volume",
+    "Entry Index Value",
+    "Entry Nearest Pivot",
+    "Entry Pivot Number",
+    "Entry Pivot Price",
+    "Entry Candle Open",
+    "Entry Candle High",
+    "Entry Candle Low",
+    "Entry Candle Close",
+    "Exit Index Value",
+    "Exit Nearest Pivot",
+    "Exit Pivot Number",
+    "Exit Pivot Price",
+    "Exit Candle Open",
+    "Exit Candle High",
+    "Exit Candle Low",
+    "Exit Candle Close",
 ]
-
 def get_gspread_client():
     # Render cloud Environment check
     json_env = os.environ.get("GOOGLE_JSON_KEY")
@@ -63,19 +78,11 @@ def log_trade(trade_data: dict):
             headers = SHEET_COLUMNS.copy()
             worksheet.append_row(headers)
         else:
-            if headers != SHEET_COLUMNS:
-                existing_rows = [
-                    dict(zip(headers, row)) for row in all_values[1:]
-                ]
-                migrated_values = [
-                    SHEET_COLUMNS,
-                    *([
-                        [row.get(header, "") for header in SHEET_COLUMNS]
-                        for row in existing_rows
-                    ]),
-                ]
-                worksheet.update("A1", migrated_values)
-                headers = SHEET_COLUMNS.copy()
+            # Extend only the header row; legacy columns, order, and rows stay intact.
+            missing_headers = [header for header in SHEET_COLUMNS if header not in headers]
+            if missing_headers:
+                headers = headers + missing_headers
+                worksheet.update("A1", [headers])
             
         row_values = [trade_data.get(header, "") for header in headers]
         worksheet.append_row(row_values)

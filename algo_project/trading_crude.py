@@ -128,6 +128,14 @@ class Position:
     entry_oi_change: Optional[float] = None
     pivot_level: Optional[float] = None
     nymex_trend: str = "NEUTRAL"
+    entry_index_value: Optional[float] = None
+    entry_nearest_pivot: Optional[str] = None
+    entry_pivot_number: Optional[int] = None
+    entry_pivot_price: Optional[float] = None
+    entry_candle_open: Optional[float] = None
+    entry_candle_high: Optional[float] = None
+    entry_candle_low: Optional[float] = None
+    entry_candle_close: Optional[float] = None
 
 
 class AngelSmartWebSocketClient:
@@ -1042,6 +1050,18 @@ class CrudeOptionBuyer:
             bucket = [pivots["S1"], pivots["S2"]]
         return min(bucket, key=lambda x: abs(x - price)) if bucket else pivots["PP"]
 
+    @staticmethod
+    def _nearest_pivot_info(price: float, pivots: Dict[str, float]) -> tuple[Optional[str], Optional[int], Optional[float]]:
+        numbers = {"S2": -2, "S1": -1, "PP": 0, "R1": 1, "R2": 2}
+        candidates = [
+            (name, numbers[name], float(level))
+            for name, level in pivots.items()
+            if name in numbers and level is not None
+        ]
+        if not candidates:
+            return None, None, None
+        return min(candidates, key=lambda item: abs(item[2] - float(price)))
+
     def _pivot_breakout(self, price: float, pivots: Dict[str, float], side: str) -> tuple[bool, Optional[str], float]:
         """Require price to clear the crossed pivot by BUFFER_POINTS, not just touch it."""
         buffer_points = self.settings.buffer_points
@@ -1303,11 +1323,17 @@ class CrudeOptionBuyer:
             )
             return None
 
+        nearest_pivot, pivot_number, pivot_price = self._nearest_pivot_info(current_price, pivots)
         return {
             "stop_distance": stop_distance,
             "trail_distance": trail_distance,
             "stop_loss": entry_price - stop_distance,
             "target_price": entry_price + max(1.5 * atr, 2.0 * stop_distance),
+            "entry_index_value": current_price,
+            "entry_nearest_pivot": nearest_pivot,
+            "entry_pivot_number": pivot_number,
+            "entry_pivot_price": pivot_price,
+            "entry_candle": current_bar,
         }
 
     def _place_entry_order(self, signal: Dict[str, Any]):
@@ -1370,6 +1396,12 @@ class CrudeOptionBuyer:
         stop_loss = levels["stop_loss"]
         target_price = levels["target_price"]
         trail_distance = levels["trail_distance"]
+        entry_index_value = float(self.current_price or price)
+        entry_pivots = signal.get("pivot") or {}
+        entry_nearest_pivot, entry_pivot_number, entry_pivot_price = self._nearest_pivot_info(
+            entry_index_value,
+            entry_pivots,
+        )
 
         if is_real:
             order_id = self._submit_real_order("BUY", contract, quantity) or ""
@@ -1398,6 +1430,14 @@ class CrudeOptionBuyer:
             entry_oi_change=signal.get("oi_change"),
             pivot_level=signal.get("pivot_level"),
             nymex_trend=str(signal.get("nymex_trend") or "NEUTRAL"),
+            entry_index_value=entry_index_value,
+            entry_nearest_pivot=entry_nearest_pivot or signal.get("entry_nearest_pivot"),
+            entry_pivot_number=entry_pivot_number if entry_pivot_number is not None else signal.get("entry_pivot_number"),
+            entry_pivot_price=entry_pivot_price if entry_pivot_price is not None else signal.get("entry_pivot_price"),
+            entry_candle_open=getattr(signal.get("entry_candle"), "open", None),
+            entry_candle_high=getattr(signal.get("entry_candle"), "high", None),
+            entry_candle_low=getattr(signal.get("entry_candle"), "low", None),
+            entry_candle_close=getattr(signal.get("entry_candle"), "close", None),
         )
         self._trail_distance = trail_distance
         self._option_ltp = entry_option_price
@@ -1658,6 +1698,14 @@ class CrudeOptionBuyer:
             else None
         )
         bar_volume = self.futures_bars[-1].volume if getattr(self, "futures_bars", None) else None
+        exit_bar = self.futures_bars[-1] if getattr(self, "futures_bars", None) else None
+        exit_index_value = self.current_price
+        exit_pivots = self._calculate_daily_pivots(list(self.futures_bars)) if exit_bar else {}
+        exit_nearest_pivot, exit_pivot_number, exit_pivot_price = (
+            self._nearest_pivot_info(exit_index_value, exit_pivots)
+            if exit_index_value is not None and exit_pivots
+            else (None, None, None)
+        )
         exit_nymex_trend = getattr(getattr(self, "nymex_filter", None), "trend", None)
         trade_info = {
             "Entry Timestamp": _format_ist_timestamp(position.entry_time),
@@ -1679,6 +1727,22 @@ class CrudeOptionBuyer:
             "Exit NYMEX_Trend": exit_nymex_trend,
             "Entry Volume": position.entry_volume,
             "Exit Volume": bar_volume,
+            "Entry Index Value": position.entry_index_value,
+            "Entry Nearest Pivot": position.entry_nearest_pivot,
+            "Entry Pivot Number": position.entry_pivot_number,
+            "Entry Pivot Price": position.entry_pivot_price,
+            "Entry Candle Open": position.entry_candle_open,
+            "Entry Candle High": position.entry_candle_high,
+            "Entry Candle Low": position.entry_candle_low,
+            "Entry Candle Close": position.entry_candle_close,
+            "Exit Index Value": exit_index_value,
+            "Exit Nearest Pivot": exit_nearest_pivot,
+            "Exit Pivot Number": exit_pivot_number,
+            "Exit Pivot Price": exit_pivot_price,
+            "Exit Candle Open": getattr(exit_bar, "open", None),
+            "Exit Candle High": getattr(exit_bar, "high", None),
+            "Exit Candle Low": getattr(exit_bar, "low", None),
+            "Exit Candle Close": getattr(exit_bar, "close", None),
         }
         try:
             log_trade(trade_info)
