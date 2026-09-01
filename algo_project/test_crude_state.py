@@ -1,7 +1,7 @@
-from datetime import datetime, timezone
+from datetime import datetime, time as datetime_time, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import ANY, Mock, patch
+from unittest.mock import Mock, patch
 from zoneinfo import ZoneInfo
 
 from trading_crude import Bar, CrudeOptionBuyer, Position
@@ -117,34 +117,84 @@ def test_crude_exit_logs_complete_trade_data_to_google_sheets():
         nymex_trend="GREEN",
         entry_volume=150.0,
         entry_oi_change=50.0,
+        entry_candle_open=7_180.0,
+        entry_candle_high=7_190.0,
+        entry_candle_low=7_175.0,
+        entry_candle_close=7_185.0,
     )
 
     with patch("trading_crude.log_trade") as log_trade:
         engine._close_position(90.0, "TARGET HIT")
 
-    log_trade.assert_called_once_with(
+    payload = log_trade.call_args.args[0]
+    assert payload["Entry Candle Open"] == 7_180.0
+    assert payload["Entry Candle High"] == 7_190.0
+    assert payload["Entry Candle Low"] == 7_175.0
+    assert payload["Entry Candle Close"] == 7_185.0
+    assert payload["Exit Candle Open"] == 7_200.0
+    assert payload["Exit Candle High"] == 7_205.0
+    assert payload["Exit Candle Low"] == 7_195.0
+    assert payload["Exit Candle Close"] == 7_200.0
+
+
+def test_crude_entry_captures_latest_candle_for_google_sheets():
+    engine = _make_engine("unused.json")
+    engine.settings = Mock(
+        execution_mode="PAPER",
+        allow_real_trading=False,
+        option_lot_size=100,
+        option_exchange="MCX",
+        buffer_points=5.0,
+    )
+    engine.instrument = Mock(symbol="CRUDEOIL")
+    engine.current_price = 7_185.0
+    engine.futures_bars = [
+        Bar(
+            timestamp=datetime.now(),
+            open=7_180.0,
+            high=7_190.0,
+            low=7_175.0,
+            close=7_185.0,
+            volume=150.0,
+        )
+    ]
+    engine._entry_cutoff_time = Mock(return_value=datetime_time(23, 59))
+    engine._resolve_option_contract = Mock(
+        return_value={"token": "12345", "symbol": "CRUDEOIL17SEP267200CE", "lotsize": "100"}
+    )
+    engine._entry_option_ltp = Mock(return_value=80.0)
+    engine._risk_levels = Mock(
+        return_value={"stop_loss": 70.0, "target_price": 100.0, "trail_distance": 15.0}
+    )
+    engine._nearest_pivot_info = Mock(return_value=("PP", 0, 7_180.0))
+    engine._square_off_time = Mock(return_value=datetime_time(23, 30))
+    engine._print_block = Mock()
+    engine._write_paper_trade_log = Mock()
+    engine._persist_state = Mock()
+    engine._smart_stream = Mock()
+
+    engine._place_entry_order(
         {
-            "Entry Timestamp": ANY,
-            "Exit Timestamp": ANY,
-            "Symbol": "CRUDEOIL17SEP267200CE",
-            "Action": "CE",
-            "Entry Price": 80.0,
-            "Exit Price": 90.0,
-            "SL": 70.0,
-            "TP": 100.0,
-            "PnL": 1_000.0,
-            "Entry Scenario": "Long Buildup",
-            "Exit Scenario": "TARGET HIT",
-            "Entry OI": 1_000.0,
-            "Exit OI": 1_250.0,
-            "Entry OI_Change": 50.0,
-            "Exit OI_Change": 250.0,
-            "Entry NYMEX_Trend": "GREEN",
-            "Exit NYMEX_Trend": "RED",
-            "Entry Volume": 150.0,
-            "Exit Volume": 321.0,
+            "scenario": "Long Buildup",
+            "side": "CE",
+            "strike": 7_200,
+            "futures_price": 7_185.0,
+            "oi": 1_000.0,
+            "volume": 150.0,
+            "atr": 10.0,
+            "pivot_level_name": "PP",
+            "pivot_level": 7_180.0,
+            "buffer_points": 5.0,
+            "next_pivot": 7_200.0,
+            "nymex_trend": "GREEN",
         }
     )
+
+    assert engine._position is not None
+    assert engine._position.entry_candle_open == 7_180.0
+    assert engine._position.entry_candle_high == 7_190.0
+    assert engine._position.entry_candle_low == 7_175.0
+    assert engine._position.entry_candle_close == 7_185.0
 
 
 def test_crude_exit_logs_sheet_timestamps_in_ist_format():

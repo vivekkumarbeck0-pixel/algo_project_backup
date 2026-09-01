@@ -1396,6 +1396,9 @@ class CrudeOptionBuyer:
             entry_index_value,
             entry_pivots,
         )
+        entry_candle = signal.get("entry_candle")
+        if entry_candle is None and getattr(self, "futures_bars", None):
+            entry_candle = self.futures_bars[-1]
 
         if is_real:
             order_id = self._submit_real_order("BUY", contract, quantity) or ""
@@ -1428,10 +1431,10 @@ class CrudeOptionBuyer:
             entry_nearest_pivot=entry_nearest_pivot or signal.get("entry_nearest_pivot"),
             entry_pivot_number=entry_pivot_number if entry_pivot_number is not None else signal.get("entry_pivot_number"),
             entry_pivot_price=entry_pivot_price if entry_pivot_price is not None else signal.get("entry_pivot_price"),
-            entry_candle_open=getattr(signal.get("entry_candle"), "open", None),
-            entry_candle_high=getattr(signal.get("entry_candle"), "high", None),
-            entry_candle_low=getattr(signal.get("entry_candle"), "low", None),
-            entry_candle_close=getattr(signal.get("entry_candle"), "close", None),
+            entry_candle_open=getattr(entry_candle, "open", None),
+            entry_candle_high=getattr(entry_candle, "high", None),
+            entry_candle_low=getattr(entry_candle, "low", None),
+            entry_candle_close=getattr(entry_candle, "close", None),
         )
         self._trail_distance = trail_distance
         self._option_ltp = entry_option_price
