@@ -40,6 +40,8 @@ IST = ZoneInfo("Asia/Kolkata")
 TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 _status_line_width = 0
+_startup_candle_rate_lock = threading.Lock()
+_last_startup_candle_request = 0.0
 
 
 def _now_ist() -> datetime:
@@ -54,6 +56,49 @@ def _as_ist(value: datetime) -> datetime:
 
 def _format_ist_timestamp(value: Optional[datetime] = None) -> str:
     return _as_ist(value or _now_ist()).strftime(TIMESTAMP_FORMAT)
+
+
+def _is_rate_limited(exc: BaseException) -> bool:
+    """Recognize Angel One AB1004/access-rate and HTTP 429 failures."""
+    from angel_one.market_data import is_rate_limit_error
+
+    status_code = getattr(exc, "status_code", getattr(exc, "status", None))
+    return str(status_code) == "429" or is_rate_limit_error(exc)
+
+
+def _fetch_startup_candles_with_retry(client, token: str, from_time: datetime, to_time: datetime):
+    """Fetch startup candles with a serialized request gap and bounded backoff."""
+    global _last_startup_candle_request
+    attempts = max(1, int(settings.candle_fetch_retries))
+
+    for attempt in range(1, attempts + 1):
+        with _startup_candle_rate_lock:
+            gap = float(settings.candle_min_request_interval_seconds)
+            wait = gap - (time.monotonic() - _last_startup_candle_request)
+            if wait > 0:
+                time.sleep(wait)
+            _last_startup_candle_request = time.monotonic()
+
+        try:
+            return client.get_candle_data(
+                token,
+                "ONE_MINUTE",
+                from_time.strftime("%Y-%m-%d %H:%M"),
+                to_time.strftime("%Y-%m-%d %H:%M"),
+                exchange=MCX_CRUDE_FUTURE.exchange,
+            )
+        except Exception as exc:
+            if not _is_rate_limited(exc) or attempt >= attempts:
+                raise
+            delay = min(
+                float(settings.candle_cooldown_max_wait_seconds),
+                float(settings.candle_retry_backoff_seconds) * (2 ** (attempt - 1)),
+            )
+            logger.warning(
+                "Startup MCX candle request throttled; retrying in %.1fs (%d/%d): %s",
+                delay, attempt, attempts, exc,
+            )
+            time.sleep(delay)
 
 
 def _clear_status_line() -> None:
@@ -638,13 +683,7 @@ class CrudeOptionBuyer:
         now = datetime.now(IST).replace(second=0, microsecond=0)
         from_time = now - timedelta(minutes=35)
         try:
-            response = self._rest_client.get_candle_data(
-                token,
-                "ONE_MINUTE",
-                from_time.strftime("%Y-%m-%d %H:%M"),
-                now.strftime("%Y-%m-%d %H:%M"),
-                exchange=self.instrument.exchange,
-            )
+            response = _fetch_startup_candles_with_retry(self._rest_client, token, from_time, now)
         except Exception as exc:
             logger.warning("Could not load startup MCX Crude candles; using live stream: %s", exc)
             return
