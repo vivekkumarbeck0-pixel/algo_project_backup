@@ -1,10 +1,18 @@
-"""Broker-only entrypoint for the NIFTY paper-trading session."""
+"""Single Render entrypoint for the existing Crude and NIFTY sessions."""
 
-from engine.trading_session import LivePaperTradingSession
+import threading
+
+from trading_crude import CrudeOptionBuyer
+from trading_nifty import NiftyTradingSession
 
 
 def main():
-    LivePaperTradingSession(default_symbol="NIFTY").run_forever()
+    crude = CrudeOptionBuyer()
+    nifty = NiftyTradingSession()
+    crude_thread = threading.Thread(target=crude.start, name="crude-engine")
+    crude_thread.start()
+    nifty.run_forever()
+    crude_thread.join()
 
 
 if __name__ == "__main__":

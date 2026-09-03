@@ -1,7 +1,42 @@
 {
-  "date": "2026-09-01",
-  "positions": [],
-  "trades_today": 0,
+  "date": "2026-09-03",
+  "positions": [
+    {
+      "symbol": "NIFTY",
+      "strike": 24100.0,
+      "option_type": "CE",
+      "side": "BUY",
+      "quantity": 65,
+      "entry_price": 54.2,
+      "trade_number": 1,
+      "index_entry": 24100.0,
+      "index_sl": 24075.0,
+      "index_target": 24107.433333333334,
+      "opened_at": "2026-09-03T09:23:51.657836",
+      "exit_price": 54.2,
+      "closed_at": "2026-09-03T09:23:59.538850",
+      "close_reason": "SL_HIT",
+      "status": "CLOSED"
+    },
+    {
+      "symbol": "NIFTY",
+      "strike": 24000.0,
+      "option_type": "CE",
+      "side": "BUY",
+      "quantity": 65,
+      "entry_price": 125.0,
+      "trade_number": 2,
+      "index_entry": 23990.8,
+      "index_sl": 23965.8,
+      "index_target": 24006.3,
+      "opened_at": "2026-09-03T09:31:06.826795",
+      "exit_price": 133.75,
+      "closed_at": "2026-09-03T09:39:52.116713",
+      "close_reason": "TARGET_HIT",
+      "status": "CLOSED"
+    }
+  ],
+  "trades_today": 2,
   "consecutive_stop_losses": 0,
-  "daily_realized_pnl": 0
+  "daily_realized_pnl": 568.75
 }

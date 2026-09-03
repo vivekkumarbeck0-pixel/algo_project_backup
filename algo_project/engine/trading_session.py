@@ -8,6 +8,7 @@ running end-of-day summary table.
 """
 
 import math
+import json
 import sys
 import time
 from datetime import datetime, time as dt_time
@@ -538,8 +539,7 @@ class LivePaperTradingSession:
                 and decision.risk_approved
                 and (market_structure.get("entry_confirmed") or clear_trend)
             ):
-                # Pass current index_price and snapshot to _open_trade
-                self._open_trade(decision, index_price, snapshot)
+                self._open_trade(decision, index_price, snapshot, market_structure)
 
         self._print_dashboard(snapshot, symbol, index_price, decision, market_structure)
         self._persist_state()
@@ -866,7 +866,7 @@ class LivePaperTradingSession:
             closed.append(position)
         return closed
 
-    def _open_trade(self, decision, index_price=None, snapshot=None):
+    def _open_trade(self, decision, index_price=None, snapshot=None, market_structure=None):
         cfg = SYMBOL_REGISTRY.get(decision.underlying, SYMBOL_REGISTRY[DEFAULT_SYMBOL])
         info = self.instrument_reader.find_option_token(
             underlying=decision.underlying,
@@ -907,8 +907,8 @@ class LivePaperTradingSession:
             # Default 40 points Target if not set by decision engine
             decision.index_target = current_index + 40.0 if decision.action == "BUY" else current_index - 40.0
 
-        # Execute order
-        position = self.order_manager.execute(decision, ltp)
+        entry_metadata = self._entry_metadata(decision, market_structure or {})
+        position = self.order_manager.execute(decision, ltp, entry_metadata=entry_metadata)
         if position:
             record_id = getattr(decision, "training_record_id", None)
             if record_id:
@@ -920,12 +920,59 @@ class LivePaperTradingSession:
                 position.index_sl = decision.index_sl
             if getattr(position, "index_target", None) is None:
                 position.index_target = decision.index_target
+            position.entry_metadata = entry_metadata
+            position.trailing_stop = decision.index_sl
+            self._persist_state()
+            if position.symbol == "NIFTY":
+                from nifty_sheet_logger import log_nifty_entry
+
+                log_nifty_entry(self._nifty_sheet_row(position))
 
             log.info(
                 "[PAPER TRADE OPENED] #%d %s %s %s @ %s (index entry=%s SL=%s Target=%s)",
                 position.trade_number, position.side, position.symbol, position.option_type,
                 position.entry_price, position.index_entry, position.index_sl, position.index_target,
             )
+
+    @staticmethod
+    def _entry_metadata(decision, market_structure: dict) -> dict:
+        structures = market_structure.get("candle_structures") or {}
+        candles = []
+        for interval in ("ONE_MINUTE", "THREE_MINUTE", "FIVE_MINUTE"):
+            candles = (structures.get(interval) or {}).get("candles") or []
+            if candles:
+                break
+        candle = dict(candles[-1]) if candles else {}
+        grouped = (market_structure.get("option_chain") or {}).get("by_strike") or {}
+        quotes = grouped.get(str(decision.strike)) or grouped.get(str(float(decision.strike))) or {}
+        ce = dict(quotes.get("CE") or {})
+        pe = dict(quotes.get("PE") or {})
+        return {
+            "candle": {key: candle.get(key) for key in ("open", "high", "low", "close")},
+            "pivot_sr_level": decision.resistance if decision.option_type == "CE" else decision.support,
+            "strike": decision.strike,
+            "option_type": decision.option_type,
+            "ce": {"strike": decision.strike, "oi": ce.get("open_interest"), "oi_change": ce.get("oi_change")},
+            "pe": {"strike": decision.strike, "oi": pe.get("open_interest"), "oi_change": pe.get("oi_change")},
+        }
+
+    @staticmethod
+    def _nifty_sheet_row(position: Position) -> dict:
+        metadata = position.entry_metadata or {}
+        candle = metadata.get("candle") or {}
+        ce = metadata.get("ce") or {}
+        pe = metadata.get("pe") or {}
+        return {
+            "Timestamp": position.opened_at.isoformat(), "Symbol": "NIFTY", "Action": position.side,
+            "Execution Price (LTP)": position.entry_price,
+            "Candle Open": candle.get("open"), "Candle High": candle.get("high"),
+            "Candle Low": candle.get("low"), "Candle Close": candle.get("close"),
+            "Pivot / SR Level": metadata.get("pivot_sr_level"), "Strike": position.strike,
+            "Option Side": position.option_type, "CE OI": ce.get("oi"), "CE OI Change": ce.get("oi_change"),
+            "PE OI": pe.get("oi"), "PE OI Change": pe.get("oi_change"),
+            "Strike Context JSON": json.dumps(metadata, separators=(",", ":"), default=str),
+            "Target": position.index_target, "Stop Loss": position.index_sl,
+        }
 
     def _record_training_outcome(self, position: Position) -> None:
         if position.close_reason == "TARGET_HIT":

@@ -28,6 +28,8 @@ class Position:
     index_entry: float | None = None
     index_sl: float | None = None
     index_target: float | None = None
+    entry_metadata: dict = field(default_factory=dict)
+    trailing_stop: float | None = None
     opened_at: datetime = field(default_factory=datetime.now)
     exit_price: float | None = None
     closed_at: datetime | None = None
@@ -87,6 +89,8 @@ class PositionTracker:
         index_entry=None,
         index_sl=None,
         index_target=None,
+        entry_metadata=None,
+        trailing_stop=None,
     ) -> Position:
         position = Position(
             symbol=symbol,
@@ -99,6 +103,8 @@ class PositionTracker:
             index_entry=index_entry,
             index_sl=index_sl,
             index_target=index_target,
+            entry_metadata=dict(entry_metadata or {}),
+            trailing_stop=trailing_stop,
         )
         self._positions.append(position)
         log.info(

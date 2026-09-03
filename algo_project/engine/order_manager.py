@@ -38,17 +38,17 @@ class OrderManager:
         if self.mode == ExecutionMode.REAL and self.broker_client is None:
             raise ValueError("broker_client is required for real execution mode")
 
-    def execute(self, decision: Decision, ltp: float):
+    def execute(self, decision: Decision, ltp: float, entry_metadata: dict | None = None):
         if decision.action not in ("BUY", "SELL"):
             log.info("No order placed: decision action=%s", decision.action)
             return None
 
         if self.mode == ExecutionMode.PAPER:
-            return self._execute_paper(decision, ltp)
+            return self._execute_paper(decision, ltp, entry_metadata)
 
         return self._execute_live(decision, ltp)
 
-    def _execute_paper(self, decision: Decision, ltp: float):
+    def _execute_paper(self, decision: Decision, ltp: float, entry_metadata: dict | None = None):
         # Options buying strategy: Always BUY the contract (CE or PE)
         order_side = "BUY"
 
@@ -62,6 +62,8 @@ class OrderManager:
             index_entry=decision.index_entry,
             index_sl=decision.index_sl,
             index_target=decision.index_target,
+            entry_metadata=entry_metadata,
+            trailing_stop=decision.index_sl,
         )
         log.info("[PAPER] Simulated fill: %s", position)
         return position
