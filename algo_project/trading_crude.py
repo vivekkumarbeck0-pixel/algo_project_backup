@@ -1193,35 +1193,49 @@ class CrudeOptionBuyer:
         return min(candidates, key=lambda item: abs(item[2] - float(price)))
 
     def _pivot_breakout(self, price: float, pivots: Dict[str, float], side: str) -> tuple[bool, Optional[str], float]:
-        """Require an exact OHLC pivot in the configured Crude gap zone."""
-        buffer_points = self.settings.buffer_points
-        gap_min = float(self.settings.crude_pivot_gap_min)
-        gap_max = float(self.settings.crude_pivot_gap_max)
+        """Require price to remain inside an exact OHLC S/R zone."""
 
-        def in_gap(level: float) -> bool:
-            distance = abs(float(price) - float(level))
-            return gap_min <= distance <= gap_max
-
-        if side == "CE":
-            crossed = {
-                name: level for name, level in pivots.items()
-                if level <= price and in_gap(level)
-            }
-            if not crossed:
-                return False, None, 0.0
-            name = max(crossed, key=lambda key: crossed[key])
-            level = pivots[name]
-            return price >= level + buffer_points, name, level
-
-        crossed = {
-            name: level for name, level in pivots.items()
-            if level >= price and in_gap(level)
-        }
-        if not crossed:
+        support_candidates = [
+            (name, float(level)) for name, level in pivots.items()
+            if name in {"S2", "S1"} and level is not None and float(level) < float(price)
+        ]
+        resistance_candidates = [
+            (name, float(level)) for name, level in pivots.items()
+            if name in {"R1", "R2"} and level is not None and float(level) > float(price)
+        ]
+        if not support_candidates or not resistance_candidates:
             return False, None, 0.0
-        name = min(crossed, key=lambda key: crossed[key])
-        level = pivots[name]
-        return price <= level - buffer_points, name, level
+
+        support_name, support = max(support_candidates, key=lambda item: item[1])
+        resistance_name, resistance = min(resistance_candidates, key=lambda item: item[1])
+        market_inside_zone = support < float(price) < resistance
+        if not market_inside_zone:
+            logger.debug(
+                "Crude S/R zone rejected: support=%.4f resistance=%.4f price=%.4f",
+                support, resistance, price,
+            )
+            return False, None, 0.0
+
+        # All five exact pivot levels may be the entry reference when the
+        # scenario and AI gate agree.
+        if side == "CE":
+            eligible = [
+                (name, float(level)) for name, level in pivots.items()
+                if name in {"S2", "S1", "PP"} and level is not None and float(level) <= float(price)
+            ]
+            if not eligible:
+                return False, None, 0.0
+            name, level = max(eligible, key=lambda item: item[1])
+            return True, name, level
+
+        eligible = [
+            (name, float(level)) for name, level in pivots.items()
+            if name in {"PP", "R1", "R2"} and level is not None and float(level) >= float(price)
+        ]
+        if not eligible:
+            return False, None, 0.0
+        name, level = min(eligible, key=lambda item: item[1])
+        return True, name, level
 
     def _nearest_atm_strike(self, futures_price: float) -> int:
         """Choose the closest currently listed MCX Crude option strike.
@@ -1900,15 +1914,17 @@ class CrudeOptionBuyer:
             "Exit Candle Low": getattr(exit_bar, "low", None),
             "Exit Candle Close": getattr(exit_bar, "close", None),
         }
-        try:
-            log_trade(trade_info)
-        except Exception:
-            logger.exception("Failed to log crude trade exit to Google Sheets.")
+        # Clear and checkpoint the local position before the external Sheet call.
+        # A slow or failed network logger must not leave a closed trade restorable.
         self._position = None
         self._option_ltp = None
         self._option_ltp_token = ""
         self._option_ltp_time = 0.0
         self._persist_state()
+        try:
+            log_trade(trade_info)
+        except Exception:
+            logger.exception("Failed to log crude trade exit to Google Sheets.")
 
     def _update_position_management(self):
         if self._position is None or self.current_price is None:

@@ -44,9 +44,7 @@ def _load_dotenv() -> None:
 
 _load_dotenv()
 
-# MCX Crude-only strategy defaults. Nifty does not consume these constants.
-PIVOT_GAP_MIN = 45.0
-PIVOT_GAP_MAX = 55.0
+# MCX Crude-only strategy defaults. Nifty does not consume this constant.
 ATR_MULTIPLIER = 2.0
 
 
@@ -98,8 +96,6 @@ class Settings:
     # Strategy constants
     pivot_lookback_bars: int = 200
     # MCX Crude-only pivot/entry controls. These are not read by Nifty.
-    crude_pivot_gap_min: float = PIVOT_GAP_MIN
-    crude_pivot_gap_max: float = PIVOT_GAP_MAX
     crude_atr_multiplier: float = ATR_MULTIPLIER
     crude_entry_candle_zone: float = 0.35
     crude_ai_proximity_tolerance: float = 0.002
