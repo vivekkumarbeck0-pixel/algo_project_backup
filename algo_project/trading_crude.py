@@ -984,7 +984,10 @@ class CrudeOptionBuyer:
         oi_up = current_bar.oi > (ois[-2] if len(ois) >= 2 else current_bar.oi)
         oi_down = current_bar.oi < (ois[-2] if len(ois) >= 2 else current_bar.oi)
 
-        pivots = self._calculate_daily_pivots(recent)
+        # Use the full completed futures history for exact OHLC-derived pivots;
+        # do not align or round levels to the option strike grid.
+        pivot_bars = completed_bars[-self.settings.pivot_lookback_bars :]
+        pivots = self._calculate_daily_pivots(pivot_bars)
         atr_value = self._calculate_atr(recent)
         next_pivot = self._next_pivot_for_target(current_price, pivots)
 
@@ -1012,6 +1015,21 @@ class CrudeOptionBuyer:
             side = "PE"
 
         if side is None or scenario is None:
+            return None
+
+        ai_evaluation = self.ai_dynamic_trade_evaluation(
+            current_bar=current_bar,
+            previous_bar=previous_bar,
+            pivots=pivots,
+            atr=atr_value,
+            side=side,
+        )
+        if ai_evaluation is None:
+            logger.debug(
+                "%s %s rejected by dynamic AI evaluation.",
+                scenario,
+                side,
+            )
             return None
 
         confirmed, pivot_name, pivot_level = self._pivot_breakout(current_price, pivots, side)
@@ -1045,6 +1063,7 @@ class CrudeOptionBuyer:
             "buffer_points": self.settings.buffer_points,
             "next_pivot": next_pivot,
             "nymex_trend": nymex_trend,
+            "ai_evaluation": ai_evaluation,
             "timestamp": current_bar.timestamp,
         }
 
@@ -1061,6 +1080,78 @@ class CrudeOptionBuyer:
         r2 = pp + (high - low)
         s2 = pp - (high - low)
         return {"PP": pp, "R1": r1, "R2": r2, "S1": s1, "S2": s2}
+
+    def _candle_entry_zone_ok(self, candle: Bar, side: str) -> bool:
+        """Prefer CE entries near candle lows and PE entries near candle highs."""
+        candle_range = float(candle.high) - float(candle.low)
+        if candle_range <= 0:
+            return False
+        zone = min(max(float(self.settings.crude_entry_candle_zone), 0.0), 0.5)
+        close_position = (float(candle.close) - float(candle.low)) / candle_range
+        if side == "CE":
+            return close_position <= zone
+        return close_position >= 1.0 - zone
+
+    def ai_dynamic_trade_evaluation(
+        self,
+        current_bar: Bar,
+        previous_bar: Bar,
+        pivots: Dict[str, float],
+        atr: float,
+        side: str,
+    ) -> Optional[Dict[str, float | str]]:
+        """Evaluate Crude entry quality using momentum, ATR and S/R proximity."""
+        atr_value = float(atr or 0.0)
+        if atr_value <= 0.0 or current_bar.high <= current_bar.low:
+            return None
+
+        close = float(current_bar.close)
+        previous_close = float(previous_bar.close)
+        momentum = (close - previous_close) / atr_value
+        momentum_limit = float(self.settings.crude_ai_max_momentum)
+        momentum_score = max(-momentum_limit, min(momentum_limit, momentum))
+        minimum_momentum = float(self.settings.crude_ai_min_momentum)
+
+        if side == "CE" and momentum_score < minimum_momentum:
+            return None
+        if side == "PE" and momentum_score > -minimum_momentum:
+            return None
+        if not self._candle_entry_zone_ok(current_bar, side):
+            return None
+
+        if side == "CE":
+            candidates = [
+                float(level) for name, level in pivots.items()
+                if name in {"S2", "S1", "PP"} and level is not None and float(level) <= close
+            ]
+            reference_level = max(candidates) if candidates else None
+            distance = float(current_bar.low) - reference_level if reference_level is not None else None
+        else:
+            candidates = [
+                float(level) for name, level in pivots.items()
+                if name in {"R1", "R2", "PP"} and level is not None and float(level) >= close
+            ]
+            reference_level = min(candidates) if candidates else None
+            distance = reference_level - float(current_bar.high) if reference_level is not None else None
+
+        tolerance = float(self.settings.crude_ai_proximity_tolerance)
+        proximity = abs(distance) / max(abs(reference_level), 1.0) if reference_level is not None and distance is not None else None
+        if reference_level is None or proximity is None or proximity > tolerance:
+            return None
+
+        momentum_strength = min(abs(momentum_score), momentum_limit) / max(momentum_limit, 1.0)
+        dynamic_multiplier = float(self.settings.crude_atr_multiplier) * (1.0 + 0.25 * momentum_strength)
+        trail_multiplier = dynamic_multiplier * (1.0 + 0.15 * momentum_strength)
+        return {
+            "momentum": momentum_score,
+            "momentum_strength": momentum_strength,
+            "reference_level": reference_level,
+            "proximity": proximity,
+            "tolerance": tolerance,
+            "atr_multiplier": dynamic_multiplier,
+            "trail_multiplier": trail_multiplier,
+            "side": side,
+        }
 
     def _calculate_atr(self, bars, period: int = 14) -> float:
         if len(bars) < 2:
@@ -1102,18 +1193,30 @@ class CrudeOptionBuyer:
         return min(candidates, key=lambda item: abs(item[2] - float(price)))
 
     def _pivot_breakout(self, price: float, pivots: Dict[str, float], side: str) -> tuple[bool, Optional[str], float]:
-        """Require price to clear the crossed pivot by BUFFER_POINTS, not just touch it."""
+        """Require an exact OHLC pivot in the configured Crude gap zone."""
         buffer_points = self.settings.buffer_points
+        gap_min = float(self.settings.crude_pivot_gap_min)
+        gap_max = float(self.settings.crude_pivot_gap_max)
+
+        def in_gap(level: float) -> bool:
+            distance = abs(float(price) - float(level))
+            return gap_min <= distance <= gap_max
 
         if side == "CE":
-            crossed = {name: level for name, level in pivots.items() if level <= price}
+            crossed = {
+                name: level for name, level in pivots.items()
+                if level <= price and in_gap(level)
+            }
             if not crossed:
                 return False, None, 0.0
             name = max(crossed, key=lambda key: crossed[key])
             level = pivots[name]
             return price >= level + buffer_points, name, level
 
-        crossed = {name: level for name, level in pivots.items() if level >= price}
+        crossed = {
+            name: level for name, level in pivots.items()
+            if level >= price and in_gap(level)
+        }
         if not crossed:
             return False, None, 0.0
         name = min(crossed, key=lambda key: crossed[key])
@@ -1347,10 +1450,23 @@ class CrudeOptionBuyer:
                     transaction_type, order_id, contract.get("symbol"), quantity)
         return str(order_id)
 
-    def _risk_levels(self, entry_price: float, atr: float) -> Optional[Dict[str, float]]:
+    def _risk_levels(
+        self,
+        entry_price: float,
+        atr: float,
+        dynamic_evaluation: Optional[Dict[str, float | str]] = None,
+    ) -> Optional[Dict[str, float]]:
         """Stop keeps the full ATR+buffer cushion; a premium too thin to hold it is skipped."""
-        stop_distance = 0.75 * atr + self.settings.buffer_points
-        trail_distance = 1.5 * atr + 5.0
+        atr_multiplier = float(
+            (dynamic_evaluation or {}).get(
+                "atr_multiplier", self.settings.crude_atr_multiplier
+            )
+        )
+        trail_multiplier = float(
+            (dynamic_evaluation or {}).get("trail_multiplier", atr_multiplier)
+        )
+        stop_distance = atr_multiplier * atr + self.settings.buffer_points
+        trail_distance = trail_multiplier * atr + 5.0
         min_premium = stop_distance / self.settings.max_stop_premium_fraction
 
         if entry_price < min_premium:
@@ -1366,7 +1482,7 @@ class CrudeOptionBuyer:
             "stop_distance": stop_distance,
             "trail_distance": trail_distance,
             "stop_loss": entry_price - stop_distance,
-            "target_price": entry_price + max(1.5 * atr, 2.0 * stop_distance),
+            "target_price": entry_price + max(1.5 * atr_multiplier * atr, 2.0 * stop_distance),
         }
 
     def _place_entry_order(self, signal: Dict[str, Any]):
@@ -1422,7 +1538,11 @@ class CrudeOptionBuyer:
             )
             return
 
-        levels = self._risk_levels(entry_option_price, atr)
+        levels = self._risk_levels(
+            entry_option_price,
+            atr,
+            dynamic_evaluation=signal.get("ai_evaluation"),
+        )
         if levels is None:
             return
 
