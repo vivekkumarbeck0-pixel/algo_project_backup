@@ -390,6 +390,7 @@ class LivePaperTradingSession:
                     position.symbol, position.trade_number,
                 )
             self.tracker.close_position(position, exit_price, reason="SESSION_ROLLOVER")
+            self._log_nifty_exit(position)
         if stale_positions:
             self._persist_state()
             log.warning("Closed %d stale position(s) from a previous trading day", len(stale_positions))
@@ -827,6 +828,9 @@ class LivePaperTradingSession:
                 else:
                     closed.append(res)
 
+                for position in res if isinstance(res, list) else [res]:
+                    self._log_nifty_exit(position)
+
         return closed
 
     def _close_all_positions(self, reason: str) -> list:
@@ -841,6 +845,7 @@ class LivePaperTradingSession:
                 )
                 continue
             self.tracker.close_position(position, exit_price, reason=reason)
+            self._log_nifty_exit(position)
             closed.append(position)
         return closed
 
@@ -863,6 +868,7 @@ class LivePaperTradingSession:
                 log.warning("Cannot close #%s on reversal: no exit LTP available", position.trade_number)
                 continue
             self.tracker.close_position(position, exit_price, reason="REVERSAL")
+            self._log_nifty_exit(position)
             closed.append(position)
         return closed
 
@@ -926,7 +932,9 @@ class LivePaperTradingSession:
             if position.symbol == "NIFTY":
                 from nifty_sheet_logger import log_nifty_entry
 
-                log_nifty_entry(self._nifty_sheet_row(position))
+                entry_row = self._nifty_sheet_row(position)
+                entry_row.update({"Trade Number": position.trade_number, "Event": "BUY"})
+                log_nifty_entry(entry_row)
 
             log.info(
                 "[PAPER TRADE OPENED] #%d %s %s %s @ %s (index entry=%s SL=%s Target=%s)",
@@ -973,6 +981,26 @@ class LivePaperTradingSession:
             "Strike Context JSON": json.dumps(metadata, separators=(",", ":"), default=str),
             "Target": position.index_target, "Stop Loss": position.index_sl,
         }
+
+    @staticmethod
+    def _log_nifty_exit(position: Position) -> None:
+        if position.symbol != "NIFTY" or position.exit_price is None:
+            return
+        from nifty_sheet_logger import log_nifty_exit
+
+        exit_row = LivePaperTradingSession._nifty_sheet_row(position)
+        exit_row.update(
+            {
+                "Timestamp": position.closed_at.isoformat() if position.closed_at else "",
+                "Action": "SELL",
+                "Execution Price (LTP)": position.exit_price,
+                "Trade Number": position.trade_number,
+                "Event": "SELL",
+                "Exit Reason": position.close_reason,
+                "P&L": position.pnl,
+            }
+        )
+        log_nifty_exit(exit_row)
 
     def _record_training_outcome(self, position: Position) -> None:
         if position.close_reason == "TARGET_HIT":

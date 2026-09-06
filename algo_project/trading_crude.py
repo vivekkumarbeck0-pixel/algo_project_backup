@@ -33,6 +33,7 @@ import pandas as pd
 import yfinance as yf
 
 from config import MCX_CRUDE_FUTURE, settings
+from engine.crude_hybrid_ml import build_features, load_model
 from sheets_logger import log_trade
 
 
@@ -483,6 +484,13 @@ class CrudeOptionBuyer:
         self._rest_poll_interval = 2.0
         self._next_websocket_reconnect = 0.0
         self._historical_bars_loaded = False
+        self._hybrid_model = None
+        self._hybrid_model_path = Path(__file__).with_name("crude_hybrid_model.pkl")
+        try:
+            self._hybrid_model = load_model(self._hybrid_model_path)
+            logger.info("Loaded Crude hybrid model for live paper-signal confirmation: %s", self._hybrid_model_path)
+        except Exception as exc:
+            logger.error("Crude hybrid model is unavailable; paper entries are disabled: %s", exc)
 
         self._smart_stream = AngelSmartWebSocketClient(
             api_key=self.settings.angel_api_key,
@@ -1032,6 +1040,16 @@ class CrudeOptionBuyer:
             )
             return None
 
+        hybrid_evaluation = self._evaluate_hybrid_model(completed_bars)
+        if hybrid_evaluation is None or hybrid_evaluation.action != side:
+            logger.debug(
+                "%s %s rejected by hybrid model: prediction=%s",
+                scenario,
+                side,
+                hybrid_evaluation.action if hybrid_evaluation else "UNAVAILABLE",
+            )
+            return None
+
         confirmed, pivot_name, pivot_level = self._pivot_breakout(current_price, pivots, side)
         if not confirmed:
             logger.debug(
@@ -1064,8 +1082,25 @@ class CrudeOptionBuyer:
             "next_pivot": next_pivot,
             "nymex_trend": nymex_trend,
             "ai_evaluation": ai_evaluation,
+            "hybrid_prediction": hybrid_evaluation.action,
+            "hybrid_momentum_probability": hybrid_evaluation.momentum_probability,
+            "hybrid_volatility_probability": hybrid_evaluation.volatility_probability,
             "timestamp": current_bar.timestamp,
         }
+
+    def _evaluate_hybrid_model(self, bars: list[Bar]):
+        if self._hybrid_model is None or len(bars) < 22:
+            return None
+
+        frame = pd.DataFrame([asdict(bar) for bar in bars])
+        features = build_features(frame).dropna()
+        if features.empty:
+            return None
+        try:
+            return self._hybrid_model.decide(features.iloc[[-1]])
+        except Exception as exc:
+            logger.warning("Crude hybrid model prediction failed; rejecting signal: %s", exc)
+            return None
 
     def _calculate_daily_pivots(self, bars):
         if not bars:

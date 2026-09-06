@@ -16,6 +16,7 @@ NIFTY_COLUMNS = [
     "Candle Open", "Candle High", "Candle Low", "Candle Close",
     "Pivot / SR Level", "Strike", "Option Side", "CE OI", "CE OI Change",
     "PE OI", "PE OI Change", "Strike Context JSON", "Target", "Stop Loss",
+    "Trade Number", "Event", "Exit Reason", "P&L",
 ]
 
 
@@ -31,8 +32,7 @@ def _client():
     return gspread.authorize(Credentials.from_service_account_info(info, scopes=SCOPES))
 
 
-def log_nifty_entry(entry: dict) -> None:
-    """Append one NIFTY entry to the second tab without touching worksheet 1."""
+def _append_nifty_event(event: dict) -> None:
     try:
         spreadsheet = _client().open("Crude_Algo_Trade_Logs")
         worksheet = spreadsheet.worksheets()[1]
@@ -45,7 +45,17 @@ def log_nifty_entry(entry: dict) -> None:
         if missing:
             headers = headers + missing
             worksheet.update("A1", [headers])
-        worksheet.append_row([entry.get(column, "") for column in headers])
-        print("Successfully logged NIFTY entry to Google Sheet 2!")
+        worksheet.append_row([event.get(column, "") for column in headers])
+        print(f"Successfully logged NIFTY {event.get('Event', 'event')} to Google Sheet 2!")
     except Exception as exc:
-        print(f"Failed to log NIFTY entry to Google Sheet 2: {exc}")
+        print(f"Failed to log NIFTY event to Google Sheet 2: {exc}")
+
+
+def log_nifty_entry(entry: dict) -> None:
+    """Append the BUY entry event to the second tab."""
+    _append_nifty_event(entry)
+
+
+def log_nifty_exit(exit_event: dict) -> None:
+    """Append the SELL exit event to the second tab."""
+    _append_nifty_event(exit_event)
