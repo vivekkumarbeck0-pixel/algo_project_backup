@@ -9,11 +9,11 @@ def test_relaxed_watchlist_keeps_bullish_trade_valid():
     engine = DecisionEngine(risk_manager=risk)
 
     snapshot = {
-        "spot": 24180,
+        "spot": 24157,
         "underlying": "NIFTY",
         "support_strike": 24150,
         "resistance_strike": 24250,
-        "market_strike": 24180,
+        "market_strike": 24150,
         "aoc_watchlist": {"top": [24280], "bottom": [24110]},
         "aoc_color_available": True,
         "aoc_scenario": "bullish",

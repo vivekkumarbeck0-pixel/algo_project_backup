@@ -540,6 +540,10 @@ class DecisionEngine:
         )
         bullish_trigger = bool(pattern_state.get("bullish"))
         bearish_trigger = bool(pattern_state.get("bearish"))
+        trend = str((market_structure or {}).get("trend") or "").upper()
+        micro_momentum = str((market_structure or {}).get("micro_momentum") or "").upper()
+        bullish_trend_alignment = trend == "BULLISH" and micro_momentum == "BULLISH"
+        bearish_trend_alignment = trend == "BEARISH" and micro_momentum == "BEARISH"
         if option_type is None:
             if bullish_setup and bullish_trigger and not bearish_setup:
                 option_type = "CE"
@@ -555,7 +559,15 @@ class DecisionEngine:
             if abs(float(current_price) - float(resistance_level)) <= sr_tolerance:
                 sr_trigger = True
 
-        entry_confirmed = (option_type == "CE" and bullish_setup and bullish_trigger) or (option_type == "PE" and bearish_setup and bearish_trigger)
+        entry_confirmed = (
+            option_type == "CE"
+            and bullish_setup
+            and (bullish_trigger or bullish_trend_alignment)
+        ) or (
+            option_type == "PE"
+            and bearish_setup
+            and (bearish_trigger or bearish_trend_alignment)
+        )
         
         # Check 3:15 PM IST Auto Square-off cutoff
         time_cutoff_reached = self._is_auto_square_off_time(underlying)
@@ -587,7 +599,7 @@ class DecisionEngine:
 
         if not entry_confirmed:
             reasons.append(
-                "Waiting for 7-8 point S/R/SMC buffer and matching candlestick trigger."
+                "Waiting for S/R/SMC setup with matching candle or aligned trend confirmation."
             )
             return Decision(
                 action="NO_TRADE",
@@ -604,6 +616,9 @@ class DecisionEngine:
                 resistance_range=resistance_range,
                 market_status=market_status,
             )
+
+        if not bullish_trigger and not bearish_trigger:
+            reasons.append("Candlestick trigger absent; aligned higher and micro trend accepted.")
 
         if option_type == "PE":
             reasons.append("Bearish bias: buying PE (resistance rejection / bearish trend)")

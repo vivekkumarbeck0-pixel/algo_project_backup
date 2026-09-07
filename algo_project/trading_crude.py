@@ -488,9 +488,9 @@ class CrudeOptionBuyer:
         self._hybrid_model_path = Path(__file__).with_name("crude_hybrid_model.pkl")
         try:
             self._hybrid_model = load_model(self._hybrid_model_path)
-            logger.info("Loaded Crude hybrid model for live paper-signal confirmation: %s", self._hybrid_model_path)
+            logger.info("Loaded Crude hybrid model for live paper-signal monitoring: %s", self._hybrid_model_path)
         except Exception as exc:
-            logger.error("Crude hybrid model is unavailable; paper entries are disabled: %s", exc)
+            logger.warning("Crude hybrid model is unavailable; rule-based entries remain enabled: %s", exc)
 
         self._smart_stream = AngelSmartWebSocketClient(
             api_key=self.settings.angel_api_key,
@@ -1033,22 +1033,23 @@ class CrudeOptionBuyer:
             side=side,
         )
         if ai_evaluation is None:
-            logger.debug(
-                "%s %s rejected by dynamic AI evaluation.",
+            logger.warning(
+                "%s %s proceeding with baseline risk settings; dynamic AI filter did not confirm the setup.",
                 scenario,
                 side,
             )
-            return None
 
         hybrid_evaluation = self._evaluate_hybrid_model(completed_bars)
+        hybrid_prediction = hybrid_evaluation.action if hybrid_evaluation else "UNAVAILABLE"
         if hybrid_evaluation is None or hybrid_evaluation.action != side:
-            logger.debug(
-                "%s %s rejected by hybrid model: prediction=%s",
+            logger.warning(
+                "%s %s proceeding despite hybrid model warning: prediction=%s, momentum_probability=%s, volatility_probability=%s",
                 scenario,
                 side,
-                hybrid_evaluation.action if hybrid_evaluation else "UNAVAILABLE",
+                hybrid_prediction,
+                hybrid_evaluation.momentum_probability if hybrid_evaluation else None,
+                hybrid_evaluation.volatility_probability if hybrid_evaluation else None,
             )
-            return None
 
         confirmed, pivot_name, pivot_level = self._pivot_breakout(current_price, pivots, side)
         if not confirmed:
@@ -1082,9 +1083,9 @@ class CrudeOptionBuyer:
             "next_pivot": next_pivot,
             "nymex_trend": nymex_trend,
             "ai_evaluation": ai_evaluation,
-            "hybrid_prediction": hybrid_evaluation.action,
-            "hybrid_momentum_probability": hybrid_evaluation.momentum_probability,
-            "hybrid_volatility_probability": hybrid_evaluation.volatility_probability,
+            "hybrid_prediction": hybrid_prediction,
+            "hybrid_momentum_probability": hybrid_evaluation.momentum_probability if hybrid_evaluation else None,
+            "hybrid_volatility_probability": hybrid_evaluation.volatility_probability if hybrid_evaluation else None,
             "timestamp": current_bar.timestamp,
         }
 
@@ -1099,7 +1100,7 @@ class CrudeOptionBuyer:
         try:
             return self._hybrid_model.decide(features.iloc[[-1]])
         except Exception as exc:
-            logger.warning("Crude hybrid model prediction failed; rejecting signal: %s", exc)
+            logger.warning("Crude hybrid model prediction failed; rule-based signal will continue: %s", exc)
             return None
 
     def _calculate_daily_pivots(self, bars):
