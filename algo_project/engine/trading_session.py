@@ -514,7 +514,7 @@ class LivePaperTradingSession:
         decision = None
         max_trades = self.risk_manager.limits.max_trades_per_day
         under_limit = max_trades is None or self.tracker.trades_today_count() < max_trades
-        scanning_open = datetime.now().strftime("%H:%M") >= settings.trade_start_time
+        scanning_open = datetime.now(IST).strftime("%H:%M") >= settings.trade_start_time
         if not self.tracker.open_positions() and under_limit and scanning_open and not self._square_off_due():
             if not self._has_fresh_live_confirmation():
                 log.info("Trade blocked: waiting for a fresh live tick breakout before entry.")
