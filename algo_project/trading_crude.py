@@ -33,7 +33,6 @@ import pandas as pd
 import yfinance as yf
 
 from config import MCX_CRUDE_FUTURE, settings
-from engine.crude_hybrid_ml import build_features, load_model
 from sheets_logger import log_trade
 
 
@@ -485,12 +484,8 @@ class CrudeOptionBuyer:
         self._next_websocket_reconnect = 0.0
         self._historical_bars_loaded = False
         self._hybrid_model = None
+        self._hybrid_model_load_attempted = False
         self._hybrid_model_path = Path(__file__).with_name("crude_hybrid_model.pkl")
-        try:
-            self._hybrid_model = load_model(self._hybrid_model_path)
-            logger.info("Loaded Crude hybrid model for live paper-signal monitoring: %s", self._hybrid_model_path)
-        except Exception as exc:
-            logger.warning("Crude hybrid model is unavailable; rule-based entries remain enabled: %s", exc)
 
         self._smart_stream = AngelSmartWebSocketClient(
             api_key=self.settings.angel_api_key,
@@ -501,6 +496,20 @@ class CrudeOptionBuyer:
         self.nymex_filter = YFinanceLeadFilter(refresh_seconds=self.settings.yfinance_refresh_seconds)
         self._futures_token_cache: Optional[str] = None
         self._restore_state()
+
+    def _get_hybrid_model(self):
+        if self._hybrid_model_load_attempted:
+            return self._hybrid_model
+
+        self._hybrid_model_load_attempted = True
+        try:
+            from engine.crude_hybrid_ml import load_model
+
+            self._hybrid_model = load_model(self._hybrid_model_path)
+            logger.info("Loaded Crude hybrid model lazily for signal monitoring: %s", self._hybrid_model_path)
+        except Exception as exc:
+            logger.warning("Crude hybrid model unavailable; rule-based entries remain enabled: %s", exc)
+        return self._hybrid_model
 
     def start(self):
         logger.info("Starting MCX Crude option buying engine in PAPER mode.")
@@ -1101,15 +1110,23 @@ class CrudeOptionBuyer:
         }
 
     def _evaluate_hybrid_model(self, bars: list[Bar]):
-        if self._hybrid_model is None or len(bars) < 22:
+        if len(bars) < 22:
             return None
 
+        model = self._get_hybrid_model()
+        if model is None:
+            return None
+
+        import pandas as pd
+
         frame = pd.DataFrame([asdict(bar) for bar in bars])
+        from engine.crude_hybrid_ml import build_features
+
         features = build_features(frame).dropna()
         if features.empty:
             return None
         try:
-            return self._hybrid_model.decide(features.iloc[[-1]])
+            return model.decide(features.iloc[[-1]])
         except Exception as exc:
             logger.warning("Crude hybrid model prediction failed; rule-based signal will continue: %s", exc)
             return None

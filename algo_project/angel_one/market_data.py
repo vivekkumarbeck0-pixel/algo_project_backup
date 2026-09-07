@@ -68,6 +68,8 @@ class MarketDataFetcher:
     _request_queue = queue.Queue()
     _request_worker_started = False
     _request_worker_lock = threading.Lock()
+    MAX_MEMORY_CACHE_ENTRIES = 64
+    MAX_DISK_CACHE_ENTRIES = 128
 
     @classmethod
     def _ensure_request_queue_worker(cls) -> None:
@@ -218,6 +220,13 @@ class MarketDataFetcher:
                 cls._disk_cache_data = json.loads(path.read_text(encoding="utf-8"))
             except Exception:
                 cls._disk_cache_data = {}
+            if len(cls._disk_cache_data) > cls.MAX_DISK_CACHE_ENTRIES:
+                ordered = sorted(
+                    cls._disk_cache_data.items(),
+                    key=lambda item: float(item[1].get("saved_at", 0)) if isinstance(item[1], dict) else 0,
+                    reverse=True,
+                )
+                cls._disk_cache_data = dict(ordered[: cls.MAX_DISK_CACHE_ENTRIES])
         return cls._disk_cache_data
 
     @staticmethod
@@ -257,6 +266,13 @@ class MarketDataFetcher:
             return
         cache = self._disk_cache()
         cache[self._disk_cache_key(key)] = {"saved_at": time.time(), "data": value}
+        if len(cache) > self.MAX_DISK_CACHE_ENTRIES:
+            oldest = sorted(
+                cache.items(),
+                key=lambda item: float(item[1].get("saved_at", 0)) if isinstance(item[1], dict) else 0,
+            )[: len(cache) - self.MAX_DISK_CACHE_ENTRIES]
+            for cache_key, _ in oldest:
+                cache.pop(cache_key, None)
         path = Path(settings.candle_disk_cache_file)
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -365,6 +381,9 @@ class MarketDataFetcher:
     def _cache_set(self, key: tuple, value: Any) -> None:
         if value is not None:
             self._cache[key] = (time.monotonic(), value)
+            if len(self._cache) > self.MAX_MEMORY_CACHE_ENTRIES:
+                oldest_key = min(self._cache, key=lambda item: self._cache[item][0])
+                self._cache.pop(oldest_key, None)
 
     def _cooling_down(self) -> bool:
         return time.monotonic() < max(
