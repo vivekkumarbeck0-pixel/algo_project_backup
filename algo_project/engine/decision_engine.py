@@ -658,14 +658,14 @@ class DecisionEngine:
                     oi_resistance,
                     resistance_level,
                 ]
-                min_valid = float(current_price)
+                min_valid = float(current_price) + target_points
                 index_target = next(
                     (
                         float(level)
                         for level in candidates
                         if isinstance(level, (int, float)) and float(level) > min_valid
                     ),
-                    None,
+                    float(current_price) + target_points,
                 )
                 if peak_target is not None:
                     reasons.append(f"CE {peak_source} strike {peak_strike}: pivot R target {index_target}")
@@ -692,14 +692,14 @@ class DecisionEngine:
                     oi_support,
                     support_level,
                 ]
-                max_valid = float(current_price)
+                max_valid = float(current_price) - target_points
                 index_target = next(
                     (
                         float(level)
                         for level in candidates
                         if isinstance(level, (int, float)) and float(level) < max_valid
                     ),
-                    None,
+                    float(current_price) - target_points,
                 )
                 if peak_target is not None:
                     reasons.append(f"PE {peak_source} strike {peak_strike}: pivot S target {index_target}")

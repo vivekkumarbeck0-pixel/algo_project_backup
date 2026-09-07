@@ -1073,16 +1073,14 @@ class CrudeOptionBuyer:
 
         confirmed, pivot_name, pivot_level = self._pivot_breakout(current_price, pivots, side)
         if not confirmed:
-            logger.debug(
-                "%s %s rejected: %.2f has not cleared pivot %s (%.2f) by the %.1f point buffer.",
+            logger.warning(
+                "%s %s proceeding without pivot confirmation: price=%.2f, pivot=%s (%.2f).",
                 scenario,
                 side,
                 current_price,
                 pivot_name or "n/a",
                 pivot_level,
-                self.settings.buffer_points,
             )
-            return None
 
         self._last_signal_bar = current_bar.timestamp
         strike = self._nearest_atm_strike(current_price)

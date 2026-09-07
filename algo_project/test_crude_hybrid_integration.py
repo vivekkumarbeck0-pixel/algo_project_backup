@@ -46,7 +46,7 @@ def test_hybrid_no_trade_is_warning_only_for_rule_based_signal(caplog):
     engine._evaluate_hybrid_model = Mock(
         return_value=HybridDecision("NO_TRADE", 0.58, 0.42, "NORMAL", "momentum confidence is inconclusive")
     )
-    engine._pivot_breakout = Mock(return_value=(True, "R1", 102.0))
+    engine._pivot_breakout = Mock(return_value=(False, None, 0.0))
     engine._nearest_atm_strike = Mock(return_value=100)
 
     signal = engine._evaluate_strategy()
