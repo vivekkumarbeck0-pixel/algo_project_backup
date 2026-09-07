@@ -1,5 +1,6 @@
 from datetime import datetime, time as datetime_time, timezone
 from pathlib import Path
+import json
 from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 from zoneinfo import ZoneInfo
@@ -52,6 +53,39 @@ def test_crude_state_restores_open_position_on_same_day_restart():
         assert restarted._position.trailing_stop == 78.0
         assert restarted._trail_distance == 7.5
         assert restarted.paper_realized_pnl == 125.0
+
+def test_crude_state_rollover_preserves_open_position_and_updates_date():
+    with TemporaryDirectory() as temporary_directory:
+        state_path = f"{temporary_directory}/crude_daily_state.json"
+        original = _make_engine(state_path)
+        original._position = Position(
+            side="PE",
+            strike=7150,
+            entry_price=65.0,
+            entry_time=datetime.now(),
+            stop_loss=52.0,
+            target_price=90.0,
+            trailing_stop=60.0,
+            atr_value=10.0,
+            futures_entry=7160.0,
+            futures_entry_oi=900.0,
+            scenario="SHORT_BUILDUP",
+        )
+        original._persist_state()
+
+        payload = json.loads(Path(state_path).read_text(encoding="utf-8"))
+        payload["date"] = "2000-01-01"
+        payload["paper_realized_pnl"] = 125.0
+        payload["paper_wins"] = 2
+        Path(state_path).write_text(json.dumps(payload), encoding="utf-8")
+
+        restarted = _make_engine(state_path)
+        restarted._restore_state()
+
+        assert restarted._position is not None
+        assert restarted._position.side == "PE"
+        assert restarted.paper_realized_pnl == 0.0
+        assert json.loads(Path(state_path).read_text(encoding="utf-8"))["date"] == datetime.now(timezone.utc).astimezone().date().isoformat()
 
 
 def test_crude_stop_persists_open_position_without_closing_it():

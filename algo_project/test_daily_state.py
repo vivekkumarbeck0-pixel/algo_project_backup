@@ -38,9 +38,38 @@ class DailyStateTests(unittest.TestCase):
             self.assertEqual(restored_tracker.daily_realized_pnl(), -1950.0)
             self.assertTrue(risk_manager.evaluate(65).approved)
 
-    def test_daily_state_ignores_prior_day(self):
+    def test_daily_state_rolls_prior_day_forward(self):
         with TemporaryDirectory() as temporary_directory:
             state_store = DailyStateStore(f"{temporary_directory}/daily_state.json")
             state_store.save({"date": "2000-01-01", "positions": []})
 
-            self.assertIsNone(state_store.load(datetime.now().date().isoformat()))
+            restored = state_store.load(datetime.now().date().isoformat())
+
+            self.assertEqual(restored["date"], datetime.now().date().isoformat())
+            self.assertEqual(restored["positions"], [])
+            self.assertEqual(restored["daily_realized_pnl"], 0.0)
+
+    def test_daily_state_rollover_preserves_open_position_and_resets_daily_book(self):
+        with TemporaryDirectory() as temporary_directory:
+            state_store = DailyStateStore(f"{temporary_directory}/daily_state.json")
+            tracker = PositionTracker()
+            position = tracker.open_position("NIFTY", 25000, "CE", "BUY", 65, 100.0)
+            state_store.save(
+                {
+                    "date": "2000-01-01",
+                    "positions": tracker.export_state(),
+                    "trades_today": 1,
+                    "consecutive_stop_losses": 1,
+                    "daily_realized_pnl": -650.0,
+                }
+            )
+
+            restored = state_store.load(datetime.now().date().isoformat())
+            restored_tracker = PositionTracker()
+            restored_tracker.restore_state(restored["positions"])
+
+            self.assertEqual(restored["date"], datetime.now().date().isoformat())
+            self.assertEqual(restored["trades_today"], 0)
+            self.assertEqual(restored["daily_realized_pnl"], 0.0)
+            self.assertEqual(len(restored_tracker.open_positions()), 1)
+            self.assertEqual(restored_tracker.open_positions()[0].strike, position.strike)

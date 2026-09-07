@@ -269,6 +269,9 @@ class MarketDataFetcher:
         attempts = max(1, int(settings.candle_fetch_retries))
         for attempt in range(1, attempts + 1):
             try:
+                # Candle history has a separate broker quota from quotes. Apply
+                # the process-wide historical throttle before queueing the call.
+                type(self)._throttle_candles()
                 return self._queued_call(
                     self.client.get_candle_data,
                     symboltoken,
@@ -575,7 +578,15 @@ class MarketDataFetcher:
         if not self.client:
             raise RuntimeError("No Angel One API client available. Set credentials in .env or pass a client.")
 
-        cache_key = ("candles", str(exchange), str(symboltoken), interval, days)
+        from_date, to_date = self._date_range_strings(days, exchange=exchange)
+        cache_key = (
+            "candles",
+            str(exchange),
+            str(symboltoken),
+            str(interval).upper(),
+            str(from_date),
+            str(to_date),
+        )
         fresh = self._cache_get(cache_key, settings.api_cache_ttl_seconds)
         if fresh is not None:
             return fresh
@@ -598,8 +609,6 @@ class MarketDataFetcher:
                 symboltoken, interval, remaining,
             )
             time.sleep(remaining)
-
-        from_date, to_date = self._date_range_strings(days, exchange=exchange)
 
         log.info(
             "Fetching candles: exchange=%s token=%s interval=%s from=%s to=%s",

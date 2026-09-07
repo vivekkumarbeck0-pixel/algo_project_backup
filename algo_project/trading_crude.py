@@ -536,7 +536,8 @@ class CrudeOptionBuyer:
         completed: list[tuple[dict[str, Any], dict[str, Any]]] = []
 
         try:
-            lines = self.paper_log_path.read_text(encoding="utf-8").splitlines()
+            paper_log_path = getattr(self, "paper_log_path", None)
+            lines = paper_log_path.read_text(encoding="utf-8").splitlines() if paper_log_path else []
         except OSError:
             lines = []
 
@@ -623,15 +624,17 @@ class CrudeOptionBuyer:
             return
 
         today = datetime.now(IST).date().isoformat()
-        if payload.get("date") != today:
-            return
+        state_date = payload.get("date")
+        is_rollover = state_date != today
 
-        self.paper_realized_pnl = float(payload.get("paper_realized_pnl", 0.0))
-        self.paper_wins = int(payload.get("paper_wins", 0))
-        self.paper_losses = int(payload.get("paper_losses", 0))
+        self.paper_realized_pnl = 0.0 if is_rollover else float(payload.get("paper_realized_pnl", 0.0))
+        self.paper_wins = 0 if is_rollover else int(payload.get("paper_wins", 0))
+        self.paper_losses = 0 if is_rollover else int(payload.get("paper_losses", 0))
         self._trail_distance = float(payload.get("trail_distance", self._trail_distance))
         position = payload.get("position")
         if not isinstance(position, dict):
+            if is_rollover:
+                self._persist_state()
             return
 
         try:
@@ -642,6 +645,14 @@ class CrudeOptionBuyer:
             logger.warning("Unable to restore saved Crude position: %s", exc)
             return
 
+        if is_rollover:
+            self._persist_state()
+            logger.info(
+                "Rolled Crude state from %s to %s while preserving the open %s position.",
+                state_date,
+                today,
+                self._position.side,
+            )
         logger.info(
             "Restored open %s %s position from today's Crude state; position management resumed.",
             self._position.side,
@@ -1969,7 +1980,10 @@ class CrudeOptionBuyer:
         position = self._position
         option_price = self._current_option_price(position)
 
+        previous_trailing_stop = position.trailing_stop
         position.trailing_stop = max(position.trailing_stop, option_price - self._trail_distance)
+        if position.trailing_stop != previous_trailing_stop:
+            self._persist_state()
 
         if option_price >= position.target_price:
             self._close_position(option_price, "TARGET HIT")

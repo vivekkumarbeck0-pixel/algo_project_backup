@@ -377,7 +377,7 @@ class LivePaperTradingSession:
         today = datetime.now(IST).date()
         stale_positions = [
             position for position in self.tracker.open_positions()
-            if position.opened_at.date() != today or self._square_off_due()
+            if self._square_off_due()
         ]
         for position in stale_positions:
             exit_price = self._option_ltp_lookup(position)

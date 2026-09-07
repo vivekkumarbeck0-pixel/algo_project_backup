@@ -22,7 +22,30 @@ class DailyStateStore:
         except (OSError, json.JSONDecodeError) as exc:
             log.warning("Unable to load daily state from %s: %s", self.path, exc)
             return None
-        return payload if payload.get("date") == trading_date else None
+        if payload.get("date") == trading_date:
+            return payload
+
+        # A restart after midnight must not lose an open paper position. Start a
+        # fresh daily book while carrying only positions that are still active.
+        open_positions = [
+            position for position in payload.get("positions", [])
+            if isinstance(position, dict) and position.get("status", "OPEN") == "OPEN"
+        ]
+        rollover = {
+            "date": trading_date,
+            "positions": open_positions,
+            "trades_today": 0,
+            "consecutive_stop_losses": 0,
+            "daily_realized_pnl": 0.0,
+        }
+        self.save(rollover)
+        log.info(
+            "Rolled daily state from %s to %s while preserving %d open position(s)",
+            payload.get("date"),
+            trading_date,
+            len(open_positions),
+        )
+        return rollover
 
     def save(self, payload: dict) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
