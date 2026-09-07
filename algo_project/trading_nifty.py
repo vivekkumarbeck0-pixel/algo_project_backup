@@ -32,7 +32,7 @@ class NiftyTradingSession(LivePaperTradingSession):
         return 50.0
 
     def _market_hours(self) -> tuple[dt_time, dt_time]:
-        return dt_time(9, 15), dt_time(15, 30)
+        return dt_time(9, 0), dt_time(15, 30)
 
     def _state_file(self) -> str:
         return "data/nifty_daily_state.json"
