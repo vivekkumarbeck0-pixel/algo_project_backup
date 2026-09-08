@@ -1,7 +1,9 @@
 import os
 import json
+import time
 import gspread
 from google.oauth2.service_account import Credentials
+from gspread.exceptions import APIError
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -65,27 +67,53 @@ def get_gspread_client():
     return gspread.authorize(creds)
 
 def log_trade(trade_data: dict):
-    try:
-        gc = get_gspread_client()
-        sh = gc.open("Crude_Algo_Trade_Logs")
-        worksheet = sh.sheet1
-        
-        # Check current rows in worksheet
-        all_values = worksheet.get_all_values()
-        
-        headers = all_values[0] if all_values else []
-        if not headers:
-            headers = SHEET_COLUMNS.copy()
-            worksheet.append_row(headers)
-        else:
-            # Extend only the header row; legacy columns, order, and rows stay intact.
-            missing_headers = [header for header in SHEET_COLUMNS if header not in headers]
-            if missing_headers:
-                headers = headers + missing_headers
-                worksheet.update("A1", [headers])
-            
-        row_values = [trade_data.get(header, "") for header in headers]
-        worksheet.append_row(row_values)
-        print("Successfully logged trade to Google Sheet!")
-    except Exception as e:
-        print(f"Failed to log trade to Google Sheet: {e}")
+    max_attempts = 3
+    base_delay_seconds = 2
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            gc = get_gspread_client()
+            sh = gc.open("Crude_Algo_Trade_Logs")
+            worksheet = sh.sheet1
+
+            # Check current rows in worksheet
+            all_values = worksheet.get_all_values()
+
+            headers = all_values[0] if all_values else []
+            if not headers:
+                headers = SHEET_COLUMNS.copy()
+                worksheet.append_row(headers)
+            else:
+                # Extend only the header row; legacy columns, order, and rows stay intact.
+                missing_headers = [header for header in SHEET_COLUMNS if header not in headers]
+                if missing_headers:
+                    headers = headers + missing_headers
+                    worksheet.update("A1", [headers])
+
+            row_values = [trade_data.get(header, "") for header in headers]
+            worksheet.append_row(row_values)
+            print(f"Successfully logged trade to Google Sheet on attempt {attempt}/{max_attempts}.")
+            return True
+        except APIError as exc:
+            error_text = str(exc)
+            if "503" not in error_text and "Service Unavailable" not in error_text:
+                print(f"Failed to log trade to Google Sheet: {exc}")
+                return False
+            error = exc
+        except Exception as exc:
+            error_text = str(exc)
+            if "503" not in error_text and "Service Unavailable" not in error_text:
+                print(f"Failed to log trade to Google Sheet: {exc}")
+                return False
+            error = exc
+
+        if attempt == max_attempts:
+            print(f"Failed to log trade to Google Sheet after {max_attempts} attempts: {error}")
+            return False
+
+        delay = base_delay_seconds * (2 ** (attempt - 1))
+        print(
+            f"Google Sheets logging attempt {attempt}/{max_attempts} failed with 503; "
+            f"retrying in {delay} seconds: {error}"
+        )
+        time.sleep(delay)
