@@ -101,6 +101,10 @@ class Settings:
     crude_ai_proximity_tolerance: float = 0.002
     crude_ai_min_momentum: float = 0.05
     crude_ai_max_momentum: float = 2.0
+    crude_market_context_lookback_bars: int = 20
+    crude_sideways_range_atr_multiplier: float = 3.0
+    crude_sideways_efficiency_threshold: float = 0.25
+    crude_reversal_swing_lookback_bars: int = 5
     atr_period: int = 14
     ma_volume_period: int = 20
     volume_spike_factor: float = 1.2
@@ -112,6 +116,7 @@ class Settings:
     atr_target_mult: float = 3.0
     trailing_stop_points: float = 100.0
     max_trailing_stop_points: float = 150.0
+    crude_trailing_activation_points: float = 8.0
     default_option_margin: float = 1.0
 
     # Real-time data timing

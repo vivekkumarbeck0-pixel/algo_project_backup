@@ -299,3 +299,40 @@ def test_crude_pe_exit_keeps_pe_in_combined_google_sheets_record():
     assert payload["Action"] == "PE"
     assert payload["Entry Price"] == 75.0
     assert payload["Exit Price"] == 85.0
+
+
+def test_crude_trailing_stop_starts_after_eight_profit_points():
+    engine = _make_engine("unused.json")
+    engine.settings = Mock(crude_trailing_activation_points=8.0)
+    engine.current_price = 7_200.0
+    engine._trail_distance = 3.0
+    engine._current_option_price = Mock(return_value=107.0)
+    engine._persist_state = Mock()
+    engine._close_position = Mock()
+    engine._position = Position(
+        side="CE",
+        strike=7200,
+        entry_price=100.0,
+        entry_time=datetime.now(),
+        stop_loss=90.0,
+        target_price=120.0,
+        trailing_stop=104.0,
+        atr_value=5.0,
+        futures_entry=7_180.0,
+        futures_entry_oi=1_000.0,
+        scenario="Long Buildup",
+    )
+
+    engine._update_position_management()
+
+    assert engine._position.trailing_stop == 104.0
+    engine._persist_state.assert_not_called()
+    engine._close_position.assert_not_called()
+
+    engine._current_option_price.return_value = 110.0
+
+    engine._update_position_management()
+
+    assert engine._position.trailing_stop == 107.0
+    engine._persist_state.assert_called_once()
+    engine._close_position.assert_not_called()

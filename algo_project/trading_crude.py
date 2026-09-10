@@ -472,6 +472,9 @@ class CrudeOptionBuyer:
         self._last_close: Optional[float] = None
         self._last_cum_volume: Optional[float] = None
         self._last_signal_bar: Optional[datetime] = None
+        self._last_no_signal_reason = ""
+        self._last_no_signal_log = 0.0
+        self._no_signal_log_interval = 30.0
         self._bar_lock = threading.Lock()
         self._trade_lock = threading.Lock()
 
@@ -496,6 +499,15 @@ class CrudeOptionBuyer:
         self.nymex_filter = YFinanceLeadFilter(refresh_seconds=self.settings.yfinance_refresh_seconds)
         self._futures_token_cache: Optional[str] = None
         self._restore_state()
+
+    def _set_no_signal_reason(self, reason: str) -> None:
+        self._last_no_signal_reason = reason
+        now = time.monotonic()
+        last_log = getattr(self, "_last_no_signal_log", 0.0)
+        interval = getattr(self, "_no_signal_log_interval", 30.0)
+        if now - last_log >= interval:
+            self._last_no_signal_log = now
+            logger.info("Crude signal blocked: %s", reason)
 
     def _get_hybrid_model(self):
         if self._hybrid_model_load_attempted:
@@ -986,11 +998,13 @@ class CrudeOptionBuyer:
     def _evaluate_strategy(self) -> Optional[Dict[str, Any]]:
         # Only one position may be open at a time, so do not build a backlog of signals.
         if self._position is not None:
+            self._set_no_signal_reason("position already open")
             return None
 
         # The newest bar is still forming, so its partial volume would corrupt the spike test.
         completed_bars = list(self.futures_bars)[:-1]
         if len(completed_bars) < 22:
+            self._set_no_signal_reason(f"warming up {len(completed_bars)}/22 completed bars")
             return None
 
         recent = completed_bars[-25:]
@@ -998,6 +1012,7 @@ class CrudeOptionBuyer:
         previous_bar = recent[-2]
 
         if self._last_signal_bar == current_bar.timestamp:
+            self._set_no_signal_reason("current completed bar was already evaluated")
             return None
 
         current_price = current_bar.close
@@ -1017,6 +1032,7 @@ class CrudeOptionBuyer:
         pivot_bars = completed_bars[-self.settings.pivot_lookback_bars :]
         pivots = self._calculate_daily_pivots(pivot_bars)
         atr_value = self._calculate_atr(recent)
+        market_context = self._detect_market_context(recent, atr_value)
         next_pivot = self._next_pivot_for_target(current_price, pivots)
 
         nymex_trend = self.nymex_filter.trend
@@ -1024,6 +1040,10 @@ class CrudeOptionBuyer:
         nymex_red = nymex_trend == "RED"
 
         if not volume_spike:
+            required_volume = self.settings.volume_spike_factor * ma_volume
+            self._set_no_signal_reason(
+                f"volume not spiking: current={current_bar.volume:.0f}, required>{required_volume:.0f}, ma={ma_volume:.0f}"
+            )
             return None
 
         scenario = None
@@ -1043,7 +1063,14 @@ class CrudeOptionBuyer:
             side = "PE"
 
         if side is None or scenario is None:
+            oi_delta = current_bar.oi - (ois[-2] if len(ois) >= 2 else current_bar.oi)
+            price_delta = current_price - previous_close
+            self._set_no_signal_reason(
+                f"direction setup mismatch: price_delta={price_delta:+.2f}, oi_delta={oi_delta:+.0f}, nymex={nymex_trend}"
+            )
             return None
+
+        self._last_no_signal_reason = ""
 
         ai_evaluation = self.ai_dynamic_trade_evaluation(
             current_bar=current_bar,
@@ -1100,6 +1127,9 @@ class CrudeOptionBuyer:
             "buffer_points": self.settings.buffer_points,
             "next_pivot": next_pivot,
             "nymex_trend": nymex_trend,
+            "market_regime": market_context.get("regime"),
+            "market_reversal": market_context.get("reversal"),
+            "market_context": market_context,
             "ai_evaluation": ai_evaluation,
             "hybrid_prediction": hybrid_prediction,
             "hybrid_momentum_probability": hybrid_evaluation.momentum_probability if hybrid_evaluation else None,
@@ -1233,6 +1263,62 @@ class CrudeOptionBuyer:
         if len(tr_values) < period:
             return float(np.mean(tr_values)) if tr_values else 0.0
         return float(np.mean(tr_values[-period:]))
+
+    def _detect_market_context(self, bars: list[Bar], atr: float) -> Dict[str, Any]:
+        lookback = int(getattr(self.settings, "crude_market_context_lookback_bars", 20))
+        swing_lookback = int(getattr(self.settings, "crude_reversal_swing_lookback_bars", 5))
+        window = list(bars[-max(lookback, swing_lookback + 1):])
+        if len(window) < max(6, swing_lookback + 1):
+            return {"regime": "UNKNOWN", "reversal": None, "side": None, "reason": "not enough bars"}
+
+        high = max(float(bar.high) for bar in window)
+        low = min(float(bar.low) for bar in window)
+        price_range = high - low
+        net_move = abs(float(window[-1].close) - float(window[0].open))
+        efficiency = net_move / price_range if price_range > 0 else 0.0
+        atr_value = max(float(atr or 0.0), 0.01)
+        range_multiplier = float(getattr(self.settings, "crude_sideways_range_atr_multiplier", 3.0))
+        efficiency_threshold = float(getattr(self.settings, "crude_sideways_efficiency_threshold", 0.25))
+        sideways = price_range <= range_multiplier * atr_value or efficiency <= efficiency_threshold
+
+        latest = window[-1]
+        swing = window[-swing_lookback - 1:-1]
+        swing_low = min(float(bar.low) for bar in swing)
+        swing_high = max(float(bar.high) for bar in swing)
+        body = abs(float(latest.close) - float(latest.open))
+        candle_range = float(latest.high) - float(latest.low)
+        lower_wick = min(float(latest.open), float(latest.close)) - float(latest.low)
+        upper_wick = float(latest.high) - max(float(latest.open), float(latest.close))
+        min_wick = max(body, candle_range * 0.35)
+
+        bullish_reversal = (
+            float(latest.low) < swing_low
+            and float(latest.close) > swing_low
+            and float(latest.close) > float(latest.open)
+            and lower_wick >= min_wick
+        )
+        bearish_reversal = (
+            float(latest.high) > swing_high
+            and float(latest.close) < swing_high
+            and float(latest.close) < float(latest.open)
+            and upper_wick >= min_wick
+        )
+
+        side = "CE" if bullish_reversal else "PE" if bearish_reversal else None
+        reversal = "BULLISH" if bullish_reversal else "BEARISH" if bearish_reversal else None
+        return {
+            "regime": "SIDEWAYS" if sideways else "TRENDING",
+            "reversal": reversal,
+            "side": side,
+            "range_points": round(price_range, 2),
+            "efficiency": round(efficiency, 3),
+            "swing_low": round(swing_low, 2),
+            "swing_high": round(swing_high, 2),
+            "reason": (
+                f"range={price_range:.2f}, atr={atr_value:.2f}, efficiency={efficiency:.2f}, "
+                f"reversal={reversal or 'NONE'}"
+            ),
+        }
 
     def _next_pivot_for_target(self, price: float, pivots: Dict[str, float]) -> float:
         targets = [pivots["R1"], pivots["R2"], pivots["S1"], pivots["S2"]]
@@ -1700,6 +1786,8 @@ class CrudeOptionBuyer:
                 ("Open interest", f"{signal.get('oi', 0):,.0f}"),
                 ("Bar volume", f"{signal.get('volume', 0):,.0f}"),
                 ("NYMEX trend", signal.get("nymex_trend")),
+                ("Market regime", signal.get("market_regime", "UNKNOWN")),
+                ("Reversal", signal.get("market_reversal") or "NONE"),
                 ("Pivot cleared", f"{signal.get('pivot_level_name', '-')} {signal.get('pivot_level', 0):.2f} "
                                   f"(+/-{signal.get('buffer_points', 0):.1f} buffer)"),
                 ("Next pivot", f"{signal.get('next_pivot', 0):.2f}"),
@@ -1734,6 +1822,8 @@ class CrudeOptionBuyer:
                 "oi": signal.get("oi"),
                 "volume": signal.get("volume"),
                 "nymex_trend": signal.get("nymex_trend"),
+                "market_regime": signal.get("market_regime"),
+                "market_reversal": signal.get("market_reversal"),
                 "atr": signal.get("atr"),
                 "pivot_level_name": signal.get("pivot_level_name"),
                 "pivot_level": signal.get("pivot_level"),
@@ -1995,10 +2085,13 @@ class CrudeOptionBuyer:
         position = self._position
         option_price = self._current_option_price(position)
 
-        previous_trailing_stop = position.trailing_stop
-        position.trailing_stop = max(position.trailing_stop, option_price - self._trail_distance)
-        if position.trailing_stop != previous_trailing_stop:
-            self._persist_state()
+        activation_points = float(getattr(self.settings, "crude_trailing_activation_points", 8.0))
+        trailing_active = option_price >= position.entry_price + activation_points
+        if trailing_active:
+            previous_trailing_stop = position.trailing_stop
+            position.trailing_stop = max(position.trailing_stop, option_price - self._trail_distance)
+            if position.trailing_stop != previous_trailing_stop:
+                self._persist_state()
 
         if option_price >= position.target_price:
             self._close_position(option_price, "TARGET HIT")
@@ -2008,7 +2101,7 @@ class CrudeOptionBuyer:
             self._close_position(option_price, "STOP LOSS")
             return
 
-        if option_price <= position.trailing_stop:
+        if trailing_active and option_price <= position.trailing_stop:
             self._close_position(option_price, "TRAILING STOP")
             return
 
@@ -2068,7 +2161,10 @@ class CrudeOptionBuyer:
                     f"tgt {position.target_price:.2f}"
                 )
             else:
+                last_reason = getattr(self, "_last_no_signal_reason", "")
                 state = "scanning for CE/PE setup"
+                if last_reason:
+                    state += f" | last block: {last_reason}"
 
         line = (
             f"[{datetime.now(IST).strftime('%H:%M:%S')}] {self.instrument.symbol} {price_text} | "
