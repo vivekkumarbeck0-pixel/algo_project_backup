@@ -181,6 +181,8 @@ class Position:
     entry_candle_high: Optional[float] = None
     entry_candle_low: Optional[float] = None
     entry_candle_close: Optional[float] = None
+    futures_target: Optional[float] = None
+    target_source: str = "ATR"
 
 
 class AngelSmartWebSocketClient:
@@ -1070,6 +1072,12 @@ class CrudeOptionBuyer:
             )
             return None
 
+        if market_context.get("regime") == "SIDEWAYS" and not self._sideways_entry_ok(current_bar, pivots, side):
+            self._set_no_signal_reason(
+                f"sideways {side} needs a candle extreme or pivot retest: {market_context.get('reason', '')}"
+            )
+            return None
+
         self._last_no_signal_reason = ""
 
         ai_evaluation = self.ai_dynamic_trade_evaluation(
@@ -1178,11 +1186,31 @@ class CrudeOptionBuyer:
         candle_range = float(candle.high) - float(candle.low)
         if candle_range <= 0:
             return False
-        zone = min(max(float(self.settings.crude_entry_candle_zone), 0.0), 0.5)
+        zone = min(max(float(getattr(self.settings, "crude_entry_candle_zone", 0.35)), 0.0), 0.5)
         close_position = (float(candle.close) - float(candle.low)) / candle_range
         if side == "CE":
             return close_position <= zone
         return close_position >= 1.0 - zone
+
+    def _sideways_entry_ok(self, candle: Bar, pivots: Dict[str, float], side: str) -> bool:
+        """Allow range entries only from a candle extreme or a confirmed S/R retest."""
+        if self._candle_entry_zone_ok(candle, side):
+            return True
+
+        buffer = float(self.settings.buffer_points)
+        close = float(candle.close)
+        if side == "CE":
+            supports = [
+                float(level) for name, level in pivots.items()
+                if name in {"S2", "S1", "PP"} and level is not None and float(level) <= close
+            ]
+            return bool(supports) and float(candle.low) <= max(supports) + buffer
+
+        resistances = [
+            float(level) for name, level in pivots.items()
+            if name in {"R1", "R2", "PP"} and level is not None and float(level) >= close
+        ]
+        return bool(resistances) and float(candle.high) >= min(resistances) - buffer
 
     def ai_dynamic_trade_evaluation(
         self,
@@ -1327,6 +1355,30 @@ class CrudeOptionBuyer:
         else:
             bucket = [pivots["S1"], pivots["S2"]]
         return min(bucket, key=lambda x: abs(x - price)) if bucket else pivots["PP"]
+
+    @staticmethod
+    def _reachable_structure_target(
+        futures_price: float,
+        pivots: Dict[str, float],
+        side: str,
+        minimum_distance: float,
+        maximum_distance: float,
+    ) -> Optional[float]:
+        """Return the nearest directional S/R target only when ATR says it is reachable."""
+        if side == "CE":
+            candidates = [float(level) for name, level in pivots.items()
+                          if name in {"R1", "R2"} and level is not None and float(level) > futures_price]
+            target = min(candidates, default=None)
+            distance = target - futures_price if target is not None else None
+        else:
+            candidates = [float(level) for name, level in pivots.items()
+                          if name in {"S1", "S2"} and level is not None and float(level) < futures_price]
+            target = max(candidates, default=None)
+            distance = futures_price - target if target is not None else None
+
+        if distance is None or distance < minimum_distance or distance > maximum_distance:
+            return None
+        return target
 
     @staticmethod
     def _nearest_pivot_info(price: float, pivots: Dict[str, float]) -> tuple[Optional[str], Optional[int], Optional[float]]:
@@ -1640,11 +1692,16 @@ class CrudeOptionBuyer:
             )
             return None
 
+        # Buffer protects the stop from noise; it must not enlarge the target.
+        atr_target_distance = 2.0 * atr_multiplier * atr
+
         return {
             "stop_distance": stop_distance,
             "trail_distance": trail_distance,
             "stop_loss": entry_price - stop_distance,
-            "target_price": entry_price + max(1.5 * atr_multiplier * atr, 2.0 * stop_distance),
+            "target_price": entry_price + atr_target_distance,
+            "minimum_target_distance": 1.5 * atr_multiplier * atr,
+            "maximum_target_distance": atr_target_distance,
         }
 
     def _place_entry_order(self, signal: Dict[str, Any]):
@@ -1713,6 +1770,20 @@ class CrudeOptionBuyer:
         trail_distance = levels["trail_distance"]
         entry_index_value = float(self.current_price or price)
         entry_pivots = signal.get("pivot") or {}
+        minimum_target_distance = levels.get("minimum_target_distance")
+        maximum_target_distance = levels.get("maximum_target_distance")
+        futures_target = (
+            self._reachable_structure_target(
+                entry_index_value,
+                entry_pivots,
+                option_type,
+                float(minimum_target_distance),
+                float(maximum_target_distance),
+            )
+            if minimum_target_distance is not None and maximum_target_distance is not None
+            else None
+        )
+        target_source = "S&R" if futures_target is not None else "ATR"
         entry_nearest_pivot, entry_pivot_number, entry_pivot_price = self._nearest_pivot_info(
             entry_index_value,
             entry_pivots,
@@ -1756,6 +1827,8 @@ class CrudeOptionBuyer:
             entry_candle_high=getattr(entry_candle, "high", None),
             entry_candle_low=getattr(entry_candle, "low", None),
             entry_candle_close=getattr(entry_candle, "close", None),
+            futures_target=futures_target,
+            target_source=target_source,
         )
         self._trail_distance = trail_distance
         self._option_ltp = entry_option_price
@@ -1779,7 +1852,7 @@ class CrudeOptionBuyer:
                 ("Entry premium", f"{entry_option_price:.2f}"),
                 ("Premium source", "broker LTP"),
                 ("Stop loss", f"{stop_loss:.2f}"),
-                ("Target", f"{target_price:.2f}"),
+                ("Target", f"{futures_target:.2f} futures S&R" if futures_target is not None else f"{target_price:.2f} option ATR"),
                 ("Quantity", quantity),
                 ("Order id", order_id or "-"),
                 ("ATR", f"{atr:.2f}"),
@@ -1795,7 +1868,7 @@ class CrudeOptionBuyer:
             ],
         )
         logger.info(
-            "%s ENTRY %s %s @ %.2f | scenario=%s futures=%.2f stop=%.2f target=%.2f",
+            "%s ENTRY %s %s @ %.2f | scenario=%s futures=%.2f stop=%.2f target=%s",
             mode,
             option_type,
             strike,
@@ -1803,7 +1876,7 @@ class CrudeOptionBuyer:
             signal["scenario"],
             price,
             stop_loss,
-            target_price,
+            f"{futures_target:.2f} S&R" if futures_target is not None else f"{target_price:.2f} ATR",
         )
         self._write_paper_trade_log(
             {
@@ -1818,6 +1891,8 @@ class CrudeOptionBuyer:
                 "entry_premium": round(entry_option_price, 2),
                 "stop_loss": round(stop_loss, 2),
                 "target": round(target_price, 2),
+                "futures_target": futures_target,
+                "target_source": target_source,
                 "qty": quantity,
                 "oi": signal.get("oi"),
                 "volume": signal.get("volume"),
@@ -2093,7 +2168,15 @@ class CrudeOptionBuyer:
             if position.trailing_stop != previous_trailing_stop:
                 self._persist_state()
 
-        if option_price >= position.target_price:
+        futures_target = position.futures_target
+        if futures_target is not None and (
+            (position.side == "CE" and self.current_price >= futures_target)
+            or (position.side == "PE" and self.current_price <= futures_target)
+        ):
+            self._close_position(option_price, "S&R TARGET HIT")
+            return
+
+        if futures_target is None and option_price >= position.target_price:
             self._close_position(option_price, "TARGET HIT")
             return
 
