@@ -107,7 +107,7 @@ class Settings:
     crude_reversal_swing_lookback_bars: int = 5
     atr_period: int = 14
     ma_volume_period: int = 20
-    volume_spike_factor: float = 1.2
+    volume_spike_factor: float = 1.05
     # Confirmation cushion so wicks that only graze a pivot cannot trigger an entry.
     buffer_points: float = 4.0
     # Skip entries whose stop would eat more than this share of the premium.

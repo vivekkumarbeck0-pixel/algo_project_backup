@@ -212,6 +212,28 @@ class DecisionEngine:
             return None
         return min(valid) if option_type == "CE" else max(valid)
 
+    @staticmethod
+    def _select_banded_target(current_price: float, candidates: list, direction: int, fallback_points: float) -> tuple[float, str]:
+        """Keep index targets inside the configured 40-60 or 90-110 point bands."""
+        numeric = sorted({
+            float(level)
+            for level in candidates
+            if isinstance(level, (int, float))
+        })
+        if direction < 0:
+            numeric.reverse()
+
+        bands = ((40.0, 60.0, "T1"), (90.0, 110.0, "T2"))
+        for minimum, maximum, label in bands:
+            eligible = [
+                level for level in numeric
+                if minimum <= direction * (level - current_price) <= maximum
+            ]
+            if eligible:
+                return eligible[-1] if direction > 0 else eligible[-1], label
+
+        return current_price + (direction * fallback_points), "T1_FALLBACK"
+
     @classmethod
     def _ladder_pivot_level(cls, pivot_ladder: dict, strike: float, option_type: str) -> float | None:
         """Map a strike onto its exact pivot S/R level from the connected ladder."""
@@ -658,15 +680,10 @@ class DecisionEngine:
                     oi_resistance,
                     resistance_level,
                 ]
-                min_valid = float(current_price) + target_points
-                index_target = next(
-                    (
-                        float(level)
-                        for level in candidates
-                        if isinstance(level, (int, float)) and float(level) > min_valid
-                    ),
-                    float(current_price) + target_points,
+                index_target, target_band = self._select_banded_target(
+                    float(current_price), candidates, direction=1, fallback_points=40.0
                 )
+                reasons.append(f"NIFTY target band selected: {target_band} ({index_target})")
                 if peak_target is not None:
                     reasons.append(f"CE {peak_source} strike {peak_strike}: pivot R target {index_target}")
                 if wall_pivot_target is not None:
@@ -692,15 +709,10 @@ class DecisionEngine:
                     oi_support,
                     support_level,
                 ]
-                max_valid = float(current_price) - target_points
-                index_target = next(
-                    (
-                        float(level)
-                        for level in candidates
-                        if isinstance(level, (int, float)) and float(level) < max_valid
-                    ),
-                    float(current_price) - target_points,
+                index_target, target_band = self._select_banded_target(
+                    float(current_price), candidates, direction=-1, fallback_points=40.0
                 )
+                reasons.append(f"NIFTY target band selected: {target_band} ({index_target})")
                 if peak_target is not None:
                     reasons.append(f"PE {peak_source} strike {peak_strike}: pivot S target {index_target}")
                 if wall_pivot_target is not None:
