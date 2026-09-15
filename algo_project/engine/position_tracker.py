@@ -8,6 +8,7 @@ from typing import Callable
 from logger import get_logger
 
 log = get_logger(__name__)
+NIFTY_TRAILING_ACTIVATION_POINTS = 7.0
 
 
 class PositionStatus(str, Enum):
@@ -133,6 +134,8 @@ class PositionTracker:
         if current_index_price is None or position.index_sl is None or position.index_target is None:
             return None
 
+        self._update_nifty_trailing_stop(position, current_index_price)
+
         # Call Option (CE) SL/Target logic
         if position.option_type == "CE":
             if current_index_price <= position.index_sl:
@@ -148,6 +151,32 @@ class PositionTracker:
                 return "TARGET_HIT"
 
         return None
+
+    def _update_nifty_trailing_stop(self, position: Position, current_index_price: float) -> None:
+        if str(position.symbol).upper() != "NIFTY" or position.index_entry is None:
+            return
+
+        activation_points = NIFTY_TRAILING_ACTIVATION_POINTS
+        initial_stop = position.entry_metadata.setdefault("initial_index_sl", position.index_sl)
+        trail_distance = abs(float(position.index_entry) - float(initial_stop))
+        if position.option_type == "CE":
+            if current_index_price < position.index_entry + activation_points:
+                return
+            new_stop = current_index_price - trail_distance
+            current_stop = position.trailing_stop if position.trailing_stop is not None else position.index_sl
+            if current_stop is None or new_stop > current_stop:
+                position.trailing_stop = new_stop
+                position.index_sl = new_stop
+                self._notify_change()
+        elif position.option_type == "PE":
+            if current_index_price > position.index_entry - activation_points:
+                return
+            new_stop = current_index_price + trail_distance
+            current_stop = position.trailing_stop if position.trailing_stop is not None else position.index_sl
+            if current_stop is None or new_stop < current_stop:
+                position.trailing_stop = new_stop
+                position.index_sl = new_stop
+                self._notify_change()
 
     def open_positions(self) -> list[Position]:
         return [p for p in self._positions if p.status == PositionStatus.OPEN]

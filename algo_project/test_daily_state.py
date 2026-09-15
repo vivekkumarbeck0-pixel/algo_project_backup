@@ -73,3 +73,25 @@ class DailyStateTests(unittest.TestCase):
             self.assertEqual(restored["daily_realized_pnl"], 0.0)
             self.assertEqual(len(restored_tracker.open_positions()), 1)
             self.assertEqual(restored_tracker.open_positions()[0].strike, position.strike)
+
+    def test_nifty_trailing_stop_starts_after_seven_index_points_with_original_gap(self):
+        tracker = PositionTracker()
+        position = tracker.open_position(
+            "NIFTY",
+            25000,
+            "CE",
+            "BUY",
+            65,
+            100.0,
+            index_entry=25000.0,
+            index_sl=24975.0,
+            index_target=25050.0,
+            trailing_stop=24975.0,
+        )
+
+        self.assertIsNone(tracker.check_exit(position, 25006.0))
+        self.assertEqual(position.index_sl, 24975.0)
+
+        self.assertIsNone(tracker.check_exit(position, 25007.0))
+        self.assertEqual(position.index_sl, 24982.0)
+        self.assertEqual(position.trailing_stop, 24982.0)

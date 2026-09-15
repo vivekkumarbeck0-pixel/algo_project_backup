@@ -118,3 +118,12 @@ def test_crude_market_context_detects_bullish_reversal_in_sideways_range():
     assert context["regime"] == "SIDEWAYS"
     assert context["reversal"] == "BULLISH"
     assert context["side"] == "CE"
+
+
+def test_crude_sideways_entry_accepts_a_pivot_retest_away_from_candle_low():
+    engine = CrudeOptionBuyer.__new__(CrudeOptionBuyer)
+    engine.settings = SimpleNamespace(crude_entry_candle_zone=0.35, buffer_points=2.0)
+    candle = Bar(timestamp=1, open=103.0, high=105.0, low=99.5, close=104.0, volume=10.0, oi=100.0)
+    pivots = {"PP": 100.0, "R1": 106.0, "R2": 110.0, "S1": 96.0, "S2": 92.0}
+
+    assert engine._sideways_entry_ok(candle, pivots, "CE")

@@ -1,5 +1,7 @@
 import time
 
+from engine.decision_engine import Decision
+from engine.position_tracker import PositionTracker
 from engine.trading_session import LivePaperTradingSession
 
 
@@ -54,3 +56,25 @@ def test_trade_gate_accepts_a_fresh_quote_without_price_movement():
 
     assert session._has_fresh_live_confirmation() is True
     assert session._has_fresh_live_confirmation() is True
+
+
+def test_open_trade_refuses_second_position_when_one_is_open():
+    session = object.__new__(LivePaperTradingSession)
+    session.tracker = PositionTracker()
+    session.tracker.open_position("NIFTY", 23500, "CE", "BUY", 65, 100.0)
+
+    decision = Decision(
+        action="BUY",
+        option_type="PE",
+        strike=23450,
+        quantity=65,
+        confidence="HIGH",
+        risk_approved=True,
+        underlying="NIFTY",
+    )
+
+    session._open_trade(decision, index_price=23480.0)
+
+    open_positions = session.tracker.open_positions()
+    assert len(open_positions) == 1
+    assert open_positions[0].option_type == "CE"

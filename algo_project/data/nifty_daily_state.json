@@ -1,7 +1,88 @@
 {
-  "date": "2026-09-11",
-  "positions": [],
-  "trades_today": 0,
+  "date": "2026-09-15",
+  "positions": [
+    {
+      "symbol": "NIFTY",
+      "strike": 23450.0,
+      "option_type": "CE",
+      "side": "BUY",
+      "quantity": 65,
+      "entry_price": 241.1,
+      "trade_number": 1,
+      "index_entry": 23466.05,
+      "index_sl": 23441.05,
+      "index_target": 23517.4,
+      "entry_metadata": {
+        "candle": {
+          "open": 23498.0,
+          "high": 23502.1,
+          "low": 23490.0,
+          "close": 23502.1
+        },
+        "pivot_sr_level": 23500.0,
+        "strike": 23450.0,
+        "option_type": "CE",
+        "ce": {
+          "strike": 23450.0,
+          "oi": 155220.0,
+          "oi_change": 650.0
+        },
+        "pe": {
+          "strike": 23450.0,
+          "oi": 227760.0,
+          "oi_change": 2275.0
+        },
+        "initial_index_sl": 23441.05
+      },
+      "trailing_stop": 23441.05,
+      "opened_at": "2026-09-15T09:27:24.182282",
+      "exit_price": 232.0,
+      "closed_at": "2026-09-15T09:37:53.324505",
+      "close_reason": "REVERSAL",
+      "status": "CLOSED"
+    },
+    {
+      "symbol": "NIFTY",
+      "strike": 23450.0,
+      "option_type": "PE",
+      "side": "BUY",
+      "quantity": 65,
+      "entry_price": 195.95,
+      "trade_number": 2,
+      "index_entry": 23442.5,
+      "index_sl": 23467.5,
+      "index_target": 23400.0,
+      "entry_metadata": {
+        "candle": {
+          "open": 23485.0,
+          "high": 23488.5,
+          "low": 23481.0,
+          "close": 23486.0
+        },
+        "pivot_sr_level": 23400.0,
+        "strike": 23450.0,
+        "option_type": "PE",
+        "ce": {
+          "strike": 23450.0,
+          "oi": 166335.0,
+          "oi_change": 0.0
+        },
+        "pe": {
+          "strike": 23450.0,
+          "oi": 238940.0,
+          "oi_change": 0.0
+        },
+        "initial_index_sl": 23467.5
+      },
+      "trailing_stop": 23467.5,
+      "opened_at": "2026-09-15T09:38:10.625670",
+      "exit_price": null,
+      "closed_at": null,
+      "close_reason": null,
+      "status": "OPEN"
+    }
+  ],
+  "trades_today": 2,
   "consecutive_stop_losses": 0,
-  "daily_realized_pnl": 0
+  "daily_realized_pnl": -591.4999999999997
 }

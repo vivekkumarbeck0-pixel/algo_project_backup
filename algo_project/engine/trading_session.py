@@ -54,7 +54,7 @@ class LivePaperTradingSession:
         except Exception as exc:
             log.warning("Broker connection unavailable: %s", exc)
             self.client = None
-        self.market_data = MarketDataFetcher(client=self.client)
+        self.market_data = MarketDataFetcher(client=self.client, use_env=False)
 
         self.state_store = DailyStateStore(self._state_file())
         self.tracker = PositionTracker(on_change=self._persist_state)
@@ -515,7 +515,7 @@ class LivePaperTradingSession:
         max_trades = self.risk_manager.limits.max_trades_per_day
         under_limit = max_trades is None or self.tracker.trades_today_count() < max_trades
         scanning_open = datetime.now(IST).strftime("%H:%M") >= settings.trade_start_time
-        if not self.tracker.open_positions() and under_limit and scanning_open and not self._square_off_due():
+        if not closed and not self.tracker.open_positions() and under_limit and scanning_open and not self._square_off_due():
             if not self._has_fresh_live_confirmation():
                 log.info("Trade blocked: waiting for a fresh live tick breakout before entry.")
                 self._print_dashboard(snapshot, symbol, index_price, decision, market_structure)
@@ -873,6 +873,15 @@ class LivePaperTradingSession:
         return closed
 
     def _open_trade(self, decision, index_price=None, snapshot=None, market_structure=None):
+        open_positions = self.tracker.open_positions()
+        if open_positions:
+            log.warning(
+                "Skipping new %s trade because position #%s is already open",
+                decision.underlying,
+                getattr(open_positions[0], "trade_number", "N/A"),
+            )
+            return
+
         cfg = SYMBOL_REGISTRY.get(decision.underlying, SYMBOL_REGISTRY[DEFAULT_SYMBOL])
         info = self.instrument_reader.find_option_token(
             underlying=decision.underlying,

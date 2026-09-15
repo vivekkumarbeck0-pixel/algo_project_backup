@@ -79,16 +79,7 @@ class AngelOneLogin:
             if reused is not None:
                 return reused
 
-            # If the TOTP env value looks like a long secret (not a 6-digit code),
-            # try to generate the current 6-digit code using pyotp when available.
-            if totp and len(totp) > 6:
-                try:
-                    import pyotp
-
-                    totp = pyotp.TOTP(totp).now()
-                except Exception:
-                    # pyotp not installed or secret invalid; fall back to raw value
-                    pass
+            totp = cls._current_totp(totp)
 
             if not client_id or not password or not totp:
                 raise EnvironmentError(
@@ -99,6 +90,17 @@ class AngelOneLogin:
             client.connect(client_id, password, totp)
             client._save_session_cache(client_id)
             return client
+
+    @classmethod
+    def _current_totp(cls, value):
+        if value and len(value) > 6:
+            try:
+                import pyotp
+
+                return pyotp.TOTP(value).now()
+            except Exception:
+                pass
+        return value
 
     # ========================================================
     # SHARED SESSION CACHE (lets Nifty + Crude run side by side)
@@ -111,6 +113,14 @@ class AngelOneLogin:
     @classmethod
     def _session_cache_path(cls) -> Path:
         return cls._project_root() / cls.SESSION_CACHE_FILE
+
+    @staticmethod
+    def _session_scope() -> str:
+        railway_environment = os.getenv("RAILWAY_ENVIRONMENT_ID")
+        railway_service = os.getenv("RAILWAY_SERVICE_ID")
+        if railway_environment:
+            return f"railway:{railway_environment}:{railway_service or 'unknown-service'}"
+        return f"local:{os.getenv('COMPUTERNAME', 'unknown-machine')}"
 
     @classmethod
     @contextmanager
@@ -159,6 +169,8 @@ class AngelOneLogin:
         api_key = os.getenv(cls.ENV_API_KEY)
         if data.get("client_id") != client_id or data.get("api_key") != api_key:
             return None
+        if data.get("session_scope") != cls._session_scope():
+            return None
         if time.time() - float(data.get("saved_at", 0)) > cls.SESSION_CACHE_MAX_AGE_SECONDS:
             return None
         if not data.get("access_token") or not data.get("feed_token"):
@@ -190,6 +202,7 @@ class AngelOneLogin:
     def _save_session_cache(self, client_id) -> None:
         payload = {
             "saved_at": time.time(),
+            "session_scope": self._session_scope(),
             "client_id": client_id,
             "api_key": self.api_key,
             "access_token": self.access_token,
@@ -292,7 +305,12 @@ class AngelOneLogin:
         return self.smart_api.searchScrip(exchange, search_text)
 
     def get_market_data(self, mode, exchange_tokens):
-        return self.smart_api.getMarketData(mode, exchange_tokens)
+        response = self.smart_api.getMarketData(mode, exchange_tokens)
+        if self._is_invalid_token_response(response):
+            self._reauthenticate()
+            response = self.smart_api.getMarketData(mode, exchange_tokens)
+        self._raise_for_api_error(response, "market data")
+        return response
 
     def get_candle_data(self, symboltoken, interval, from_date, to_date, exchange=None):
         exchange = exchange or "NFO"
@@ -305,11 +323,10 @@ class AngelOneLogin:
         }
         log.debug("getCandleData request: %s", params)
         response = self.smart_api.getCandleData(params)
-        if isinstance(response, dict) and response.get("status") is False:
-            raise RuntimeError(
-                f"Angel One candle API error: {response.get('message')} "
-                f"(errorcode={response.get('errorcode')}) request={params}"
-            )
+        if self._is_invalid_token_response(response):
+            self._reauthenticate()
+            response = self.smart_api.getCandleData(params)
+        self._raise_for_api_error(response, f"candle request={params}")
         return response
 
     def get_option_ohlc(self, symboltoken, interval="ONE_MINUTE", days=1, exchange=None):
@@ -326,12 +343,55 @@ class AngelOneLogin:
         """Fetch current LTP/OHLC via SmartAPI's official ltpData endpoint."""
         log.debug("ltpData request: exchange=%s symbol=%s token=%s", exchange, tradingsymbol, symboltoken)
         response = self.smart_api.ltpData(exchange, tradingsymbol, str(symboltoken))
-        if isinstance(response, dict) and response.get("status") is False:
-            raise RuntimeError(
-                f"Angel One ltpData error: {response.get('message')} "
-                f"(errorcode={response.get('errorcode')}) exchange={exchange} symbol={tradingsymbol} token={symboltoken}"
-            )
+        if self._is_invalid_token_response(response):
+            self._reauthenticate()
+            response = self.smart_api.ltpData(exchange, tradingsymbol, str(symboltoken))
+        self._raise_for_api_error(
+            response,
+            f"ltpData exchange={exchange} symbol={tradingsymbol} token={symboltoken}",
+        )
         return response
+
+    @staticmethod
+    def _response_error_code(response):
+        if not isinstance(response, dict):
+            return None
+        return response.get("errorCode") or response.get("errorcode")
+
+    @classmethod
+    def _is_invalid_token_response(cls, response) -> bool:
+        return (
+            isinstance(response, dict)
+            and cls._response_error_code(response) == "AG8001"
+        )
+
+    @classmethod
+    def _raise_for_api_error(cls, response, context: str) -> None:
+        if not isinstance(response, dict):
+            return
+        failed = response.get("status") is False or response.get("success") is False
+        if failed:
+            raise RuntimeError(
+                f"Angel One API error: {response.get('message')} "
+                f"(errorcode={cls._response_error_code(response)}) {context}"
+            )
+
+    def _reauthenticate(self) -> None:
+        """Replace an expired JWT and update the process-local session cache."""
+        self._load_dotenv()
+        client_id = os.getenv(self.ENV_CLIENT_ID)
+        password = os.getenv(self.ENV_PASSWORD)
+        totp = self._current_totp(os.getenv(self.ENV_TOTP))
+        if not client_id or not password or not totp:
+            raise EnvironmentError(
+                f"Cannot renew Angel One session: {self.ENV_CLIENT_ID}, "
+                f"{self.ENV_PASSWORD}, and {self.ENV_TOTP} must be set"
+            )
+
+        log.warning("Angel One token was rejected; creating one fresh session and retrying.")
+        with self._session_lock():
+            self.connect(client_id, password, totp)
+            self._save_session_cache(client_id)
 
     def get_option_greek(self, params):
         """SmartAPI option-greek data: IV/delta per strike for one expiry.
@@ -340,11 +400,10 @@ class AngelOneLogin:
         """
         log.debug("optionGreek request: %s", params)
         response = self.smart_api.optionGreek(params)
-        if isinstance(response, dict) and response.get("status") is False:
-            raise RuntimeError(
-                f"Angel One optionGreek error: {response.get('message')} "
-                f"(errorcode={response.get('errorcode')}) request={params}"
-            )
+        if self._is_invalid_token_response(response):
+            self._reauthenticate()
+            response = self.smart_api.optionGreek(params)
+        self._raise_for_api_error(response, f"optionGreek request={params}")
         return response
 
     @staticmethod
