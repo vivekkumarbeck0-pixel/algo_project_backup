@@ -169,6 +169,8 @@ def test_crude_exit_logs_complete_trade_data_to_google_sheets():
     assert payload["Exit Candle High"] == 7_205.0
     assert payload["Exit Candle Low"] == 7_195.0
     assert payload["Exit Candle Close"] == 7_200.0
+    assert payload["Entry ATR"] == 10.0
+    assert payload["Exit ATR"] is None
 
 
 def test_crude_entry_captures_latest_candle_for_google_sheets():
@@ -336,3 +338,9 @@ def test_crude_trailing_stop_starts_after_eight_profit_points():
     assert engine._position.trailing_stop == 107.0
     engine._persist_state.assert_called_once()
     engine._close_position.assert_not_called()
+
+    engine._current_option_price.return_value = 106.0
+
+    engine._update_position_management()
+
+    engine._close_position.assert_called_once_with(106.0, "TRAILING STOP")

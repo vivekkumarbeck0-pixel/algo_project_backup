@@ -2096,6 +2096,11 @@ class CrudeOptionBuyer:
         )
         bar_volume = self.futures_bars[-1].volume if getattr(self, "futures_bars", None) else None
         exit_bar = self.futures_bars[-1] if getattr(self, "futures_bars", None) else None
+        exit_atr = (
+            self._calculate_atr(list(self.futures_bars))
+            if exit_bar and len(self.futures_bars) >= 2
+            else None
+        )
         exit_index_value = self.current_price
         exit_pivots = self._calculate_daily_pivots(list(self.futures_bars)) if exit_bar else {}
         exit_nearest_pivot, exit_pivot_number, exit_pivot_price = (
@@ -2140,6 +2145,8 @@ class CrudeOptionBuyer:
             "Exit Candle High": getattr(exit_bar, "high", None),
             "Exit Candle Low": getattr(exit_bar, "low", None),
             "Exit Candle Close": getattr(exit_bar, "close", None),
+            "Entry ATR": position.atr_value,
+            "Exit ATR": exit_atr,
         }
         # Clear and checkpoint the local position before the external Sheet call.
         # A slow or failed network logger must not leave a closed trade restorable.
@@ -2161,12 +2168,14 @@ class CrudeOptionBuyer:
         option_price = self._current_option_price(position)
 
         activation_points = float(getattr(self.settings, "crude_trailing_activation_points", 8.0))
-        trailing_active = option_price >= position.entry_price + activation_points
-        if trailing_active:
+        activation_reached = option_price >= position.entry_price + activation_points
+        if activation_reached:
             previous_trailing_stop = position.trailing_stop
             position.trailing_stop = max(position.trailing_stop, option_price - self._trail_distance)
             if position.trailing_stop != previous_trailing_stop:
                 self._persist_state()
+
+        trailing_active = position.trailing_stop > position.stop_loss
 
         futures_target = position.futures_target
         if futures_target is not None and (

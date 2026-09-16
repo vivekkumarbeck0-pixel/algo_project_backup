@@ -46,6 +46,8 @@ SHEET_COLUMNS = [
     "Exit Candle High",
     "Exit Candle Low",
     "Exit Candle Close",
+    "Entry ATR",
+    "Exit ATR",
 ]
 def get_gspread_client():
     # Render cloud Environment check
