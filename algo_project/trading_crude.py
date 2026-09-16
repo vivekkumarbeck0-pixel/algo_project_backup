@@ -183,6 +183,7 @@ class Position:
     entry_candle_close: Optional[float] = None
     futures_target: Optional[float] = None
     target_source: str = "ATR"
+    entry_market_regime: Optional[str] = None
 
 
 class AngelSmartWebSocketClient:
@@ -1829,6 +1830,7 @@ class CrudeOptionBuyer:
             entry_candle_close=getattr(entry_candle, "close", None),
             futures_target=futures_target,
             target_source=target_source,
+            entry_market_regime=signal.get("market_regime"),
         )
         self._trail_distance = trail_distance
         self._option_ltp = entry_option_price
@@ -2101,6 +2103,11 @@ class CrudeOptionBuyer:
             if exit_bar and len(self.futures_bars) >= 2
             else None
         )
+        exit_market_context = (
+            self._detect_market_context(list(self.futures_bars), exit_atr)
+            if exit_bar and exit_atr is not None
+            else {}
+        )
         exit_index_value = self.current_price
         exit_pivots = self._calculate_daily_pivots(list(self.futures_bars)) if exit_bar else {}
         exit_nearest_pivot, exit_pivot_number, exit_pivot_price = (
@@ -2147,6 +2154,8 @@ class CrudeOptionBuyer:
             "Exit Candle Close": getattr(exit_bar, "close", None),
             "Entry ATR": position.atr_value,
             "Exit ATR": exit_atr,
+            "Entry Market Regime": position.entry_market_regime,
+            "Exit Market Regime": exit_market_context.get("regime"),
         }
         # Clear and checkpoint the local position before the external Sheet call.
         # A slow or failed network logger must not leave a closed trade restorable.

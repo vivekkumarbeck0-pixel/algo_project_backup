@@ -171,6 +171,8 @@ def test_crude_exit_logs_complete_trade_data_to_google_sheets():
     assert payload["Exit Candle Close"] == 7_200.0
     assert payload["Entry ATR"] == 10.0
     assert payload["Exit ATR"] is None
+    assert payload["Entry Market Regime"] is None
+    assert payload["Exit Market Regime"] is None
 
 
 def test_crude_entry_captures_latest_candle_for_google_sheets():
