@@ -468,6 +468,9 @@ class CrudeOptionBuyer:
         self._last_option_poll = 0.0
         self._option_poll_interval = 2.0
         self._option_ltp_warning_interval = 60.0
+        # A subscribe-triggered snap-quote tick can arrive a moment after entry carrying
+        # a stale/last-close premium; ignore it until real prints settle.
+        self._entry_settle_seconds = 2.0
         self._option_ltp_warnings: dict[str, float] = {}
 
         self.futures_bars: Deque[Bar] = deque(maxlen=self.settings.max_futures_history_bars)
@@ -963,6 +966,20 @@ class CrudeOptionBuyer:
             if not token or not futures_token or token != str(futures_token):
                 position = self._position
                 if position is not None and token and token == position.option_token:
+                    # Guard against the first subscribe-triggered snap-quote right after entry:
+                    # it can carry a stale/last-close premium wildly off the fill price, which
+                    # would otherwise slam the stop loss within the same second as the entry.
+                    since_entry = (_now_ist() - position.entry_time).total_seconds()
+                    if (
+                        since_entry < self._entry_settle_seconds
+                        and position.entry_price
+                        and abs(ltp - position.entry_price) > 0.5 * position.entry_price
+                    ):
+                        logger.warning(
+                            "Ignoring implausible option tick %.2f (entry=%.2f) within settle window for %s.",
+                            ltp, position.entry_price, position.option_symbol,
+                        )
+                        return
                     self._option_ltp = ltp
                     self._option_ltp_token = token
                     self._option_ltp_time = time.monotonic()
@@ -2235,6 +2252,11 @@ class CrudeOptionBuyer:
             return
 
         position = self._position
+        # Never square off within the entry settle window: broker snap-quotes and
+        # throttled REST polls right after entry can momentarily report a stale
+        # premium far from the real fill, which must not be mistaken for a stop hit.
+        if (_now_ist() - position.entry_time).total_seconds() < self._entry_settle_seconds:
+            return
         option_price = self._current_option_price(position)
         if (
             len(position.intratrade_option_prices) < 5_000
