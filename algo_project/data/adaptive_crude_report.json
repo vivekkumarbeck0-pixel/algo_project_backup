@@ -1,0 +1,72 @@
+{
+  "approved": false,
+  "atr_rows": 7,
+  "candidate_count": 4,
+  "development": {
+    "max_drawdown": 13110.0,
+    "profit_factor": 1.1434426229508197,
+    "total_pnl": 5950.0,
+    "trades": 53,
+    "win_rate": 0.39622641509433965
+  },
+  "development_rows": 193,
+  "holdout": {
+    "max_drawdown": 13920.0,
+    "profit_factor": 0.5234200743494424,
+    "total_pnl": -12820.0,
+    "trades": 16,
+    "win_rate": 0.4375
+  },
+  "holdout_rows": 48,
+  "intratrade_path_coverage": 0.0,
+  "known_regime_rows": 2,
+  "parameters": {
+    "allowed_regimes": [
+      "TRENDING",
+      "SIDEWAYS",
+      "UNKNOWN"
+    ],
+    "atr_multiplier": 2.0,
+    "buffer_points": 4.0,
+    "max_atr": 1000000.0,
+    "min_abs_oi_change": 1075.0,
+    "min_atr": 0.0,
+    "min_volume": 56.75,
+    "risk_reward_ratio": 2.0,
+    "trailing_activation_points": 8.0
+  },
+  "risk_replay_enabled": false,
+  "risk_replay_rows": 0,
+  "target_win_rate": 0.6,
+  "total_rows": 241,
+  "walk_forward": [
+    {
+      "max_drawdown": 2460.0,
+      "profit_factor": 1.5056603773584907,
+      "total_pnl": 4020.0,
+      "trades": 14,
+      "win_rate": 0.42857142857142855
+    },
+    {
+      "max_drawdown": 4260.0,
+      "profit_factor": 0.2981878088962109,
+      "total_pnl": -4260.0,
+      "trades": 8,
+      "win_rate": 0.125
+    },
+    {
+      "max_drawdown": 9150.0,
+      "profit_factor": 0.664148750726322,
+      "total_pnl": -5780.0,
+      "trades": 18,
+      "win_rate": 0.3333333333333333
+    },
+    {
+      "max_drawdown": 6300.0,
+      "profit_factor": 2.1678048780487806,
+      "total_pnl": 11970.0,
+      "trades": 13,
+      "win_rate": 0.6153846153846154
+    }
+  ]
+}

@@ -110,6 +110,7 @@ class Settings:
     volume_spike_factor: float = 1.05
     # Confirmation cushion so wicks that only graze a pivot cannot trigger an entry.
     buffer_points: float = 4.0
+    crude_risk_reward_ratio: float = 2.0
     # Skip entries whose stop would eat more than this share of the premium.
     max_stop_premium_fraction: float = 0.5
     atr_stop_mult: float = 1.5
@@ -117,6 +118,13 @@ class Settings:
     trailing_stop_points: float = 100.0
     max_trailing_stop_points: float = 150.0
     crude_trailing_activation_points: float = 8.0
+    # Adaptive gates default to disabled so the baseline strategy is unchanged.
+    crude_min_entry_volume: float = 0.0
+    crude_min_abs_oi_change: float = 0.0
+    crude_min_entry_atr: float = 0.0
+    crude_max_entry_atr: float = 1_000_000.0
+    crude_allowed_regimes: tuple[str, ...] = ("TRENDING", "SIDEWAYS", "UNKNOWN")
+    adaptive_crude_config_file: str = "data/adaptive_crude_config.json"
     default_option_margin: float = 1.0
 
     # Real-time data timing

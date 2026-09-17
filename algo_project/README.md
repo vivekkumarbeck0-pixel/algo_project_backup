@@ -1,3 +1,7 @@
+# Adaptive optimization
+
+See [ADAPTIVE_OPTIMIZATION.md](ADAPTIVE_OPTIMIZATION.md) for the Crude walk-forward optimizer, guarded JSON deployment, data contract, and daily/weekly scheduling instructions.
+
 PROJECT : NIFTY AI ALGO
 
 

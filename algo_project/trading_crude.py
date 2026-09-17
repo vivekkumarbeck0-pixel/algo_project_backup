@@ -33,6 +33,7 @@ import pandas as pd
 import yfinance as yf
 
 from config import MCX_CRUDE_FUTURE, settings
+from engine.adaptive_config import AdaptiveConfigReloader
 from sheets_logger import log_trade
 
 
@@ -184,6 +185,8 @@ class Position:
     futures_target: Optional[float] = None
     target_source: str = "ATR"
     entry_market_regime: Optional[str] = None
+    entry_momentum_strength: float = 0.0
+    intratrade_option_prices: list[float] = field(default_factory=list)
 
 
 class AngelSmartWebSocketClient:
@@ -482,6 +485,9 @@ class CrudeOptionBuyer:
         self._trade_lock = threading.Lock()
 
         self._position: Optional[Position] = None
+        self._adaptive_config = AdaptiveConfigReloader(
+            Path(self.settings.adaptive_crude_config_file)
+        )
         self._live_signal_queue: queue.Queue = queue.Queue()
         self._rest_client = None
         self._rest_fallback = False
@@ -502,6 +508,17 @@ class CrudeOptionBuyer:
         self.nymex_filter = YFinanceLeadFilter(refresh_seconds=self.settings.yfinance_refresh_seconds)
         self._futures_token_cache: Optional[str] = None
         self._restore_state()
+        self._refresh_adaptive_config()
+
+    def _refresh_adaptive_config(self) -> None:
+        try:
+            if self._adaptive_config.refresh(
+                self.settings,
+                position_is_open=self._position is not None,
+            ):
+                logger.info("Applied approved adaptive Crude config from %s.", self._adaptive_config.path)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            logger.error("Adaptive Crude config rejected; keeping current settings: %s", exc)
 
     def _set_no_signal_reason(self, reason: str) -> None:
         self._last_no_signal_reason = reason
@@ -1021,6 +1038,7 @@ class CrudeOptionBuyer:
         current_price = current_bar.close
         previous_close = previous_bar.close
         ois = [bar.oi for bar in recent]
+        oi_delta = current_bar.oi - (ois[-2] if len(ois) >= 2 else current_bar.oi)
         history_volumes = [max(float(bar.volume), 0.0) for bar in recent[:-1]]
         ma_volume = float(np.mean(history_volumes[-self.settings.ma_volume_period :]))
         volume_spike = (current_bar.volume > self.settings.volume_spike_factor * ma_volume) and (current_bar.volume > 0)
@@ -1049,6 +1067,43 @@ class CrudeOptionBuyer:
             )
             return None
 
+        minimum_volume = float(getattr(self.settings, "crude_min_entry_volume", 0.0))
+        if current_bar.volume < minimum_volume:
+            self._set_no_signal_reason(
+                f"adaptive volume gate: current={current_bar.volume:.0f}, minimum={minimum_volume:.0f}"
+            )
+            return None
+
+        minimum_oi_change = float(getattr(self.settings, "crude_min_abs_oi_change", 0.0))
+        if abs(oi_delta) < minimum_oi_change:
+            self._set_no_signal_reason(
+                f"adaptive OI gate: absolute change={abs(oi_delta):.0f}, minimum={minimum_oi_change:.0f}"
+            )
+            return None
+
+        minimum_atr = float(getattr(self.settings, "crude_min_entry_atr", 0.0))
+        maximum_atr = float(getattr(self.settings, "crude_max_entry_atr", 1_000_000.0))
+        if not minimum_atr <= atr_value <= maximum_atr:
+            self._set_no_signal_reason(
+                f"adaptive ATR gate: current={atr_value:.2f}, range={minimum_atr:.2f}-{maximum_atr:.2f}"
+            )
+            return None
+
+        allowed_regimes = tuple(
+            str(regime).upper()
+            for regime in getattr(
+                self.settings,
+                "crude_allowed_regimes",
+                ("TRENDING", "SIDEWAYS", "UNKNOWN"),
+            )
+        )
+        market_regime = str(market_context.get("regime") or "UNKNOWN").upper()
+        if market_regime not in allowed_regimes:
+            self._set_no_signal_reason(
+                f"adaptive regime gate: {market_regime} not in {allowed_regimes}"
+            )
+            return None
+
         scenario = None
         side = None
 
@@ -1066,7 +1121,6 @@ class CrudeOptionBuyer:
             side = "PE"
 
         if side is None or scenario is None:
-            oi_delta = current_bar.oi - (ois[-2] if len(ois) >= 2 else current_bar.oi)
             price_delta = current_price - previous_close
             self._set_no_signal_reason(
                 f"direction setup mismatch: price_delta={price_delta:+.2f}, oi_delta={oi_delta:+.0f}, nymex={nymex_trend}"
@@ -1120,7 +1174,7 @@ class CrudeOptionBuyer:
 
         self._last_signal_bar = current_bar.timestamp
         strike = self._nearest_atm_strike(current_price)
-        oi_change = current_bar.oi - ois[-2] if len(ois) >= 2 else None
+        oi_change = oi_delta if len(ois) >= 2 else None
         return {
             "scenario": scenario,
             "side": side,
@@ -1694,7 +1748,8 @@ class CrudeOptionBuyer:
             return None
 
         # Buffer protects the stop from noise; it must not enlarge the target.
-        atr_target_distance = 2.0 * atr_multiplier * atr
+        risk_reward_ratio = float(getattr(self.settings, "crude_risk_reward_ratio", 2.0))
+        atr_target_distance = risk_reward_ratio * atr_multiplier * atr
 
         return {
             "stop_distance": stop_distance,
@@ -1831,6 +1886,10 @@ class CrudeOptionBuyer:
             futures_target=futures_target,
             target_source=target_source,
             entry_market_regime=signal.get("market_regime"),
+            entry_momentum_strength=float(
+                (signal.get("ai_evaluation") or {}).get("momentum_strength", 0.0)
+            ),
+            intratrade_option_prices=[entry_option_price],
         )
         self._trail_distance = trail_distance
         self._option_ltp = entry_option_price
@@ -2156,6 +2215,8 @@ class CrudeOptionBuyer:
             "Exit ATR": exit_atr,
             "Entry Market Regime": position.entry_market_regime,
             "Exit Market Regime": exit_market_context.get("regime"),
+            "Entry Momentum Strength": position.entry_momentum_strength,
+            "Intratrade Option Prices": json.dumps(position.intratrade_option_prices),
         }
         # Clear and checkpoint the local position before the external Sheet call.
         # A slow or failed network logger must not leave a closed trade restorable.
@@ -2175,6 +2236,14 @@ class CrudeOptionBuyer:
 
         position = self._position
         option_price = self._current_option_price(position)
+        if (
+            len(position.intratrade_option_prices) < 5_000
+            and (
+                not position.intratrade_option_prices
+                or position.intratrade_option_prices[-1] != option_price
+            )
+        ):
+            position.intratrade_option_prices.append(option_price)
 
         activation_points = float(getattr(self.settings, "crude_trailing_activation_points", 8.0))
         activation_reached = option_price >= position.entry_price + activation_points
@@ -2207,6 +2276,7 @@ class CrudeOptionBuyer:
             return
 
     def _process_live_cycle(self):
+        self._refresh_adaptive_config()
         if not self._smart_stream.connected and not self._rest_fallback:
             self._enable_rest_fallback("websocket disconnected")
 
