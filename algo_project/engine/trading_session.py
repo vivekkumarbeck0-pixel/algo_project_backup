@@ -314,7 +314,7 @@ class LivePaperTradingSession:
                 self._last_metrics.get(key) is not None
                 for key in ("india_vix", "option_iv", "crude_volatility")
             ):
-                self._metrics_updated_at = datetime.now()
+                self._metrics_updated_at = datetime.now(IST)
 
         if any(
             self._last_metrics.get(key) is not None
