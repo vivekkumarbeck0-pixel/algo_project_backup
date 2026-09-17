@@ -138,7 +138,7 @@ class Settings:
     # NSE / Nifty session settings (engine/ + trading_nifty.py).
     # The crude engine does not read anything below this line.
     # ----------------------------------------------------------
-    trade_start_time: str = "09:20"
+    trade_start_time: str = "09:00"
     square_off_time: str = "15:28"
     daily_state_file: str = "data/daily_state.json"
     live_poll_interval_seconds: float = 5.0
