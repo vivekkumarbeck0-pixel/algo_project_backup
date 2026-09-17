@@ -1027,7 +1027,7 @@ class LivePaperTradingSession:
     def _print_dashboard(self, snapshot, symbol, index_price, decision, market_structure=None):
         self._refresh_console_view()
         print("=" * 78)
-        now = datetime.now()
+        now = datetime.now(IST)
         market_status = decision.market_status if decision else snapshot.get("market_status", "CLOSED")
         status = "MARKET CLOSED" if market_status == "CLOSED" else "ACTIVE"
         print(f"TRADING DASHBOARD | {now.strftime('%Y-%m-%d %H:%M:%S')} | MODE: {self.order_manager.mode.value} | {status}")
