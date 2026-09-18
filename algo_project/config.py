@@ -150,6 +150,9 @@ class Settings:
     api_min_request_interval_seconds: float = 0.35
     # The historical-candle endpoint throttles far harder than quotes.
     candle_min_request_interval_seconds: float = 1.5
+    # Shared on-disk pacing file so multiple local bots (nifty + crude) on the
+    # same Angel One account never burst the historical-candle quota together.
+    api_shared_throttle_file: str = "data/api_throttle_state.json"
     candle_disk_cache_file: str = "data/candle_cache.json"
     candle_disk_cache_max_age_seconds: float = 86400.0
     # Only used when nothing is cached yet; a blind start would otherwise kill trading.

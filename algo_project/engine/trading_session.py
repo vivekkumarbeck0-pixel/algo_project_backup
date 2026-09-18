@@ -560,7 +560,7 @@ class LivePaperTradingSession:
         try:
             structures = {
                 interval: self.market_data.fetch_market_structure_levels(
-                    underlying.get("token"), interval=interval, days=5,
+                    underlying.get("token"), interval=interval, days=3,
                     exchange=exchange, lookback=60 if interval != "ONE_MINUTE" else 12,
                     underlying_name=underlying.get("name") or symbol,
                 )

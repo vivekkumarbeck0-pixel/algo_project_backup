@@ -1,10 +1,11 @@
 from typing import Any, List, Optional
 import json
+import os
 import queue
 import statistics
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from .login import AngelOneLogin
@@ -184,6 +185,52 @@ class MarketDataFetcher:
         return AngelOneLogin.market_session_range(days, exchange=exchange)
 
     # ------------------------------------------------------------
+    # INCREMENTAL CANDLE HISTORY (only ask the broker for what's missing)
+    # ------------------------------------------------------------
+
+    @staticmethod
+    def _candle_row_timestamp(row: Any) -> Optional[datetime]:
+        """Parse a broker candle row's ISO timestamp, stripped of tz (always IST)."""
+        ts = row[0] if isinstance(row, (list, tuple)) else (
+            row.get("timestamp") if isinstance(row, dict) else None
+        )
+        if not ts:
+            return None
+        try:
+            return datetime.fromisoformat(str(ts)).replace(tzinfo=None)
+        except Exception:
+            return None
+
+    @classmethod
+    def _merge_candle_rows(cls, old_rows: Optional[list], new_rows: Optional[list]) -> list:
+        """Combine cached + freshly-fetched candle rows, de-duplicated by timestamp."""
+        by_ts: dict = {}
+        for row in list(old_rows or []) + list(new_rows or []):
+            ts = cls._candle_row_timestamp(row)
+            if ts is None:
+                continue
+            by_ts[ts] = row
+        return [by_ts[ts] for ts in sorted(by_ts)]
+
+    @classmethod
+    def _trim_candle_rows(cls, rows: list, from_dt: datetime) -> list:
+        """Drop rows older than the window we actually need to keep the cache small."""
+        return [row for row in rows if (cls._candle_row_timestamp(row) or from_dt) >= from_dt]
+
+    def _history_key(self, exchange, symboltoken, interval) -> tuple:
+        return ("candle_history", str(exchange), str(symboltoken), str(interval).upper())
+
+    def _history_get(self, history_key: tuple) -> list:
+        rows = self._cache_get(history_key)
+        if rows is None:
+            rows = self._disk_cache_get(history_key)
+        return list(rows or [])
+
+    def _history_set(self, history_key: tuple, rows: list) -> None:
+        self._cache_set(history_key, rows)
+        self._disk_cache_set(history_key, rows)
+
+    # ------------------------------------------------------------
     # RESPONSE CACHE + RATE-LIMIT GUARD
     # ------------------------------------------------------------
 
@@ -199,14 +246,84 @@ class MarketDataFetcher:
 
     @classmethod
     def _throttle_candles(cls) -> None:
-        """The historical endpoint has its own, much tighter quota."""
+        """The historical endpoint has its own, much tighter quota.
+
+        Paced in-process first (cheap), then across all local processes
+        (e.g. the nifty and crude bots sharing one Angel One account) via
+        a small shared state file, so they can never burst the broker's
+        historical-candle quota together.
+        """
         with cls._candle_throttle_lock:
             gap = float(settings.candle_min_request_interval_seconds)
             wait = gap - (time.monotonic() - cls._last_candle_request_ts)
             if wait > 0:
                 time.sleep(wait)
             cls._last_candle_request_ts = time.monotonic()
+        cls._throttle_shared("candle", gap)
         cls._throttle()
+
+    @staticmethod
+    def _acquire_file_lock(lock_path: Path, timeout: float = 10.0) -> None:
+        """Best-effort cross-process mutex using atomic exclusive file creation."""
+        start = time.monotonic()
+        while True:
+            try:
+                fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.close(fd)
+                return
+            except FileExistsError:
+                try:
+                    if time.time() - lock_path.stat().st_mtime > 5.0:
+                        lock_path.unlink(missing_ok=True)
+                        continue
+                except OSError:
+                    pass
+                if time.monotonic() - start > timeout:
+                    return  # proceed rather than deadlock on a stuck lock
+                time.sleep(0.05)
+
+    @staticmethod
+    def _release_file_lock(lock_path: Path) -> None:
+        try:
+            lock_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+    @classmethod
+    def _throttle_shared(cls, state_key: str, gap: float) -> None:
+        """Reserve the next request slot in a shared on-disk timeline.
+
+        Every local process (any script using this class) reads/reserves the
+        next allowed request time under a file lock, then sleeps outside the
+        lock. This keeps concurrently-running bots on the same broker account
+        spaced out by `gap` seconds combined, instead of each independently
+        allowing its own `gap` and bursting the shared quota.
+        """
+        path = Path(settings.api_shared_throttle_file)
+        lock_path = path.with_suffix(path.suffix + ".lock")
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
+        cls._acquire_file_lock(lock_path)
+        try:
+            try:
+                state = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                state = {}
+            now = time.time()
+            last_ts = float(state.get(state_key, 0.0))
+            reserved = max(now, last_ts + gap)
+            state[state_key] = reserved
+            try:
+                path.write_text(json.dumps(state), encoding="utf-8")
+            except OSError:
+                pass
+        finally:
+            cls._release_file_lock(lock_path)
+        wait = reserved - time.time()
+        if wait > 0:
+            time.sleep(wait)
 
     # ------------------------------------------------------------
     # CANDLE DISK CACHE (survives restarts and long rate-limit cooldowns)
@@ -280,7 +397,9 @@ class MarketDataFetcher:
         except Exception as exc:
             log.debug("Could not persist candle cache: %s", exc)
 
-    def _request_candles_with_retry(self, cache_key, symboltoken, interval, from_date, to_date, exchange):
+    def _request_candles_with_retry(
+        self, cache_key, symboltoken, interval, from_date, to_date, exchange, stale_fallback=None
+    ):
         """Retry a throttled candle request only while there is no cached fallback."""
         attempts = max(1, int(settings.candle_fetch_retries))
         for attempt in range(1, attempts + 1):
@@ -300,6 +419,8 @@ class MarketDataFetcher:
                 cached = self._cache_get(cache_key)
                 if cached is None:
                     cached = self._disk_cache_get(cache_key)
+                if cached is None:
+                    cached = stale_fallback
 
                 if cached is not None:
                     self._note_api_failure(exc, f"candles token={symboltoken} interval={interval}")
@@ -584,6 +705,13 @@ class MarketDataFetcher:
         (at any age) while the broker is rate-limiting us, so a throttled
         tick degrades to the last-known candles instead of wiping levels.
 
+        A per-(exchange, token, interval) candle history is kept in memory
+        and on disk. Once that history already covers the requested window,
+        only the candles newer than the last cached one are ever requested
+        from the broker — the full `days` window is never re-downloaded on
+        every refresh, which is what was tripping Angel One's historical
+        rate limit (AB1021 "Too many requests").
+
         Angel One's historical candle API does not return intraday data
         for plain index tokens (e.g. NSE:NIFTY token 26000) even though
         the request succeeds. If `underlying_name` is given and the
@@ -610,10 +738,35 @@ class MarketDataFetcher:
         if fresh is not None:
             return fresh
 
+        history_key = self._history_key(exchange, symboltoken, interval)
+        merged_rows = self._history_get(history_key)
+        from_dt = datetime.strptime(from_date, "%Y-%m-%d %H:%M")
+        to_dt = datetime.strptime(to_date, "%Y-%m-%d %H:%M")
+        last_ts = max(
+            (ts for ts in (self._candle_row_timestamp(row) for row in merged_rows) if ts is not None),
+            default=None,
+        )
+
+        incremental = bool(merged_rows) and last_ts is not None and last_ts >= from_dt
+        if incremental and last_ts >= to_dt:
+            # Already have every candle in the window cached; skip the broker call.
+            trimmed = self._trim_candle_rows(merged_rows, from_dt)
+            result = {"data": trimmed}
+            self._cache_set(cache_key, result)
+            return result
+
+        fetch_from, fetch_to = (from_date, to_date)
+        if incremental:
+            fetch_from = (last_ts + timedelta(minutes=1)).strftime("%Y-%m-%d %H:%M")
+
+        stale_fallback = {"data": merged_rows} if merged_rows else None
+
         if self._cooling_down():
             stale = self._cache_get(cache_key)
             if stale is None:
                 stale = self._disk_cache_get(cache_key)
+            if stale is None:
+                stale = stale_fallback
             if stale is not None:
                 log.debug("Rate-limit cooldown active; serving cached candles for token=%s", symboltoken)
                 return stale
@@ -630,13 +783,15 @@ class MarketDataFetcher:
             time.sleep(remaining)
 
         log.info(
-            "Fetching candles: exchange=%s token=%s interval=%s from=%s to=%s",
-            exchange, symboltoken, interval, from_date, to_date,
+            "Fetching candles: exchange=%s token=%s interval=%s from=%s to=%s%s",
+            exchange, symboltoken, interval, fetch_from, fetch_to,
+            " (incremental)" if incremental else "",
         )
 
         try:
             response = self._request_candles_with_retry(
-                cache_key, symboltoken, interval, from_date, to_date, exchange
+                cache_key, symboltoken, interval, fetch_from, fetch_to, exchange,
+                stale_fallback=stale_fallback,
             )
         except _CandlesUnavailable as exc:
             if exc.cached is not None:
@@ -666,6 +821,16 @@ class MarketDataFetcher:
 
         data = response.get("data") if isinstance(response, dict) else response
 
+        if not data and incremental:
+            # No new candles yet since the last fetch (e.g. between minute ticks);
+            # the existing history is still perfectly valid, so just serve it.
+            trimmed = self._trim_candle_rows(merged_rows, from_dt)
+            result = dict(response) if isinstance(response, dict) else {}
+            result["data"] = trimmed
+            if trimmed:
+                self._cache_set(cache_key, result)
+            return result
+
         if not data and _allow_future_fallback and underlying_name and str(exchange or "").upper() == "NSE":
             from .instrument_reader import InstrumentReader
 
@@ -689,8 +854,14 @@ class MarketDataFetcher:
                 return proxy
 
         if data:
-            self._cache_set(cache_key, response)
-            self._disk_cache_set(cache_key, response)
+            merged = self._merge_candle_rows(merged_rows, data) if incremental else list(data)
+            trimmed = self._trim_candle_rows(merged, from_dt)
+            self._history_set(history_key, trimmed)
+            result = dict(response) if isinstance(response, dict) else {}
+            result["data"] = trimmed
+            self._cache_set(cache_key, result)
+            self._disk_cache_set(cache_key, result)
+            return result
         return response
 
 
