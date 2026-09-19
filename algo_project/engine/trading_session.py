@@ -818,6 +818,10 @@ class LivePaperTradingSession:
                 log.warning("Could not fetch index price for open %s position: %s", position.symbol, exc)
                 continue
 
+            if position.symbol == "NIFTY":
+                option_price = self._option_ltp_lookup(position)
+                position.record_price_tick(position_index_price, option_price)
+
             res = self.order_manager.check_exits(
                 position.symbol, position_index_price, self._option_ltp_lookup
             )
@@ -923,6 +927,8 @@ class LivePaperTradingSession:
             decision.index_target = current_index + 40.0 if decision.action == "BUY" else current_index - 40.0
 
         entry_metadata = self._entry_metadata(decision, market_structure or {})
+        entry_metadata["iv"] = snapshot.get("iv") if snapshot else None
+        entry_metadata["vix"] = snapshot.get("vix") if snapshot else None
         position = self.order_manager.execute(decision, ltp, entry_metadata=entry_metadata)
         if position:
             record_id = getattr(decision, "training_record_id", None)
@@ -989,6 +995,9 @@ class LivePaperTradingSession:
             "PE OI": pe.get("oi"), "PE OI Change": pe.get("oi_change"),
             "Strike Context JSON": json.dumps(metadata, separators=(",", ":"), default=str),
             "Target": position.index_target, "Stop Loss": position.index_sl,
+            "IV": position.entry_iv, "VIX": position.entry_vix,
+            "Intratrade Index Prices": json.dumps(position.intratrade_index_prices),
+            "Intratrade Option Prices": json.dumps(position.intratrade_option_prices),
         }
 
     @staticmethod

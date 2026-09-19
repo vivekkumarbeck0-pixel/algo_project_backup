@@ -17,6 +17,7 @@ NIFTY_COLUMNS = [
     "Pivot / SR Level", "Strike", "Option Side", "CE OI", "CE OI Change",
     "PE OI", "PE OI Change", "Strike Context JSON", "Target", "Stop Loss",
     "Trade Number", "Event", "Exit Reason", "P&L",
+    "IV", "VIX", "Intratrade Index Prices", "Intratrade Option Prices",
 ]
 
 

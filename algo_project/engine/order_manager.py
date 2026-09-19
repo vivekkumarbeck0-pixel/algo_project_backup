@@ -64,6 +64,8 @@ class OrderManager:
             index_target=decision.index_target,
             entry_metadata=entry_metadata,
             trailing_stop=decision.index_sl,
+            entry_iv=(entry_metadata or {}).get("iv"),
+            entry_vix=(entry_metadata or {}).get("vix"),
         )
         log.info("[PAPER] Simulated fill: %s", position)
         return position

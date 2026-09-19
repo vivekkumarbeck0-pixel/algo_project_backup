@@ -36,6 +36,10 @@ class Position:
     closed_at: datetime | None = None
     close_reason: str | None = None  # "SL_HIT", "TARGET_HIT", "MANUAL", "EOD"
     status: PositionStatus = PositionStatus.OPEN
+    entry_iv: float | None = None
+    entry_vix: float | None = None
+    intratrade_index_prices: list = field(default_factory=list)
+    intratrade_option_prices: list = field(default_factory=list)
 
     @property
     def pnl(self) -> float | None:
@@ -43,6 +47,17 @@ class Position:
             return None
         direction = 1 if self.side == "BUY" else -1
         return direction * (self.exit_price - self.entry_price) * self.quantity
+
+    def record_price_tick(self, index_price: float | None, option_price: float | None) -> None:
+        """Append a de-duplicated intratrade price sample, capped to avoid unbounded growth."""
+        if index_price is not None and len(self.intratrade_index_prices) < 5_000 and (
+            not self.intratrade_index_prices or self.intratrade_index_prices[-1] != index_price
+        ):
+            self.intratrade_index_prices.append(index_price)
+        if option_price is not None and len(self.intratrade_option_prices) < 5_000 and (
+            not self.intratrade_option_prices or self.intratrade_option_prices[-1] != option_price
+        ):
+            self.intratrade_option_prices.append(option_price)
 
 
 class PositionTracker:
@@ -92,6 +107,8 @@ class PositionTracker:
         index_target=None,
         entry_metadata=None,
         trailing_stop=None,
+        entry_iv=None,
+        entry_vix=None,
     ) -> Position:
         position = Position(
             symbol=symbol,
@@ -106,6 +123,8 @@ class PositionTracker:
             index_target=index_target,
             entry_metadata=dict(entry_metadata or {}),
             trailing_stop=trailing_stop,
+            entry_iv=entry_iv,
+            entry_vix=entry_vix,
         )
         self._positions.append(position)
         log.info(
