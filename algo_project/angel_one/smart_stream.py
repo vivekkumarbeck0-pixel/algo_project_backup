@@ -51,6 +51,7 @@ class AngelSmartWebSocketClient:
         self.queue: queue.Queue = queue.Queue()
         self._open_event = threading.Event()
         self._connect_thread: Optional[threading.Thread] = None
+        self._connect_lock = threading.Lock()
         self._SmartWebSocketV2 = None
 
     @staticmethod
@@ -81,7 +82,18 @@ class AngelSmartWebSocketClient:
         except Exception:
             return None
 
-    def connect(self, timeout: float = 10.0) -> bool:
+    def connect(self, timeout: float = 10.0, quiet: bool = False) -> bool:
+        with self._connect_lock:
+            return self._connect_locked(timeout, quiet)
+
+    def _connect_locked(self, timeout: float, quiet: bool) -> bool:
+        if self._connect_thread is not None and self._connect_thread.is_alive():
+            if self.connected:
+                return True
+            if not quiet:
+                log.debug("Angel One websocket connection attempt is already running.")
+            return False
+
         if self._SmartWebSocketV2 is None:
             self._SmartWebSocketV2 = self._import_smart_websocket_v2()
 
@@ -116,7 +128,8 @@ class AngelSmartWebSocketClient:
         self._connect_thread.start()
 
         if not self._open_event.wait(timeout):
-            log.warning("Angel One websocket did not open within %.0fs.", timeout)
+            if not quiet:
+                log.warning("Angel One websocket did not open within %.0fs.", timeout)
             return False
 
         return True
@@ -125,7 +138,7 @@ class AngelSmartWebSocketClient:
         try:
             self.ws.connect()
         except Exception as exc:
-            log.warning("Angel One websocket connection loop terminated: %s", exc)
+            log.debug("Angel One websocket connection loop terminated: %s", exc)
             self.connected = False
 
     def _on_open(self, *args, **kwargs):
@@ -157,7 +170,7 @@ class AngelSmartWebSocketClient:
         self._open_event.clear()
 
     def subscribe(self, token: str, exchange: str) -> bool:
-        if self.ws is None:
+        if self.ws is None or not self.connected:
             return False
 
         exchange_type = self.EXCHANGE_TYPE_MAP.get(str(exchange).upper())
@@ -170,7 +183,8 @@ class AngelSmartWebSocketClient:
             self.ws.subscribe(self.correlation_id, self.SNAP_QUOTE_MODE, token_list)
             return True
         except Exception as exc:
-            log.warning("Failed to subscribe to token %s on %s: %s", token, exchange, exc)
+            if self.connected:
+                log.debug("Subscription deferred for token %s on %s: %s", token, exchange, exc)
             return False
 
     def close(self):
@@ -194,8 +208,11 @@ class LiveTickStore:
         self._subscribed: set[Tuple[str, str]] = set()
         self._lock = threading.Lock()
         self._consumer: Optional[threading.Thread] = None
+        self._reconnect_thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
         self._start_attempted = False
+        self._reconnect_wakeup = threading.Event()
+        self._last_session_refresh = 0.0
 
     @property
     def connected(self) -> bool:
@@ -223,15 +240,83 @@ class LiveTickStore:
             jwt_token=jwt_token,
             correlation_id=self._correlation_id,
         )
-        if not self._stream.connect():
-            log.warning("SmartStream connect failed; falling back to REST polling.")
-            self._stream = None
-            return False
+        connected = self._stream.connect()
 
         self._consumer = threading.Thread(target=self._consume_loop, daemon=True)
         self._consumer.start()
-        log.info("SmartStream live tick feed active; REST quote polling is now a fallback.")
-        return True
+        self._reconnect_thread = threading.Thread(
+            target=self._reconnect_loop,
+            name="angel-smartstream-reconnect",
+            daemon=True,
+        )
+        self._reconnect_thread.start()
+        if connected:
+            log.info("SmartStream live tick feed active; REST quote polling is now a fallback.")
+        else:
+            log.warning("SmartStream is offline; background reconnect has started.")
+        return connected
+
+    def _reconnect_loop(self):
+        retry_delay = 1.0
+        failures = 0
+        while not self._stop_event.is_set():
+            if self.connected:
+                retry_delay = 1.0
+                failures = 0
+                self._reconnect_wakeup.wait(2.0)
+                self._reconnect_wakeup.clear()
+                continue
+
+            self._reconnect_wakeup.wait(retry_delay)
+            self._reconnect_wakeup.clear()
+            if self._stop_event.is_set() or self.connected:
+                continue
+
+            if failures >= 3:
+                self._refresh_session_if_needed()
+
+            if self._stream.connect(timeout=10.0, quiet=True):
+                failures = 0
+                retry_delay = 1.0
+                self._resubscribe_all()
+                log.info("SmartStream reconnected; active tokens resubscribed.")
+                continue
+
+            failures += 1
+            log.warning(
+                "SmartStream reconnect attempt failed; retrying in %.0fs.",
+                retry_delay,
+            )
+            retry_delay = min(retry_delay * 2.0, 30.0)
+
+    def _refresh_session_if_needed(self):
+        now = time.monotonic()
+        if now - self._last_session_refresh < 300.0:
+            return
+        self._last_session_refresh = now
+        try:
+            from .login import AngelOneLogin
+
+            refreshed = AngelOneLogin.connect_from_env()
+            for name in ("api_key", "user_id", "feed_token", "access_token"):
+                value = getattr(refreshed, name, None)
+                if value:
+                    setattr(self._client, name, value)
+            self._stream.api_key = getattr(refreshed, "api_key", self._stream.api_key)
+            self._stream.client_code = getattr(refreshed, "user_id", self._stream.client_code)
+            self._stream.feed_token = getattr(refreshed, "feed_token", self._stream.feed_token)
+            self._stream.jwt_token = getattr(refreshed, "access_token", self._stream.jwt_token)
+            log.info("Angel One session refreshed before websocket retry.")
+        except Exception as exc:
+            log.debug("Angel One session refresh unavailable: %s", exc)
+
+    def _resubscribe_all(self):
+        with self._lock:
+            tokens = tuple(self._subscribed)
+        for token, exchange in tokens:
+            if self._stop_event.is_set() or not self.connected:
+                return
+            self._stream.subscribe(token, exchange)
 
     def _consume_loop(self):
         while not self._stop_event.is_set():
@@ -277,8 +362,7 @@ class LiveTickStore:
             self._subscribed.add(key)
 
         if not self._stream.subscribe(key[0], key[1]):
-            with self._lock:
-                self._subscribed.discard(key)
+            self._reconnect_wakeup.set()
 
     def get(self, token: str, max_age: float) -> Optional[Dict[str, Any]]:
         with self._lock:
@@ -295,5 +379,6 @@ class LiveTickStore:
 
     def stop(self):
         self._stop_event.set()
+        self._reconnect_wakeup.set()
         if self._stream is not None:
             self._stream.close()
