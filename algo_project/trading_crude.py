@@ -1166,7 +1166,7 @@ class CrudeOptionBuyer:
                 side,
             )
 
-        hybrid_evaluation = self._evaluate_hybrid_model(completed_bars)
+        hybrid_evaluation = self._evaluate_hybrid_model(completed_bars, side)
         hybrid_prediction = hybrid_evaluation.action if hybrid_evaluation else "UNAVAILABLE"
         if hybrid_evaluation is None or hybrid_evaluation.action != side:
             logger.warning(
@@ -1217,7 +1217,7 @@ class CrudeOptionBuyer:
             "timestamp": current_bar.timestamp,
         }
 
-    def _evaluate_hybrid_model(self, bars: list[Bar]):
+    def _evaluate_hybrid_model(self, bars: list[Bar], side: str | None = None):
         if len(bars) < 22:
             return None
 
@@ -1228,6 +1228,7 @@ class CrudeOptionBuyer:
         import pandas as pd
 
         frame = pd.DataFrame([asdict(bar) for bar in bars])
+        frame["trade_side"] = 1.0 if side == "CE" else -1.0 if side == "PE" else 0.0
         from engine.crude_hybrid_ml import build_features
 
         features = build_features(frame).dropna()
