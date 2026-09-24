@@ -1,0 +1,57 @@
+{
+  "warning": "In-sample diagnostic only; do not deploy from this report.",
+  "total_rows": 361,
+  "target_win_rate": 0.5,
+  "tolerance": 0.05,
+  "min_trades": 20,
+  "matching_candidates": 348,
+  "results": [
+    {
+      "trades": 72,
+      "win_rate": 0.5,
+      "total_pnl": 3807.2729439767145,
+      "profit_factor": 2.257161675872722,
+      "max_drawdown": 1790.0,
+      "win_rate_gap": 0.0,
+      "within_tolerance": true,
+      "daily_comparison": {
+        "all_data": {
+          "trades": 361,
+          "days": 17,
+          "average_trades_per_day": 21.235294117647058,
+          "total_pnl": -26880.0,
+          "average_daily_pnl": -1581.1764705882354
+        },
+        "selected": {
+          "trades": 72,
+          "days": 7,
+          "average_trades_per_day": 10.285714285714286,
+          "trade_retention": 0.1994459833795014,
+          "total_pnl": 30380.0,
+          "average_daily_pnl": 4340.0
+        },
+        "replayed_selected": {
+          "trades": 72,
+          "total_pnl": 3807.2729439767104,
+          "win_rate": 0.5,
+          "profit_factor": 2.257161675872722
+        }
+      },
+      "parameters": {
+        "min_volume": 53.0,
+        "min_abs_oi_change": 0.0,
+        "min_atr": 5.6142857142,
+        "max_atr": 14.35714286,
+        "allowed_regimes": [
+          "TRENDING",
+          "SIDEWAYS",
+          "UNKNOWN"
+        ],
+        "atr_multiplier": 1.5,
+        "buffer_points": 6.0,
+        "risk_reward_ratio": 2.5,
+        "trailing_activation_points": 12.0
+      }
+    }
+  ]
+}

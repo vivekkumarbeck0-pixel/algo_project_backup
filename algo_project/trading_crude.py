@@ -1137,6 +1137,10 @@ class CrudeOptionBuyer:
             scenario = "Long Unwinding"
             side = "PE"
 
+        if scenario == "Short Covering":
+            self._set_no_signal_reason("Short Covering scenario is disabled")
+            return None
+
         if side is None or scenario is None:
             price_delta = current_price - previous_close
             self._set_no_signal_reason(
@@ -2256,7 +2260,8 @@ class CrudeOptionBuyer:
         # Never square off within the entry settle window: broker snap-quotes and
         # throttled REST polls right after entry can momentarily report a stale
         # premium far from the real fill, which must not be mistaken for a stop hit.
-        if (_now_ist() - position.entry_time).total_seconds() < self._entry_settle_seconds:
+        settle_seconds = float(getattr(self, "_entry_settle_seconds", 0.0))
+        if (_now_ist() - _as_ist(position.entry_time)).total_seconds() < settle_seconds:
             return
         option_price = self._current_option_price(position)
         if (

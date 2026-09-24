@@ -45,7 +45,7 @@ def _load_dotenv() -> None:
 _load_dotenv()
 
 # MCX Crude-only strategy defaults. Nifty does not consume this constant.
-ATR_MULTIPLIER = 2.0
+ATR_MULTIPLIER = 1.25
 
 
 @dataclass(frozen=True)
@@ -110,14 +110,14 @@ class Settings:
     volume_spike_factor: float = 1.05
     # Confirmation cushion so wicks that only graze a pivot cannot trigger an entry.
     buffer_points: float = 4.0
-    crude_risk_reward_ratio: float = 2.0
+    crude_risk_reward_ratio: float = 1.5
     # Skip entries whose stop would eat more than this share of the premium.
     max_stop_premium_fraction: float = 0.5
     atr_stop_mult: float = 1.5
     atr_target_mult: float = 3.0
     trailing_stop_points: float = 100.0
     max_trailing_stop_points: float = 150.0
-    crude_trailing_activation_points: float = 8.0
+    crude_trailing_activation_points: float = 12.0
     # Adaptive gates default to disabled so the baseline strategy is unchanged.
     crude_min_entry_volume: float = 0.0
     crude_min_abs_oi_change: float = 0.0
