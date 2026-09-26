@@ -307,7 +307,7 @@ def test_crude_pe_exit_keeps_pe_in_combined_google_sheets_record():
 
 def test_crude_trailing_stop_starts_after_eight_profit_points():
     engine = _make_engine("unused.json")
-    engine.settings = Mock(crude_trailing_activation_points=8.0)
+    engine.settings = Mock(crude_trailing_activation_points=8.0, crude_trailing_breakeven_buffer_points=1.0)
     engine.current_price = 7_200.0
     engine._trail_distance = 3.0
     engine._current_option_price = Mock(return_value=107.0)
@@ -346,3 +346,69 @@ def test_crude_trailing_stop_starts_after_eight_profit_points():
     engine._update_position_management()
 
     engine._close_position.assert_called_once_with(106.0, "TRAILING STOP")
+
+
+def test_crude_trailing_floor_protects_entry_after_activation():
+    engine = _make_engine("unused.json")
+    engine.settings = Mock(crude_trailing_activation_points=12.0, crude_trailing_breakeven_buffer_points=1.0)
+    engine.current_price = 7_200.0
+    engine._trail_distance = 20.0
+    engine._current_option_price = Mock(return_value=111.0)
+    engine._persist_state = Mock()
+    engine._close_position = Mock()
+    engine._position = Position(
+        side="CE",
+        strike=7200,
+        entry_price=100.0,
+        entry_time=datetime.now(),
+        stop_loss=90.0,
+        target_price=130.0,
+        trailing_stop=90.0,
+        atr_value=5.0,
+        futures_entry=7_180.0,
+        futures_entry_oi=1_000.0,
+        scenario="Long Buildup",
+    )
+
+    engine._update_position_management()
+    assert engine._position.trailing_stop == 90.0
+    engine._persist_state.assert_not_called()
+
+    engine._current_option_price.return_value = 112.0
+    engine._update_position_management()
+    assert engine._position.trailing_stop == 101.0
+    engine._persist_state.assert_called_once()
+    engine._close_position.assert_not_called()
+
+    engine._current_option_price.return_value = 100.5
+    engine._update_position_management()
+    engine._close_position.assert_called_once_with(100.5, "TRAILING STOP")
+    assert engine._position.stop_loss == 90.0
+    assert engine._position.target_price == 130.0
+
+
+def test_crude_target_keeps_priority_when_trailing_floor_is_active():
+    engine = _make_engine("unused.json")
+    engine.settings = Mock(crude_trailing_activation_points=12.0, crude_trailing_breakeven_buffer_points=1.0)
+    engine.current_price = 7_200.0
+    engine._trail_distance = 20.0
+    engine._current_option_price = Mock(return_value=130.0)
+    engine._persist_state = Mock()
+    engine._close_position = Mock()
+    engine._position = Position(
+        side="CE",
+        strike=7200,
+        entry_price=100.0,
+        entry_time=datetime.now(),
+        stop_loss=90.0,
+        target_price=130.0,
+        trailing_stop=90.0,
+        atr_value=5.0,
+        futures_entry=7_180.0,
+        futures_entry_oi=1_000.0,
+        scenario="Long Buildup",
+    )
+
+    engine._update_position_management()
+
+    engine._close_position.assert_called_once_with(130.0, "TARGET HIT")

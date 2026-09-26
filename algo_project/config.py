@@ -45,7 +45,7 @@ def _load_dotenv() -> None:
 _load_dotenv()
 
 # MCX Crude-only strategy defaults. Nifty does not consume this constant.
-ATR_MULTIPLIER = 1.25
+ATR_MULTIPLIER = 1.5
 
 
 @dataclass(frozen=True)
@@ -118,6 +118,7 @@ class Settings:
     trailing_stop_points: float = 100.0
     max_trailing_stop_points: float = 150.0
     crude_trailing_activation_points: float = 12.0
+    crude_trailing_breakeven_buffer_points: float = 1.0
     # Adaptive gates default to disabled so the baseline strategy is unchanged.
     crude_min_entry_volume: float = 0.0
     crude_min_abs_oi_change: float = 0.0

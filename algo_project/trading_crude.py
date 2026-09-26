@@ -2277,7 +2277,12 @@ class CrudeOptionBuyer:
         activation_reached = option_price >= position.entry_price + activation_points
         if activation_reached:
             previous_trailing_stop = position.trailing_stop
-            position.trailing_stop = max(position.trailing_stop, option_price - self._trail_distance)
+            buffer_points = max(0.0, float(self.settings.crude_trailing_breakeven_buffer_points))
+            position.trailing_stop = max(
+                position.trailing_stop,
+                min(position.entry_price + buffer_points, option_price),
+                option_price - self._trail_distance,
+            )
             if position.trailing_stop != previous_trailing_stop:
                 self._persist_state()
 

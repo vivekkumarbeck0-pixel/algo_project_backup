@@ -1,25 +1,25 @@
 {
   "approved": false,
-  "atr_rows": 127,
+  "atr_rows": 163,
   "candidate_count": 432,
   "development": {
-    "max_drawdown": 12250.0,
-    "profit_factor": 1.2689682196413805,
-    "total_pnl": 16359.52991071378,
-    "trades": 76,
-    "win_rate": 0.47368421052631576
+    "max_drawdown": 11760.0,
+    "profit_factor": 1.3208508665555447,
+    "total_pnl": 16636.837053567528,
+    "trades": 78,
+    "win_rate": 0.5128205128205128
   },
-  "development_rows": 289,
+  "development_rows": 318,
   "holdout": {
-    "max_drawdown": 128.79464285374996,
-    "profit_factor": 1.0795255619485689,
-    "total_pnl": 28.555357137499996,
-    "trades": 48,
-    "win_rate": 0.4791666666666667
+    "max_drawdown": 152.7892857199999,
+    "profit_factor": 1.0080223628743818,
+    "total_pnl": 3.8794642668675365,
+    "trades": 54,
+    "win_rate": 0.46296296296296297
   },
-  "holdout_rows": 72,
-  "intratrade_path_coverage": 0.16608996539792387,
-  "known_regime_rows": 122,
+  "holdout_rows": 79,
+  "intratrade_path_coverage": 0.24213836477987422,
+  "known_regime_rows": 158,
   "parameters": {
     "allowed_regimes": [
       "TRENDING",
@@ -27,46 +27,46 @@
       "UNKNOWN"
     ],
     "atr_multiplier": 1.25,
-    "buffer_points": 2.0,
+    "buffer_points": 4.0,
     "max_atr": 1000000.0,
-    "min_abs_oi_change": 700.0,
+    "min_abs_oi_change": 800.0,
     "min_atr": 0.0,
-    "min_volume": 50.0,
+    "min_volume": 50.5,
     "risk_reward_ratio": 2.5,
     "trailing_activation_points": 12.0
   },
   "risk_replay_enabled": true,
-  "risk_replay_rows": 48,
+  "risk_replay_rows": 77,
   "target_win_rate": 0.6,
-  "total_rows": 361,
+  "total_rows": 397,
   "walk_forward": [
     {
-      "max_drawdown": 12250.0,
-      "profit_factor": 0.7232330300909727,
-      "total_pnl": -7910.0,
-      "trades": 29,
-      "win_rate": 0.3448275862068966
+      "max_drawdown": 9420.0,
+      "profit_factor": 1.3518957345971565,
+      "total_pnl": 8910.0,
+      "trades": 27,
+      "win_rate": 0.5185185185185185
     },
     {
-      "max_drawdown": 11760.0,
-      "profit_factor": 1.9223785746709032,
-      "total_pnl": 20320.0,
-      "trades": 21,
-      "win_rate": 0.6190476190476191
-    },
-    {
-      "max_drawdown": 5080.0,
-      "profit_factor": 1.3879094396228113,
-      "total_pnl": 3934.946428580625,
-      "trades": 14,
+      "max_drawdown": 7190.0,
+      "profit_factor": 1.2514263978699125,
+      "total_pnl": 6610.0,
+      "trades": 18,
       "win_rate": 0.5
     },
     {
-      "max_drawdown": 30.260714296249986,
-      "profit_factor": 1.2104398575833413,
-      "total_pnl": 14.583482133156034,
-      "trades": 12,
-      "win_rate": 0.5
+      "max_drawdown": 47.535714288750114,
+      "profit_factor": 9.876351683200962,
+      "total_pnl": 1093.5031249994058,
+      "trades": 17,
+      "win_rate": 0.47058823529411764
+    },
+    {
+      "max_drawdown": 56.42142857625002,
+      "profit_factor": 1.196001079952708,
+      "total_pnl": 23.33392856812489,
+      "trades": 16,
+      "win_rate": 0.5625
     }
   ]
 }
