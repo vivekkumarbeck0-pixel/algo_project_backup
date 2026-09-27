@@ -378,27 +378,7 @@ class LivePaperTradingSession:
         if not saved_state:
             return
         self.tracker.restore_state(saved_state.get("positions", []))
-        today = datetime.now(IST).date()
-        stale_positions = [
-            position for position in self.tracker.open_positions()
-            if self._square_off_due()
-        ]
-        for position in stale_positions:
-            exit_price = self._option_ltp_lookup(position)
-            if exit_price is None:
-                # Never carry a stale position into a new session. Entry price
-                # is a conservative paper fallback when the broker is offline.
-                exit_price = position.entry_price
-                log.warning(
-                    "Closing stale %s position #%s at entry price: no exit LTP",
-                    position.symbol, position.trade_number,
-                )
-            self.tracker.close_position(position, exit_price, reason="SESSION_ROLLOVER")
-            self._log_nifty_exit(position)
-        if stale_positions:
-            self._persist_state()
-            log.warning("Closed %d stale position(s) from a previous trading day", len(stale_positions))
-        log.info("Restored %d positions from today's persisted trading state", self.tracker.trades_today_count())
+        log.info("Restored %d positions from persisted trading state", self.tracker.trades_today_count())
 
     def _persist_state(self) -> None:
         self.state_store.save(
@@ -436,17 +416,25 @@ class LivePaperTradingSession:
         self._underlying_cache[symbol] = resolved
         return resolved
 
-    def _option_ltp_lookup(self, position: Position):
-        cfg = SYMBOL_REGISTRY.get(position.symbol, SYMBOL_REGISTRY[DEFAULT_SYMBOL])
-        info = self.instrument_reader.find_option_token(
-            underlying=position.symbol,
-            strike=position.strike,
-            right=position.option_type,
-            instrument_type=cfg["option_instrumenttype"],
-            exchange=cfg["exchange"],
-        )
+    def _option_ltp_lookup(self, position: Position, live_only: bool = False):
+        info = (position.entry_metadata or {}).get("option_instrument")
+        if not info and position.opened_at.date() < datetime.now(IST).date():
+            return None
+        if not info and not live_only:
+            cfg = SYMBOL_REGISTRY.get(position.symbol, SYMBOL_REGISTRY[DEFAULT_SYMBOL])
+            info = self.instrument_reader.find_option_token(
+                underlying=position.symbol,
+                strike=position.strike,
+                right=position.option_type,
+                instrument_type=cfg["option_instrumenttype"],
+                exchange=cfg["exchange"],
+            )
         if not info:
             return None
+        if live_only:
+            quote = self.market_data._live_quote(info.get("token"), info.get("exch_seg"))
+            price = self._to_float(quote.get("ltp")) if quote else None
+            return price if price is not None and math.isfinite(price) and price > 0 else None
         return self.market_data.fetch_latest_price(
             info.get("token"), exchange=info.get("exch_seg"), tradingsymbol=info.get("symbol")
         )
@@ -463,13 +451,16 @@ class LivePaperTradingSession:
             "exchange": SYMBOL_REGISTRY[symbol]["exchange"],
         }
         if not self._is_market_open():
+            blocked_reason = "Market is closed or outside the configured trading hours."
+            if self._square_off_due() and self.tracker.open_positions():
+                blocked_reason += " Square-off pending; exit will be priced during market hours."
             snapshot.update({
                 **self._fallback_metrics(symbol),
                 "market_status": "CLOSED",
             })
             self._print_dashboard(
                 snapshot, symbol, None, None, None,
-                blocked_reason="Market is closed or outside the configured trading hours.",
+                blocked_reason=blocked_reason,
             )
             self._persist_state()
             return
@@ -500,8 +491,12 @@ class LivePaperTradingSession:
         snapshot["current_price"] = index_price
         snapshot["market_status"] = "OPEN"
 
-        # Monitor the existing open position first (SL/Target on index points).
-        closed = self._check_all_exits()
+        stale_positions = [
+            position for position in self.tracker.open_positions()
+            if position.opened_at.date() < datetime.now(IST).date()
+        ]
+        closed = self._close_all_positions("SESSION_ROLLOVER", stale_positions)
+        closed.extend(self._check_all_exits())
         if self._square_off_due():
             closed.extend(self._close_all_positions("TIME_EXIT"))
         else:
@@ -554,6 +549,8 @@ class LivePaperTradingSession:
                 blocked_reason = "; ".join(decision.reasons) or "Signal confirmation or risk approval was not available."
         elif closed:
             blocked_reason = "Exit was processed this cycle; waiting for the next scan before a new entry."
+        elif self.tracker.open_positions() and (stale_positions or self._square_off_due()):
+            blocked_reason = "Square-off pending: exact option contract or exit LTP unavailable."
         elif self.tracker.open_positions():
             blocked_reason = "An existing position is open; only exit management is active."
         elif not under_limit:
@@ -890,11 +887,14 @@ class LivePaperTradingSession:
 
         return closed
 
-    def _close_all_positions(self, reason: str) -> list:
+    def _close_all_positions(self, reason: str, positions: list[Position] | None = None) -> list:
         """Square off every open CE/PE at its current premium."""
         closed = []
-        for position in list(self.tracker.open_positions()):
-            exit_price = self._option_ltp_lookup(position)
+        for position in list(self.tracker.open_positions() if positions is None else positions):
+            exit_price = (
+                self._option_ltp_lookup(position, live_only=True)
+                if reason == "SESSION_ROLLOVER" else self._option_ltp_lookup(position)
+            )
             if exit_price is None:
                 log.warning(
                     "Cannot square off #%s (%s): no exit LTP available",
@@ -980,6 +980,9 @@ class LivePaperTradingSession:
             decision.index_target = current_index + 40.0 if decision.action == "BUY" else current_index - 40.0
 
         entry_metadata = self._entry_metadata(decision, market_structure or {})
+        entry_metadata["option_instrument"] = {
+            key: info.get(key) for key in ("token", "exch_seg", "symbol", "expiry")
+        }
         entry_metadata["iv"] = snapshot.get("iv") if snapshot else None
         entry_metadata["vix"] = snapshot.get("vix") if snapshot else None
         position = self.order_manager.execute(decision, ltp, entry_metadata=entry_metadata)
