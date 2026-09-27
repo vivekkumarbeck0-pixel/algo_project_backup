@@ -2,6 +2,8 @@
 
 import json
 import os
+import time
+from pathlib import Path
 
 import gspread
 from google.oauth2.service_account import Credentials
@@ -19,6 +21,8 @@ NIFTY_COLUMNS = [
     "Trade Number", "Event", "Exit Reason", "P&L",
     "IV", "VIX", "Intratrade Index Prices", "Intratrade Option Prices",
 ]
+OUTBOX_PATH = Path(__file__).resolve().parent / "data" / "nifty_sheet_outbox.jsonl"
+RETRY_BACKOFF_SECONDS = (1.0, 2.0)
 
 
 def _client():
@@ -33,23 +37,110 @@ def _client():
     return gspread.authorize(Credentials.from_service_account_info(info, scopes=SCOPES))
 
 
-def _append_nifty_event(event: dict) -> None:
+def _event_key(event: dict, headers: list[str] | None = None, row: list[str] | None = None):
+    fields = ("Timestamp", "Symbol", "Trade Number", "Event")
+    event_key = tuple(str(event.get(field, "")) for field in fields)
+    if not all(event_key):
+        return None
+    if headers is None or row is None:
+        return event_key
+    values = {header: row[index] if index < len(row) else "" for index, header in enumerate(headers)}
+    return tuple(str(values.get(field, "")) for field in fields)
+
+
+def _append_once(event: dict) -> None:
+    spreadsheet = _client().open("Crude_Algo_Trade_Logs")
+    worksheet = spreadsheet.worksheets()[1]
+    existing = worksheet.get_all_values()
+    headers = existing[0] if existing else []
+    if not headers:
+        headers = NIFTY_COLUMNS.copy()
+        worksheet.append_row(headers)
+        existing = [headers]
+    missing = [column for column in NIFTY_COLUMNS if column not in headers]
+    if missing:
+        headers = headers + missing
+        worksheet.update("A1", [headers])
+
+    event_key = _event_key(event)
+    if event_key is not None and any(
+        _event_key(event, headers, row) == event_key for row in existing[1:]
+    ):
+        print(f"NIFTY {event.get('Event', 'event')} already exists in Google Sheet 2.")
+        return
+
+    worksheet.append_row([event.get(column, "") for column in headers])
+    print(f"Successfully logged NIFTY {event.get('Event', 'event')} to Google Sheet 2!")
+
+
+def _append_with_retries(event: dict) -> bool:
+    for attempt in range(len(RETRY_BACKOFF_SECONDS) + 1):
+        try:
+            _append_once(event)
+            return True
+        except Exception as exc:
+            if attempt == len(RETRY_BACKOFF_SECONDS):
+                print(f"Google Sheets logging failed after {attempt + 1} attempts: {exc}")
+                return False
+            delay = RETRY_BACKOFF_SECONDS[attempt]
+            print(f"Google Sheets logging attempt {attempt + 1} failed; retrying in {delay:g}s: {exc}")
+            time.sleep(delay)
+    return False
+
+
+def _queue_event(event: dict) -> None:
+    OUTBOX_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with OUTBOX_PATH.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(event, separators=(",", ":"), default=str) + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    print(f"NIFTY {event.get('Event', 'event')} saved locally for later Google Sheets retry.")
+
+
+def flush_pending_nifty_events() -> int:
+    """Retry locally queued NIFTY events and retain anything still failing."""
     try:
-        spreadsheet = _client().open("Crude_Algo_Trade_Logs")
-        worksheet = spreadsheet.worksheets()[1]
-        existing = worksheet.get_all_values()
-        headers = existing[0] if existing else []
-        if not headers:
-            headers = NIFTY_COLUMNS.copy()
-            worksheet.append_row(headers)
-        missing = [column for column in NIFTY_COLUMNS if column not in headers]
-        if missing:
-            headers = headers + missing
-            worksheet.update("A1", [headers])
-        worksheet.append_row([event.get(column, "") for column in headers])
-        print(f"Successfully logged NIFTY {event.get('Event', 'event')} to Google Sheet 2!")
-    except Exception as exc:
-        print(f"Failed to log NIFTY event to Google Sheet 2: {exc}")
+        if not OUTBOX_PATH.exists():
+            return 0
+        pending = [
+            json.loads(line)
+            for line in OUTBOX_PATH.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+    except (OSError, ValueError) as exc:
+        print(f"Could not read pending NIFTY Sheets events: {exc}")
+        return 0
+
+    remaining = []
+    sent = 0
+    for event in pending:
+        if _append_with_retries(event):
+            sent += 1
+        else:
+            remaining.append(event)
+
+    try:
+        if remaining:
+            temporary_path = OUTBOX_PATH.with_suffix(OUTBOX_PATH.suffix + ".tmp")
+            temporary_path.write_text(
+                "".join(json.dumps(event, separators=(",", ":"), default=str) + "\n" for event in remaining),
+                encoding="utf-8",
+            )
+            temporary_path.replace(OUTBOX_PATH)
+        else:
+            OUTBOX_PATH.unlink(missing_ok=True)
+    except OSError as exc:
+        print(f"Could not update pending NIFTY Sheets events: {exc}")
+    return sent
+
+
+def _append_nifty_event(event: dict) -> None:
+    flush_pending_nifty_events()
+    if not _append_with_retries(event):
+        try:
+            _queue_event(event)
+        except OSError as exc:
+            print(f"Could not save NIFTY event to the local retry queue: {exc}")
 
 
 def log_nifty_entry(entry: dict) -> None:

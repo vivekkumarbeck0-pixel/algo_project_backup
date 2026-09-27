@@ -177,14 +177,18 @@ class DecisionEngine:
             pe_oi = cls._to_number(pe.get("open_interest"))
             pe_oi_change = cls._to_number(pe.get("oi_change")) or 0.0
             pe_volume = cls._to_number(pe.get("trade_volume")) or 0.0
-            if pe_oi is not None and (current_price is None or strike <= float(current_price)):
-                supports.append({"oi": pe_oi, "oi_change": pe_oi_change, "volume": pe_volume, "strike": strike})
+            if (pe_oi is not None or pe_oi_change > 0.0) and (
+                current_price is None or strike <= float(current_price)
+            ):
+                supports.append({"oi": pe_oi or 0.0, "oi_change": pe_oi_change, "volume": pe_volume, "strike": strike})
 
             ce_oi = cls._to_number(ce.get("open_interest"))
             ce_oi_change = cls._to_number(ce.get("oi_change")) or 0.0
             ce_volume = cls._to_number(ce.get("trade_volume")) or 0.0
-            if ce_oi is not None and (current_price is None or strike >= float(current_price)):
-                resistances.append({"oi": ce_oi, "oi_change": ce_oi_change, "volume": ce_volume, "strike": strike})
+            if (ce_oi is not None or ce_oi_change > 0.0) and (
+                current_price is None or strike >= float(current_price)
+            ):
+                resistances.append({"oi": ce_oi or 0.0, "oi_change": ce_oi_change, "volume": ce_volume, "strike": strike})
 
         return (
             cls._rank_wall(supports, current_price, side="PE"),
@@ -192,7 +196,92 @@ class DecisionEngine:
         )
 
     @classmethod
-    def _pivot_target(cls, market_structure: dict, current_price: float, option_type: str) -> float | None:
+    def _opposite_side_oi_peak_strike(
+        cls,
+        option_chain: dict,
+        current_price: float,
+        trade_option_type: str,
+    ) -> tuple[float | None, str]:
+        """Choose the outermost opposite-side strike at 100% OI or OI change."""
+        source_side = "PE" if trade_option_type == "CE" else "CE"
+        grouped = option_chain.get("by_strike", {}) if isinstance(option_chain, dict) else {}
+        oi_rows = []
+        change_rows = []
+        for raw_strike, sides in grouped.items():
+            strike = cls._to_number(raw_strike)
+            if strike is None:
+                continue
+            quote = (sides or {}).get(source_side, {}) or {}
+            oi = cls._to_number(quote.get("open_interest"))
+            oi_change = cls._to_number(quote.get("oi_change"))
+            if oi is not None and oi > 0:
+                oi_rows.append((oi, strike))
+            if oi_change is not None and oi_change > 0:
+                change_rows.append((oi_change, strike))
+
+        peak_sources_by_strike = {}
+        for rows, label in ((oi_rows, "OI 100%"), (change_rows, "OI-change 100%")):
+            if not rows:
+                continue
+            peak_value = max(value for value, _ in rows)
+            winners = [strike for value, strike in rows if value == peak_value]
+            for strike in winners:
+                peak_sources_by_strike.setdefault(strike, []).append(label)
+        if not peak_sources_by_strike:
+            return None, ""
+
+        peak_strikes = list(peak_sources_by_strike)
+        selected = max(peak_strikes) if trade_option_type == "CE" else min(peak_strikes)
+        return selected, "/".join(peak_sources_by_strike[selected])
+
+    @classmethod
+    def _within_oi_pivot_cutoff(
+        cls,
+        level,
+        pivot_ladder: dict,
+        current_price: float,
+        option_type: str,
+    ) -> bool:
+        numeric_level = cls._to_number(level)
+        if numeric_level is None:
+            return False
+        level_key = "resistance" if option_type == "CE" else "support"
+        for raw_strike, sr in (pivot_ladder or {}).items():
+            strike = cls._to_number(raw_strike)
+            if strike is None:
+                continue
+            if option_type == "CE" and strike <= current_price:
+                continue
+            if option_type == "PE" and strike >= current_price:
+                continue
+            if cls._to_number((sr or {}).get(level_key)) == numeric_level:
+                return True
+        return False
+
+    @classmethod
+    def _pivot_target(
+        cls,
+        market_structure: dict,
+        current_price: float,
+        option_type: str,
+        pivot_ladder: dict | None = None,
+    ) -> float | None:
+        if pivot_ladder is not None:
+            level_key = "resistance" if option_type == "CE" else "support"
+            candidates = []
+            for raw_strike, sr in pivot_ladder.items():
+                strike = cls._to_number(raw_strike)
+                level = cls._to_number((sr or {}).get(level_key))
+                if strike is None or level is None:
+                    continue
+                if option_type == "CE" and strike > current_price and level > current_price:
+                    candidates.append(level)
+                elif option_type == "PE" and strike < current_price and level < current_price:
+                    candidates.append(level)
+            if not candidates:
+                return None
+            return min(candidates) if option_type == "CE" else max(candidates)
+
         unified = market_structure.get("unified_chain") or {}
         chain_target = unified.get("target_up" if option_type == "CE" else "target_down")
         if cls._to_number(chain_target) is not None:
@@ -205,9 +294,15 @@ class DecisionEngine:
             if level is None:
                 continue
             if option_type == "CE" and level > current_price:
-                valid.append(level)
+                if pivot_ladder is None or cls._within_oi_pivot_cutoff(
+                    level, pivot_ladder, current_price, option_type
+                ):
+                    valid.append(level)
             elif option_type == "PE" and level < current_price:
-                valid.append(level)
+                if pivot_ladder is None or cls._within_oi_pivot_cutoff(
+                    level, pivot_ladder, current_price, option_type
+                ):
+                    valid.append(level)
         if not valid:
             return None
         return min(valid) if option_type == "CE" else max(valid)
@@ -220,8 +315,6 @@ class DecisionEngine:
             for level in candidates
             if isinstance(level, (int, float))
         })
-        if direction < 0:
-            numeric.reverse()
 
         bands = ((40.0, 60.0, "T1"), (90.0, 110.0, "T2"))
         for minimum, maximum, label in bands:
@@ -230,24 +323,39 @@ class DecisionEngine:
                 if minimum <= direction * (level - current_price) <= maximum
             ]
             if eligible:
-                return eligible[-1] if direction > 0 else eligible[-1], label
+                nearest = min(eligible, key=lambda level: abs(level - current_price))
+                return nearest, label
 
         return current_price + (direction * fallback_points), "T1_FALLBACK"
 
     @classmethod
     def _ladder_pivot_level(cls, pivot_ladder: dict, strike: float, option_type: str) -> float | None:
         """Map a strike onto its exact pivot S/R level from the connected ladder."""
-        ladder_level = (pivot_ladder or {}).get(str(strike)) or (pivot_ladder or {}).get(str(float(strike)))
+        ladder_level = cls._ladder_node(pivot_ladder, strike)
         if not ladder_level:
-            for ladder_strike, level in (pivot_ladder or {}).items():
-                if cls._to_number(ladder_strike) == strike:
-                    ladder_level = level
-                    break
-        if not ladder_level:
-            return strike
+            return None
 
         level_key = "resistance" if option_type == "CE" else "support"
         return cls._to_number(ladder_level.get(level_key))
+
+    @classmethod
+    def _ladder_node(cls, pivot_ladder: dict, strike: float) -> dict | None:
+        for raw_strike, level in (pivot_ladder or {}).items():
+            if cls._to_number(raw_strike) == strike:
+                return level
+        return None
+
+    @classmethod
+    def _nifty_oi_entry(cls, option_chain, pivot_ladder, current_price, trade_option_type):
+        strike, source = cls._opposite_side_oi_peak_strike(
+            option_chain, current_price, trade_option_type
+        )
+        node = cls._ladder_node(pivot_ladder, strike) if strike is not None else None
+        if node is None:
+            return strike, source, None, None
+        entry_level = node.get("support") if trade_option_type == "CE" else node.get("resistance")
+        target_level = node.get("resistance") if trade_option_type == "CE" else node.get("support")
+        return strike, source, cls._to_number(entry_level), cls._to_number(target_level)
 
     @classmethod
     def _peak_oi_pivot_target(
@@ -370,10 +478,48 @@ class DecisionEngine:
                     ladder_level = level
                     break
         if not ladder_level:
-            return strike, strike
+            return strike, None
 
         level_key = "resistance" if option_type == "CE" else "support"
         return strike, cls._to_number(ladder_level.get(level_key))
+
+    @classmethod
+    def _same_side_oi_target(
+        cls,
+        option_chain: dict,
+        pivot_ladder: dict,
+        current_price: float,
+        trade_option_type: str,
+    ) -> tuple[float | None, float | None, str]:
+        """Use the traded option side's 100% OI/OI-change strike as target."""
+        source_side = trade_option_type
+        direction = 1 if trade_option_type == "CE" else -1
+        grouped = option_chain.get("by_strike", {}) if isinstance(option_chain, dict) else {}
+        oi_rows = []
+        change_rows = []
+        for raw_strike, sides in grouped.items():
+            strike = cls._to_number(raw_strike)
+            if strike is None or direction * (strike - current_price) <= 0:
+                continue
+            quote = (sides or {}).get(source_side, {}) or {}
+            oi = cls._to_number(quote.get("open_interest"))
+            oi_change = cls._to_number(quote.get("oi_change"))
+            if oi is not None and oi > 0:
+                oi_rows.append((oi, strike))
+            if oi_change is not None and oi_change > 0:
+                change_rows.append((oi_change, strike))
+
+        if change_rows:
+            _, strike = max(change_rows, key=lambda item: (item[0], -abs(item[1] - current_price)))
+            source = f"{source_side} OI-change 100%"
+        elif oi_rows:
+            _, strike = max(oi_rows, key=lambda item: (item[0], -abs(item[1] - current_price)))
+            source = f"{source_side} OI 100%"
+        else:
+            return None, None, ""
+
+        level = cls._ladder_pivot_level(pivot_ladder, strike, trade_option_type)
+        return strike, level, source
 
     @staticmethod
     def _buffer_touch(current_price, level, side, buffer_min=7.0, buffer_max=8.0) -> bool:
@@ -511,9 +657,26 @@ class DecisionEngine:
         resistance_range = signal.get("resistance_range")
         support_level = signal.get("support_strike") or combined.get("support")
         resistance_level = signal.get("resistance_strike") or combined.get("resistance")
+        option_chain = (market_structure or {}).get("option_chain") or {}
+        pivot_ladder = (market_structure or {}).get("pivot_ladder") or {}
         unified_chain = (market_structure or {}).get("unified_chain") or {}
         chain_levels = unified_chain.get("levels") or []
-        if current_price is not None and chain_levels:
+        if underlying == "NIFTY" and current_price is not None and pivot_ladder:
+            candle_supports = [
+                self._to_number((sr or {}).get("support"))
+                for sr in pivot_ladder.values()
+            ]
+            candle_resistances = [
+                self._to_number((sr or {}).get("resistance"))
+                for sr in pivot_ladder.values()
+            ]
+            candle_supports = [level for level in candle_supports if level is not None and level <= float(current_price)]
+            candle_resistances = [level for level in candle_resistances if level is not None and level >= float(current_price)]
+            if candle_supports:
+                support_level = max(candle_supports)
+            if candle_resistances:
+                resistance_level = min(candle_resistances)
+        elif underlying != "NIFTY" and current_price is not None and chain_levels:
             chain_supports = [
                 float(level["strike"])
                 for level in chain_levels
@@ -528,11 +691,22 @@ class DecisionEngine:
                 support_level = max(chain_supports)
             if chain_resistances:
                 resistance_level = min(chain_resistances)
-        option_chain = (market_structure or {}).get("option_chain") or {}
-        pivot_ladder = (market_structure or {}).get("pivot_ladder") or {}
         pattern_state = (market_structure or {}).get("candlestick_patterns") or {}
         smc_state = (market_structure or {}).get("smc") or {}
         oi_support, oi_resistance = self._oi_walls(option_chain, current_price)
+        if underlying == "NIFTY" and pivot_ladder:
+            oi_support = self._ladder_pivot_level(pivot_ladder, oi_support, "PE") if oi_support is not None else None
+            oi_resistance = self._ladder_pivot_level(pivot_ladder, oi_resistance, "CE") if oi_resistance is not None else None
+        nifty_entries = {}
+        nifty_targets = {}
+        if underlying == "NIFTY" and current_price is not None and pivot_ladder:
+            for trade_side in ("CE", "PE"):
+                nifty_entries[trade_side] = self._nifty_oi_entry(
+                    option_chain, pivot_ladder, float(current_price), trade_side
+                )
+                nifty_targets[trade_side] = self._peak_oi_pivot_target(
+                    option_chain, pivot_ladder, float(current_price), trade_side
+                )
 
         # Strict 50-point strike rounding for NIFTY
         strike_step = float(symbol_cfg.get("strike_step", 50) or 50)
@@ -550,16 +724,39 @@ class DecisionEngine:
             snapshot=aoc_snapshot,
         )
 
-        bullish_setup = (
-            self._buffer_touch(current_price, support_level, "CE")
-            or self._buffer_touch(current_price, oi_support, "CE")
-            or self._smc_zone_touch(current_price, (smc_state.get("order_blocks", {}).get("bullish", []) + smc_state.get("fair_value_gaps", {}).get("bullish", [])), "CE")
+        bullish_smc_setup = self._smc_zone_touch(
+            current_price,
+            smc_state.get("order_blocks", {}).get("bullish", [])
+            + smc_state.get("fair_value_gaps", {}).get("bullish", []),
+            "CE",
         )
-        bearish_setup = (
-            self._buffer_touch(current_price, resistance_level, "PE")
-            or self._buffer_touch(current_price, oi_resistance, "PE")
-            or self._smc_zone_touch(current_price, (smc_state.get("order_blocks", {}).get("bearish", []) + smc_state.get("fair_value_gaps", {}).get("bearish", [])), "PE")
+        bearish_smc_setup = self._smc_zone_touch(
+            current_price,
+            smc_state.get("order_blocks", {}).get("bearish", [])
+            + smc_state.get("fair_value_gaps", {}).get("bearish", []),
+            "PE",
         )
+        bullish_pivot_setup = self._buffer_touch(current_price, support_level, "CE")
+        bearish_pivot_setup = self._buffer_touch(current_price, resistance_level, "PE")
+        bullish_oi_confirmation = self._buffer_touch(current_price, oi_support, "CE")
+        bearish_oi_confirmation = self._buffer_touch(current_price, oi_resistance, "PE")
+        if underlying == "NIFTY" and nifty_entries:
+            ce_entry = nifty_entries.get("CE", (None, "", None, None))
+            pe_entry = nifty_entries.get("PE", (None, "", None, None))
+            ce_target = nifty_targets.get("CE", (None, None, ""))
+            pe_target = nifty_targets.get("PE", (None, None, ""))
+            bullish_pivot_setup = self._buffer_touch(current_price, ce_entry[2], "CE")
+            bearish_pivot_setup = self._buffer_touch(current_price, pe_entry[2], "PE")
+            bullish_oi_confirmation = (
+                ce_entry[0] is not None and ce_entry[3] is not None
+                and ce_target[0] is not None and ce_target[1] is not None
+            )
+            bearish_oi_confirmation = (
+                pe_entry[0] is not None and pe_entry[3] is not None
+                and pe_target[0] is not None and pe_target[1] is not None
+            )
+        bullish_setup = bullish_smc_setup or (bullish_pivot_setup and bullish_oi_confirmation)
+        bearish_setup = bearish_smc_setup or (bearish_pivot_setup and bearish_oi_confirmation)
         bullish_trigger = bool(pattern_state.get("bullish"))
         bearish_trigger = bool(pattern_state.get("bearish"))
         trend = str((market_structure or {}).get("trend") or "").upper()
@@ -571,6 +768,18 @@ class DecisionEngine:
                 option_type = "CE"
             elif bearish_setup and bearish_trigger and not bullish_setup:
                 option_type = "PE"
+
+        entry_strike = atm_strike
+        if underlying == "NIFTY" and option_type in nifty_entries:
+            selected_strike, _, entry_level, target_level = nifty_entries[option_type]
+            if selected_strike is not None and entry_level is not None and target_level is not None:
+                entry_strike = selected_strike
+
+        oi_pivot_setup = (
+            option_type == "CE" and bullish_pivot_setup and bullish_oi_confirmation
+        ) or (
+            option_type == "PE" and bearish_pivot_setup and bearish_oi_confirmation
+        )
 
         sr_tolerance = 8.0
         sr_trigger = False
@@ -590,6 +799,8 @@ class DecisionEngine:
             and bearish_setup
             and (bearish_trigger or bearish_trend_alignment)
         )
+        if underlying == "NIFTY" and nifty_entries and option_type is not None:
+            entry_confirmed = entry_confirmed and nifty_targets.get(option_type, (None, None, ""))[1] is not None
         
         # Check 3:15 PM IST Auto Square-off cutoff
         time_cutoff_reached = self._is_auto_square_off_time(underlying)
@@ -663,7 +874,22 @@ class DecisionEngine:
         if current_price is not None:
             if option_type == "CE":
                 index_sl = current_price - sl_points
-                peak_strike, peak_target, peak_source = self._peak_oi_pivot_target(
+                if underlying == "NIFTY" and "CE" in nifty_targets:
+                    oi_target_strike, oi_target, oi_target_source = nifty_targets["CE"]
+                    if oi_target is not None and oi_target > float(current_price):
+                        index_target = oi_target
+                        reasons.append(
+                            f"CE same-side {oi_target_source} strike {oi_target_strike}; "
+                            f"target R={index_target}"
+                        )
+                else:
+                    oi_target_strike, oi_target, oi_target_source = self._same_side_oi_target(
+                        option_chain, pivot_ladder, float(current_price), option_type
+                    )
+                    if oi_pivot_setup and oi_target is not None:
+                        index_target = oi_target
+                        reasons.append(f"Same-side OI target: {oi_target_source} strike {oi_target_strike} pivot {index_target}")
+                peak_strike, peak_target, peak_source = nifty_targets.get("CE") or self._peak_oi_pivot_target(
                     option_chain, pivot_ladder, float(current_price), option_type
                 )
                 wall_strike, wall_pivot_target = self._option_wall_pivot_target(
@@ -672,18 +898,35 @@ class DecisionEngine:
                 oi_change_strike, pivot_target = self._pivot_oi_change_target(
                     option_chain, pivot_ladder, float(current_price), option_type
                 )
-                candidates = [
+                candidates = [peak_target] if underlying == "NIFTY" else [
                     peak_target,
                     pivot_target,
                     wall_pivot_target,
-                    self._pivot_target(market_structure or {}, float(current_price), option_type),
+                    self._pivot_target(
+                        market_structure or {}, float(current_price), option_type,
+                        pivot_ladder if underlying == "NIFTY" else None,
+                    ),
                     oi_resistance,
                     resistance_level,
                 ]
-                index_target, target_band = self._select_banded_target(
-                    float(current_price), candidates, direction=1, fallback_points=40.0
-                )
-                reasons.append(f"NIFTY target band selected: {target_band} ({index_target})")
+                if underlying == "NIFTY":
+                    candidates = [
+                        candidate for candidate in candidates
+                        if self._within_oi_pivot_cutoff(
+                            candidate, pivot_ladder, float(current_price), option_type
+                        )
+                    ]
+                if index_target is None:
+                    selected_target, target_band = self._select_banded_target(
+                        float(current_price), candidates, direction=1, fallback_points=40.0
+                    )
+                    if underlying != "NIFTY" or self._within_oi_pivot_cutoff(
+                        selected_target, pivot_ladder, float(current_price), option_type
+                    ):
+                        index_target = selected_target
+                        reasons.append(f"NIFTY target band selected: {target_band} ({index_target})")
+                    else:
+                        reasons.append("NIFTY target stopped at the 100% CE OI/OI-change cutoff.")
                 if peak_target is not None:
                     reasons.append(f"CE {peak_source} strike {peak_strike}: pivot R target {index_target}")
                 if wall_pivot_target is not None:
@@ -692,7 +935,22 @@ class DecisionEngine:
                     reasons.append(f"Highest CE OI-change strike {oi_change_strike}: pivot R target {index_target}")
             elif option_type == "PE":
                 index_sl = current_price + sl_points
-                peak_strike, peak_target, peak_source = self._peak_oi_pivot_target(
+                if underlying == "NIFTY" and "PE" in nifty_targets:
+                    oi_target_strike, oi_target, oi_target_source = nifty_targets["PE"]
+                    if oi_target is not None and oi_target < float(current_price):
+                        index_target = oi_target
+                        reasons.append(
+                            f"PE same-side {oi_target_source} strike {oi_target_strike}; "
+                            f"target S={index_target}"
+                        )
+                else:
+                    oi_target_strike, oi_target, oi_target_source = self._same_side_oi_target(
+                        option_chain, pivot_ladder, float(current_price), option_type
+                    )
+                    if oi_pivot_setup and oi_target is not None:
+                        index_target = oi_target
+                        reasons.append(f"Same-side OI target: {oi_target_source} strike {oi_target_strike} pivot {index_target}")
+                peak_strike, peak_target, peak_source = nifty_targets.get("PE") or self._peak_oi_pivot_target(
                     option_chain, pivot_ladder, float(current_price), option_type
                 )
                 wall_strike, wall_pivot_target = self._option_wall_pivot_target(
@@ -701,18 +959,35 @@ class DecisionEngine:
                 oi_change_strike, pivot_target = self._pivot_oi_change_target(
                     option_chain, pivot_ladder, float(current_price), option_type
                 )
-                candidates = [
+                candidates = [peak_target] if underlying == "NIFTY" else [
                     peak_target,
                     pivot_target,
                     wall_pivot_target,
-                    self._pivot_target(market_structure or {}, float(current_price), option_type),
+                    self._pivot_target(
+                        market_structure or {}, float(current_price), option_type,
+                        pivot_ladder if underlying == "NIFTY" else None,
+                    ),
                     oi_support,
                     support_level,
                 ]
-                index_target, target_band = self._select_banded_target(
-                    float(current_price), candidates, direction=-1, fallback_points=40.0
-                )
-                reasons.append(f"NIFTY target band selected: {target_band} ({index_target})")
+                if underlying == "NIFTY":
+                    candidates = [
+                        candidate for candidate in candidates
+                        if self._within_oi_pivot_cutoff(
+                            candidate, pivot_ladder, float(current_price), option_type
+                        )
+                    ]
+                if index_target is None:
+                    selected_target, target_band = self._select_banded_target(
+                        float(current_price), candidates, direction=-1, fallback_points=40.0
+                    )
+                    if underlying != "NIFTY" or self._within_oi_pivot_cutoff(
+                        selected_target, pivot_ladder, float(current_price), option_type
+                    ):
+                        index_target = selected_target
+                        reasons.append(f"NIFTY target band selected: {target_band} ({index_target})")
+                    else:
+                        reasons.append("NIFTY target stopped at the 100% PE OI/OI-change cutoff.")
                 if peak_target is not None:
                     reasons.append(f"PE {peak_source} strike {peak_strike}: pivot S target {index_target}")
                 if wall_pivot_target is not None:
@@ -730,7 +1005,7 @@ class DecisionEngine:
         decision = Decision(
             action="BUY" if risk_approved else "NO_TRADE",
             option_type=option_type if risk_approved else None,
-            strike=atm_strike,
+            strike=entry_strike,
             quantity=quantity if risk_approved else 0,
             confidence="HIGH" if risk_approved else "LOW",
             reasons=reasons,

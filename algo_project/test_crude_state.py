@@ -42,6 +42,7 @@ def test_crude_state_restores_open_position_on_same_day_restart():
             option_token="12345",
             option_symbol="CRUDEOIL CE",
             quantity=100,
+            entry_ai_score=6.8,
         )
         original._persist_state()
 
@@ -50,6 +51,7 @@ def test_crude_state_restores_open_position_on_same_day_restart():
 
         assert restarted._position is not None
         assert restarted._position.option_symbol == "CRUDEOIL CE"
+        assert restarted._position.entry_ai_score == 6.8
         assert restarted._position.trailing_stop == 78.0
         assert restarted._trail_distance == 7.5
         assert restarted.paper_realized_pnl == 125.0
@@ -155,6 +157,7 @@ def test_crude_exit_logs_complete_trade_data_to_google_sheets():
         entry_candle_high=7_190.0,
         entry_candle_low=7_175.0,
         entry_candle_close=7_185.0,
+        entry_ai_score=7.4,
     )
 
     with patch("trading_crude.log_trade") as log_trade:
@@ -173,6 +176,7 @@ def test_crude_exit_logs_complete_trade_data_to_google_sheets():
     assert payload["Exit ATR"] is None
     assert payload["Entry Market Regime"] is None
     assert payload["Exit Market Regime"] is None
+    assert payload["Entry AI Score"] == 7.4
 
 
 def test_crude_entry_captures_latest_candle_for_google_sheets():
@@ -225,6 +229,7 @@ def test_crude_entry_captures_latest_candle_for_google_sheets():
             "buffer_points": 5.0,
             "next_pivot": 7_200.0,
             "nymex_trend": "GREEN",
+            "entry_ai_score": 7.4,
         }
     )
 
@@ -233,6 +238,8 @@ def test_crude_entry_captures_latest_candle_for_google_sheets():
     assert engine._position.entry_candle_high == 7_190.0
     assert engine._position.entry_candle_low == 7_175.0
     assert engine._position.entry_candle_close == 7_185.0
+    assert engine._position.entry_ai_score == 7.4
+    assert engine._write_paper_trade_log.call_args.args[0]["entry_ai_score"] == 7.4
 
 
 def test_crude_exit_logs_sheet_timestamps_in_ist_format():

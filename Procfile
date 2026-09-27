@@ -1,0 +1,1 @@
+worker: python algo_project/trading_nifty.py

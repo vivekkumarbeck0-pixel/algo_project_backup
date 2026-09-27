@@ -177,6 +177,45 @@ class PriceEngine:
         }
 
     @classmethod
+    def build_same_strike_pivot_rows(cls, option_chain: dict, pivot_ladder: dict) -> list[dict]:
+        """Join CE/PE OI data at matching strikes with their pivot S/R levels."""
+        grouped = option_chain.get("by_strike", {}) if isinstance(option_chain, dict) else {}
+        normalized_ladder = {
+            strike: level
+            for raw_strike, level in (pivot_ladder or {}).items()
+            if (strike := cls._number(raw_strike)) is not None
+        }
+        rows = []
+        for raw_strike, sides in grouped.items():
+            strike = cls._number(raw_strike)
+            if strike is None:
+                continue
+            sides = sides or {}
+            ce = sides.get("CE", {}) or {}
+            pe = sides.get("PE", {}) or {}
+            ce_oi = cls._number(ce.get("open_interest"))
+            ce_change = cls._number(ce.get("oi_change"))
+            pe_oi = cls._number(pe.get("open_interest"))
+            pe_change = cls._number(pe.get("oi_change"))
+            if not any(value is not None and value > 0 for value in (ce_oi, ce_change)):
+                continue
+            if not any(value is not None and value > 0 for value in (pe_oi, pe_change)):
+                continue
+            ladder_level = normalized_ladder.get(strike)
+            if ladder_level is None:
+                continue
+            rows.append({
+                "strike": strike,
+                "ce_oi": ce_oi,
+                "ce_oi_change": ce_change,
+                "pe_oi": pe_oi,
+                "pe_oi_change": pe_change,
+                "support": cls._number(ladder_level.get("support")),
+                "resistance": cls._number(ladder_level.get("resistance")),
+            })
+        return sorted(rows, key=lambda row: row["strike"])
+
+    @classmethod
     def _wall_score(cls, quote: dict) -> float:
         oi = cls._number(quote.get("open_interest")) or 0.0
         oi_change = max(cls._number(quote.get("oi_change")) or 0.0, 0.0)

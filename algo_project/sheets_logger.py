@@ -52,6 +52,7 @@ SHEET_COLUMNS = [
     "Exit Market Regime",
     "Entry Momentum Strength",
     "Intratrade Option Prices",
+    "Entry AI Score",
 ]
 def get_gspread_client():
     # Render cloud Environment check

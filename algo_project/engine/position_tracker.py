@@ -8,7 +8,7 @@ from typing import Callable
 from logger import get_logger
 
 log = get_logger(__name__)
-NIFTY_TRAILING_ACTIVATION_POINTS = 7.0
+NIFTY_TRAILING_ACTIVATION_POINTS = 10.0
 
 
 class PositionStatus(str, Enum):

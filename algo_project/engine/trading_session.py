@@ -90,6 +90,10 @@ class LivePaperTradingSession:
         self._clear_startup_state()
         self._bootstrap_pivots(default_symbol)
         self._load_state()
+        if default_symbol == "NIFTY":
+            from nifty_sheet_logger import flush_pending_nifty_events
+
+            flush_pending_nifty_events()
 
     def _clear_startup_state(self) -> None:
         """Purge stale signals and cached state after a restart or reconnect."""
@@ -463,7 +467,10 @@ class LivePaperTradingSession:
                 **self._fallback_metrics(symbol),
                 "market_status": "CLOSED",
             })
-            self._print_dashboard(snapshot, symbol, None, None, None)
+            self._print_dashboard(
+                snapshot, symbol, None, None, None,
+                blocked_reason="Market is closed or outside the configured trading hours.",
+            )
             self._persist_state()
             return
 
@@ -512,13 +519,15 @@ class LivePaperTradingSession:
 
         # Only look for a new trade when flat and under the daily trade limit.
         decision = None
+        blocked_reason = None
         max_trades = self.risk_manager.limits.max_trades_per_day
         under_limit = max_trades is None or self.tracker.trades_today_count() < max_trades
         scanning_open = datetime.now(IST).strftime("%H:%M") >= settings.trade_start_time
         if not closed and not self.tracker.open_positions() and under_limit and scanning_open and not self._square_off_due():
             if not self._has_fresh_live_confirmation():
                 log.info("Trade blocked: waiting for a fresh live tick breakout before entry.")
-                self._print_dashboard(snapshot, symbol, index_price, decision, market_structure)
+                blocked_reason = "Fresh live tick unavailable, stale, invalid, or startup lock is active."
+                self._print_dashboard(snapshot, symbol, index_price, decision, market_structure, blocked_reason)
                 self._persist_state()
                 return
             decision = self.decision_engine.decide(snapshot, market_structure=market_structure)
@@ -541,8 +550,20 @@ class LivePaperTradingSession:
                 and (market_structure.get("entry_confirmed") or clear_trend)
             ):
                 self._open_trade(decision, index_price, snapshot, market_structure)
+            elif decision.action == "NO_TRADE":
+                blocked_reason = "; ".join(decision.reasons) or "Signal confirmation or risk approval was not available."
+        elif closed:
+            blocked_reason = "Exit was processed this cycle; waiting for the next scan before a new entry."
+        elif self.tracker.open_positions():
+            blocked_reason = "An existing position is open; only exit management is active."
+        elif not under_limit:
+            blocked_reason = f"Daily trade limit reached ({max_trades})."
+        elif not scanning_open:
+            blocked_reason = f"Trade start time {settings.trade_start_time} has not been reached."
+        elif self._square_off_due():
+            blocked_reason = "Square-off cutoff reached; new entries are disabled."
 
-        self._print_dashboard(snapshot, symbol, index_price, decision, market_structure)
+        self._print_dashboard(snapshot, symbol, index_price, decision, market_structure, blocked_reason)
         self._persist_state()
 
     def _market_structure(self, symbol, underlying, exchange):
@@ -608,7 +629,7 @@ class LivePaperTradingSession:
                 radius=2,
             )
             chain_levels = master["unified_chain"].get("levels") or []
-            if isinstance(current_price, (int, float)) and chain_levels:
+            if symbol != "NIFTY" and isinstance(current_price, (int, float)) and chain_levels:
                 active_supports = [
                     float(level["support"])
                     for level in chain_levels
@@ -632,7 +653,11 @@ class LivePaperTradingSession:
             master["pivot_ladder"] = build_connected_ladder(
                 chain_strikes,
                 master.get("pivot_levels") or {},
+                option_chain=master["option_chain"] if symbol == "NIFTY" else None,
+                spot=current_price if symbol == "NIFTY" else None,
+                candles=master.get("candles") if symbol == "NIFTY" else None,
             )
+            self._apply_ladder_support_resistance(symbol, master, current_price)
             master.update(self._sr_settings())
             self._last_atm_strike = self._nearest_strike(symbol, master.get("current_price"))
             master.update(self._refresh_metrics(symbol, master))
@@ -666,6 +691,30 @@ class LivePaperTradingSession:
     def _option_chain_refresh_interval(self) -> float:
         """Refresh full option quotes on the same five-minute metrics cycle."""
         return settings.metrics_refresh_interval_seconds
+
+    @staticmethod
+    def _apply_ladder_support_resistance(symbol: str, structure: dict, spot) -> None:
+        if symbol != "NIFTY" or spot is None:
+            return
+        ladder = structure.get("pivot_ladder") or {}
+        supports = [
+            float(level["support"])
+            for level in ladder.values()
+            if level.get("support") is not None and float(level["support"]) <= float(spot)
+        ]
+        resistances = [
+            float(level["resistance"])
+            for level in ladder.values()
+            if level.get("resistance") is not None and float(level["resistance"]) >= float(spot)
+        ]
+        if supports:
+            structure["support"] = max(supports)
+            structure["pivot_support"] = structure["support"]
+        if resistances:
+            structure["resistance"] = min(resistances)
+            structure["pivot_resistance"] = structure["resistance"]
+        if supports or resistances:
+            structure["sr_source"] = "nifty_strike_oi_candle_sr"
 
     def _refresh_option_chain(self, symbol: str, structure: dict) -> None:
         now = time.monotonic()
@@ -703,7 +752,7 @@ class LivePaperTradingSession:
             for level in chain_levels
             if level.get("resistance") is not None and float(level["resistance"]) > float(current_price)
         ]
-        if active_supports and active_resistances:
+        if symbol != "NIFTY" and active_supports and active_resistances:
             structure["support"] = max(active_supports)
             structure["resistance"] = min(active_resistances)
             structure["pivot_support"] = structure["support"]
@@ -716,7 +765,11 @@ class LivePaperTradingSession:
         structure["pivot_ladder"] = build_connected_ladder(
             chain_strikes,
             structure.get("pivot_levels") or {},
+            option_chain=option_chain if symbol == "NIFTY" else None,
+            spot=current_price if symbol == "NIFTY" else None,
+            candles=structure.get("candles") if symbol == "NIFTY" else None,
         )
+        self._apply_ladder_support_resistance(symbol, structure, current_price)
         self._market_structure_cache[symbol] = structure
 
     @staticmethod
@@ -942,6 +995,8 @@ class LivePaperTradingSession:
             if getattr(position, "index_target", None) is None:
                 position.index_target = decision.index_target
             position.entry_metadata = entry_metadata
+            if record_id:
+                position.entry_metadata["training_record_id"] = record_id
             position.trailing_stop = decision.index_sl
             self._persist_state()
             if position.symbol == "NIFTY":
@@ -1027,13 +1082,17 @@ class LivePaperTradingSession:
             outcome = "LOSS"
         else:
             outcome = "OTHER"
-        self.training_data.attach_outcome(position.trade_number, outcome, position.pnl)
+        record_id = (position.entry_metadata or {}).get("training_record_id")
+        if record_id:
+            self.training_data.attach_outcome_for_record(record_id, outcome, position.pnl)
+        else:
+            self.training_data.attach_outcome(position.trade_number, outcome, position.pnl)
 
     # ------------------------------------------------------------
     # DASHBOARD / MESSAGES
     # ------------------------------------------------------------
 
-    def _print_dashboard(self, snapshot, symbol, index_price, decision, market_structure=None):
+    def _print_dashboard(self, snapshot, symbol, index_price, decision, market_structure=None, blocked_reason=None):
         self._refresh_console_view()
         print("=" * 78)
         now = datetime.now(IST)
@@ -1041,6 +1100,10 @@ class LivePaperTradingSession:
         status = "MARKET CLOSED" if market_status == "CLOSED" else "ACTIVE"
         print(f"TRADING DASHBOARD | {now.strftime('%Y-%m-%d %H:%M:%S')} | MODE: {self.order_manager.mode.value} | {status}")
         print("=" * 78)
+        if blocked_reason and not decision:
+            print(f"NO-TRADE REASON: {blocked_reason}")
+        elif blocked_reason:
+            print(f"NO-TRADE REASON: {blocked_reason}")
         
         # Get market data from snapshot with fallbacks
         trend = snapshot.get("trend")
@@ -1104,7 +1167,7 @@ class LivePaperTradingSession:
             )
         unified_chain = display_structure.get("unified_chain") or {}
         chain_levels = unified_chain.get("levels") or []
-        if chain_levels:
+        if chain_levels and symbol != "NIFTY":
             print("LIVE BROKER OC S/R LADDER")
             for level in chain_levels:
                 labels = "/".join(level.get("pivot_labels") or []) or "-"
@@ -1119,6 +1182,23 @@ class LivePaperTradingSession:
                 f"CHAIN TARGETS    : UP={unified_chain.get('target_up') or '-'} | "
                 f"DOWN={unified_chain.get('target_down') or '-'}"
             )
+        same_strike_rows = PriceEngine.build_same_strike_pivot_rows(
+            display_structure.get("option_chain") or {},
+            display_structure.get("pivot_ladder") or {},
+        )
+        if same_strike_rows:
+            print("NIFTY STRIKE-BY-STRIKE CANDLE S/R" if symbol == "NIFTY" else "SAME-STRIKE CE/PE OI + PIVOT S/R")
+            for row in same_strike_rows:
+                ce_oi = f"{row['ce_oi']:,.0f}" if row["ce_oi"] is not None else "-"
+                ce_change = f"{row['ce_oi_change']:+,.0f}" if row["ce_oi_change"] is not None else "-"
+                pe_oi = f"{row['pe_oi']:,.0f}" if row["pe_oi"] is not None else "-"
+                pe_change = f"{row['pe_oi_change']:+,.0f}" if row["pe_oi_change"] is not None else "-"
+                support = self._format_exact_sr(row["support"]) if row["support"] is not None else "-"
+                resistance = self._format_exact_sr(row["resistance"]) if row["resistance"] is not None else "-"
+                print(
+                    f"  {row['strike']:.0f}: CE OI={ce_oi} Δ={ce_change} | "
+                    f"PE OI={pe_oi} Δ={pe_change} | PIVOT S={support} R={resistance}"
+                )
         if decision:
             support_range_str = f" (range: {decision.support_range[0]:.2f}-{decision.support_range[1]:.2f})" if decision.support_range else ""
             resistance_range_str = f" (range: {decision.resistance_range[0]:.2f}-{decision.resistance_range[1]:.2f})" if decision.resistance_range else ""

@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from engine.decision_engine import DecisionEngine
 from engine.position_tracker import PositionTracker
 from engine.risk_manager import RiskManager, RiskLimits
@@ -24,9 +26,17 @@ def test_relaxed_watchlist_keeps_bullish_trade_valid():
         "trend": "BULLISH",
         "micro_momentum": "BULLISH",
         "entry_confirmed": True,
+        "option_chain": {
+            "by_strike": {
+                "24150": {
+                    "PE": {"open_interest": 100000, "oi_change": 500, "trade_volume": 1000},
+                },
+            },
+        },
     }
 
-    decision = engine.decide(snapshot, market_structure)
+    with patch.object(engine, "_is_auto_square_off_time", return_value=False):
+        decision = engine.decide(snapshot, market_structure)
 
     assert decision.action == "BUY"
     assert decision.risk_approved is True

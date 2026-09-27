@@ -2,6 +2,16 @@
 
 See [ADAPTIVE_OPTIMIZATION.md](ADAPTIVE_OPTIMIZATION.md) for the Crude walk-forward optimizer, guarded JSON deployment, data contract, and daily/weekly scheduling instructions.
 
+## Crude entry score
+
+New Crude trades receive an `Entry AI Score` from 0 to 10 in the last column of Sheet 1.
+It is calculated at signal time from relative volume, OI change, price move versus
+ATR, candle direction, and pivot/market-regime context. The score is stored with
+the position and written on exit; it never blocks a trade or changes its SL/TP.
+This is a deterministic setup-strength score, not a calibrated profit probability.
+Older Sheet rows are not backfilled. Compare score bands against subsequent net
+PnL and sample counts before using the score to filter entries.
+
 PROJECT : NIFTY AI ALGO
 
 

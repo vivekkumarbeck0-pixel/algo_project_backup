@@ -54,6 +54,9 @@ class TrainingDataStore:
     def attach_outcome(self, trade_number: int, outcome: str, pnl: float | None) -> None:
         self._update_by_trade_number(trade_number, {"outcome": outcome, "pnl": pnl})
 
+    def attach_outcome_for_record(self, record_id: str, outcome: str, pnl: float | None) -> None:
+        self._update(record_id, {"outcome": outcome, "pnl": pnl})
+
     def _update(self, record_id: str, changes: dict) -> None:
         self._rewrite(lambda row: row.get("record_id") == record_id, changes)
 

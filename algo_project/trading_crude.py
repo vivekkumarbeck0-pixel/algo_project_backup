@@ -187,6 +187,7 @@ class Position:
     entry_market_regime: Optional[str] = None
     entry_momentum_strength: float = 0.0
     intratrade_option_prices: list[float] = field(default_factory=list)
+    entry_ai_score: Optional[float] = None
 
 
 class AngelSmartWebSocketClient:
@@ -498,10 +499,6 @@ class CrudeOptionBuyer:
         self._rest_poll_interval = 2.0
         self._next_websocket_reconnect = 0.0
         self._historical_bars_loaded = False
-        self._hybrid_model = None
-        self._hybrid_model_load_attempted = False
-        self._hybrid_model_path = Path(__file__).with_name("crude_hybrid_model.pkl")
-
         self._smart_stream = AngelSmartWebSocketClient(
             api_key=self.settings.angel_api_key,
             client_code=self.settings.angel_client_code,
@@ -531,20 +528,6 @@ class CrudeOptionBuyer:
         if now - last_log >= interval:
             self._last_no_signal_log = now
             logger.info("Crude signal blocked: %s", reason)
-
-    def _get_hybrid_model(self):
-        if self._hybrid_model_load_attempted:
-            return self._hybrid_model
-
-        self._hybrid_model_load_attempted = True
-        try:
-            from engine.crude_hybrid_ml import load_model
-
-            self._hybrid_model = load_model(self._hybrid_model_path)
-            logger.info("Loaded Crude hybrid model lazily for signal monitoring: %s", self._hybrid_model_path)
-        except Exception as exc:
-            logger.warning("Crude hybrid model unavailable; rule-based entries remain enabled: %s", exc)
-        return self._hybrid_model
 
     def start(self):
         logger.info("Starting MCX Crude option buying engine in PAPER mode.")
@@ -1032,6 +1015,32 @@ class CrudeOptionBuyer:
         new_bar = Bar(timestamp=now, open=ltp, high=ltp, low=ltp, close=ltp, volume=volume, oi=oi)
         self.futures_bars.append(new_bar)
 
+    @staticmethod
+    def _score_trade_setup(
+        current_bar: Bar,
+        previous_bar: Bar,
+        recent: list[Bar],
+        side: str,
+        atr: float,
+        required_volume: float,
+        oi_delta: float,
+        pivot_confirmed: bool,
+        regime: str,
+    ) -> float:
+        volume_score = min(2.0, current_bar.volume / max(required_volume, 1.0))
+        oi_changes = [abs(new.oi - old.oi) for old, new in zip(recent[:-2], recent[1:-1])]
+        typical_oi_change = float(np.mean(oi_changes)) if oi_changes else 0.0
+        oi_score = min(2.0, abs(oi_delta) / max(typical_oi_change, 1.0))
+        move_score = min(2.0, 2.0 * abs(current_bar.close - previous_bar.close) / max(atr, 1e-9))
+        candle_direction = 1.0 if side == "CE" else -1.0
+        candle_score = min(
+            2.0,
+            max(0.0, 2.0 * candle_direction * (current_bar.close - current_bar.open)
+                / max(current_bar.high - current_bar.low, 1e-9)),
+        )
+        context_score = 2.0 if pivot_confirmed else {"TRENDING": 1.0, "SIDEWAYS": 0.5}.get(regime, 0.0)
+        return round(volume_score + oi_score + move_score + candle_score + context_score, 1)
+
     def _evaluate_strategy(self) -> Optional[Dict[str, Any]]:
         # Only one position may be open at a time, so do not build a backlog of signals.
         if self._position is not None:
@@ -1163,25 +1172,6 @@ class CrudeOptionBuyer:
             atr=atr_value,
             side=side,
         )
-        if ai_evaluation is None:
-            logger.warning(
-                "%s %s proceeding with baseline risk settings; dynamic AI filter did not confirm the setup.",
-                scenario,
-                side,
-            )
-
-        hybrid_evaluation = self._evaluate_hybrid_model(completed_bars, side)
-        hybrid_prediction = hybrid_evaluation.action if hybrid_evaluation else "UNAVAILABLE"
-        if hybrid_evaluation is None or hybrid_evaluation.action != side:
-            logger.warning(
-                "%s %s proceeding despite hybrid model warning: prediction=%s, momentum_probability=%s, volatility_probability=%s",
-                scenario,
-                side,
-                hybrid_prediction,
-                hybrid_evaluation.momentum_probability if hybrid_evaluation else None,
-                hybrid_evaluation.volatility_probability if hybrid_evaluation else None,
-            )
-
         confirmed, pivot_name, pivot_level = self._pivot_breakout(current_price, pivots, side)
         if not confirmed:
             logger.warning(
@@ -1193,6 +1183,11 @@ class CrudeOptionBuyer:
                 pivot_level,
             )
 
+        entry_ai_score = self._score_trade_setup(
+            current_bar, previous_bar, recent, side, atr_value,
+            self.settings.volume_spike_factor * ma_volume, oi_delta,
+            confirmed, market_regime,
+        )
         self._last_signal_bar = current_bar.timestamp
         strike = self._nearest_atm_strike(current_price)
         oi_change = oi_delta if len(ois) >= 2 else None
@@ -1215,34 +1210,9 @@ class CrudeOptionBuyer:
             "market_reversal": market_context.get("reversal"),
             "market_context": market_context,
             "ai_evaluation": ai_evaluation,
-            "hybrid_prediction": hybrid_prediction,
-            "hybrid_momentum_probability": hybrid_evaluation.momentum_probability if hybrid_evaluation else None,
-            "hybrid_volatility_probability": hybrid_evaluation.volatility_probability if hybrid_evaluation else None,
+            "entry_ai_score": entry_ai_score,
             "timestamp": current_bar.timestamp,
         }
-
-    def _evaluate_hybrid_model(self, bars: list[Bar], side: str | None = None):
-        if len(bars) < 22:
-            return None
-
-        model = self._get_hybrid_model()
-        if model is None:
-            return None
-
-        import pandas as pd
-
-        frame = pd.DataFrame([asdict(bar) for bar in bars])
-        frame["trade_side"] = 1.0 if side == "CE" else -1.0 if side == "PE" else 0.0
-        from engine.crude_hybrid_ml import build_features
-
-        features = build_features(frame).dropna()
-        if features.empty:
-            return None
-        try:
-            return model.decide(features.iloc[[-1]])
-        except Exception as exc:
-            logger.warning("Crude hybrid model prediction failed; rule-based signal will continue: %s", exc)
-            return None
 
     def _calculate_daily_pivots(self, bars):
         if not bars:
@@ -1911,6 +1881,7 @@ class CrudeOptionBuyer:
             entry_momentum_strength=float(
                 (signal.get("ai_evaluation") or {}).get("momentum_strength", 0.0)
             ),
+            entry_ai_score=signal.get("entry_ai_score"),
             intratrade_option_prices=[entry_option_price],
         )
         self._trail_distance = trail_distance
@@ -1979,6 +1950,7 @@ class CrudeOptionBuyer:
                 "qty": quantity,
                 "oi": signal.get("oi"),
                 "volume": signal.get("volume"),
+                "entry_ai_score": self._position.entry_ai_score,
                 "nymex_trend": signal.get("nymex_trend"),
                 "market_regime": signal.get("market_regime"),
                 "market_reversal": signal.get("market_reversal"),
@@ -2239,6 +2211,7 @@ class CrudeOptionBuyer:
             "Exit Market Regime": exit_market_context.get("regime"),
             "Entry Momentum Strength": position.entry_momentum_strength,
             "Intratrade Option Prices": json.dumps(position.intratrade_option_prices),
+            "Entry AI Score": position.entry_ai_score,
         }
         # Clear and checkpoint the local position before the external Sheet call.
         # A slow or failed network logger must not leave a closed trade restorable.
