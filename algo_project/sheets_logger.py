@@ -58,8 +58,11 @@ SHEET_COLUMNS = [
     "Entry AI Filter Mode",
 ]
 def get_gspread_client():
-    # Render cloud Environment check
-    json_env = os.environ.get("GOOGLE_JSON_KEY")
+    json_env = (
+        os.environ.get("SERVICE_ACCOUNT_JSON")
+        or os.environ.get("service_account.json")
+        or os.environ.get("GOOGLE_JSON_KEY")
+    )
     if json_env:
         info = json.loads(json_env)
         if "private_key" in info:

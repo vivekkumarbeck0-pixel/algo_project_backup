@@ -26,7 +26,11 @@ RETRY_BACKOFF_SECONDS = (1.0, 2.0)
 
 
 def _client():
-    json_env = os.environ.get("GOOGLE_JSON_KEY")
+    json_env = (
+        os.environ.get("SERVICE_ACCOUNT_JSON")
+        or os.environ.get("service_account.json")
+        or os.environ.get("GOOGLE_JSON_KEY")
+    )
     if json_env:
         info = json.loads(json_env)
     else:
