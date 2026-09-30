@@ -25,7 +25,15 @@ class FakeWorksheet:
             raise RuntimeError("temporary Sheets outage")
         self.rows.append(list(row))
 
-    def update(self, *_args):
+    def update(self, range_name, values):
+        if isinstance(range_name, str) and range_name.startswith("A"):
+            row_text = range_name[1:].split(":", 1)[0]
+            try:
+                row_index = int(row_text) - 1
+            except ValueError:
+                return None
+            if 0 <= row_index < len(self.rows):
+                self.rows[row_index] = list(values[0])
         return None
 
 
@@ -93,3 +101,20 @@ def test_retry_does_not_duplicate_if_sheet_saved_before_timeout(monkeypatch, tmp
     assert worksheet.event_attempts == 1
     assert len(worksheet.rows) == 2
     assert not nifty_sheet_logger.OUTBOX_PATH.exists()
+
+
+def test_repeated_trade_sync_updates_existing_row(monkeypatch, tmp_path):
+    worksheet = FakeWorksheet()
+    _setup_logger(monkeypatch, tmp_path, worksheet)
+
+    event = _event()
+    nifty_sheet_logger.log_nifty_entry(event)
+
+    updated = dict(event)
+    updated["Execution Price (LTP)"] = 120.0
+    updated["Target"] = 23450.0
+    nifty_sheet_logger.log_nifty_entry(updated)
+
+    assert len(worksheet.rows) == 2
+    assert worksheet.rows[1][3] == 120.0
+    assert worksheet.rows[1][16] == 23450.0

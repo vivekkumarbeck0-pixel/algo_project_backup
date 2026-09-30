@@ -9,8 +9,13 @@ Google Sheets, or changes live execution state.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from joblib import dump
 import pandas as pd
 
+from config import settings
+from engine.crude_outcome_filter import fit_outcome_filter
 from engine.crude_hybrid_ml import save_model, train_hybrid_model
 from sheets_logger import get_gspread_client
 
@@ -108,6 +113,17 @@ def main() -> int:
     print("Chronological split: 75% train / 25% test; shuffle disabled")
     for name, value in metrics.items():
         print(f"{name}: {value}")
+
+    outcome_filter, filter_report = fit_outcome_filter(frame)
+    filter_path = Path(settings.crude_ai_filter_model_file)
+    filter_path.parent.mkdir(parents=True, exist_ok=True)
+    dump(outcome_filter, filter_path)
+    print(f"Saved outcome filter: {filter_path}")
+    print("Outcome filter chronological backtest:")
+    for name, value in filter_report.items():
+        print(f"{name}: {value}")
+    if not filter_report["approved_for_veto"]:
+        print("VETO mode remains inactive until a later holdout passes all approval gates.")
     return 0
 
 

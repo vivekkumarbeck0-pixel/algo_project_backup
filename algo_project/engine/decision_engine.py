@@ -865,10 +865,9 @@ class DecisionEngine:
         reasons.extend(getattr(risk_result, "reasons", []))
         risk_approved = getattr(risk_result, "approved", False)
 
-        sl_points = symbol_cfg.get("sl_points", getattr(settings, "sl_points", 25.0))
-        target_points = symbol_cfg.get("target_points", getattr(settings, "target_points", 30.0))
-        sl_points = max(20.0, min(30.0, float(sl_points)))
-        target_points = max(40.0, min(60.0, float(target_points)))
+        sl_points = float(symbol_cfg.get("sl_points", getattr(settings, "sl_points", 25.0)))
+        target_points = float(symbol_cfg.get("target_points", getattr(settings, "target_points", 30.0)))
+        sl_points = max(20.0, min(30.0, sl_points))
 
         index_sl = index_target = None
         if current_price is not None:
@@ -879,7 +878,7 @@ class DecisionEngine:
                     if oi_target is not None and oi_target > float(current_price):
                         index_target = oi_target
                         reasons.append(
-                            f"CE same-side {oi_target_source} strike {oi_target_strike}; "
+                            f"NIFTY target: CE same-side {oi_target_source} strike {oi_target_strike}; "
                             f"target R={index_target}"
                         )
                 else:
@@ -888,7 +887,9 @@ class DecisionEngine:
                     )
                     if oi_pivot_setup and oi_target is not None:
                         index_target = oi_target
-                        reasons.append(f"Same-side OI target: {oi_target_source} strike {oi_target_strike} pivot {index_target}")
+                        reasons.append(
+                            f"NIFTY target: same-side CE {oi_target_source} strike {oi_target_strike} pivot {index_target}"
+                        )
                 peak_strike, peak_target, peak_source = nifty_targets.get("CE") or self._peak_oi_pivot_target(
                     option_chain, pivot_ladder, float(current_price), option_type
                 )
@@ -917,16 +918,10 @@ class DecisionEngine:
                         )
                     ]
                 if index_target is None:
-                    selected_target, target_band = self._select_banded_target(
-                        float(current_price), candidates, direction=1, fallback_points=40.0
+                    index_target = float(current_price) + (1.0 * target_points)
+                    reasons.append(
+                        f"NIFTY fallback target: CE configured target_points={target_points} -> {index_target}"
                     )
-                    if underlying != "NIFTY" or self._within_oi_pivot_cutoff(
-                        selected_target, pivot_ladder, float(current_price), option_type
-                    ):
-                        index_target = selected_target
-                        reasons.append(f"NIFTY target band selected: {target_band} ({index_target})")
-                    else:
-                        reasons.append("NIFTY target stopped at the 100% CE OI/OI-change cutoff.")
                 if peak_target is not None:
                     reasons.append(f"CE {peak_source} strike {peak_strike}: pivot R target {index_target}")
                 if wall_pivot_target is not None:
@@ -940,7 +935,7 @@ class DecisionEngine:
                     if oi_target is not None and oi_target < float(current_price):
                         index_target = oi_target
                         reasons.append(
-                            f"PE same-side {oi_target_source} strike {oi_target_strike}; "
+                            f"NIFTY target: PE same-side {oi_target_source} strike {oi_target_strike}; "
                             f"target S={index_target}"
                         )
                 else:
@@ -949,7 +944,9 @@ class DecisionEngine:
                     )
                     if oi_pivot_setup and oi_target is not None:
                         index_target = oi_target
-                        reasons.append(f"Same-side OI target: {oi_target_source} strike {oi_target_strike} pivot {index_target}")
+                        reasons.append(
+                            f"NIFTY target: same-side PE {oi_target_source} strike {oi_target_strike} pivot {index_target}"
+                        )
                 peak_strike, peak_target, peak_source = nifty_targets.get("PE") or self._peak_oi_pivot_target(
                     option_chain, pivot_ladder, float(current_price), option_type
                 )
@@ -978,16 +975,10 @@ class DecisionEngine:
                         )
                     ]
                 if index_target is None:
-                    selected_target, target_band = self._select_banded_target(
-                        float(current_price), candidates, direction=-1, fallback_points=40.0
+                    index_target = float(current_price) - (1.0 * target_points)
+                    reasons.append(
+                        f"NIFTY fallback target: PE configured target_points={target_points} -> {index_target}"
                     )
-                    if underlying != "NIFTY" or self._within_oi_pivot_cutoff(
-                        selected_target, pivot_ladder, float(current_price), option_type
-                    ):
-                        index_target = selected_target
-                        reasons.append(f"NIFTY target band selected: {target_band} ({index_target})")
-                    else:
-                        reasons.append("NIFTY target stopped at the 100% PE OI/OI-change cutoff.")
                 if peak_target is not None:
                     reasons.append(f"PE {peak_source} strike {peak_strike}: pivot S target {index_target}")
                 if wall_pivot_target is not None:

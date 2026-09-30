@@ -49,7 +49,7 @@ def test_replay_trade_models_target_stop_and_trailing_in_order():
 
 def test_optimizer_uses_legacy_rows_and_freezes_missing_atr_and_regime_gates():
     frame = _historical_frame()
-    frame.loc[:, "Entry ATR"] = None
+    frame.loc[:, "Entry ATR"] = float("nan")
     frame.loc[:, "Entry Market Regime"] = ""
 
     candidate, report, _ = optimize(frame, folds=4, min_trades_per_fold=4)

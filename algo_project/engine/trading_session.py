@@ -1218,6 +1218,16 @@ class LivePaperTradingSession:
         print(f"Trades Today: {trades_today}/{trade_limit_label} | Consecutive SL: {self.tracker.consecutive_stop_losses()}/{stop_limit_label} | Realized P&L: {self.tracker.daily_realized_pnl():.2f}")
 
         open_positions = self.tracker.open_positions()
+        session_symbol = getattr(self, "default_symbol", None) or getattr(self, "_session_symbol", lambda: "")()
+        if session_symbol == "NIFTY":
+            from nifty_sheet_logger import log_nifty_entry
+
+            for position in open_positions:
+                if position.symbol == "NIFTY":
+                    row = self._nifty_sheet_row(position)
+                    row.update({"Trade Number": position.trade_number, "Event": "BUY"})
+                    log_nifty_entry(row)
+
         if not open_positions:
             print("Running Trade: None")
         else:

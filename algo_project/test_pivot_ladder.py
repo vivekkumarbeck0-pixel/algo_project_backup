@@ -315,3 +315,31 @@ def test_same_strike_ce_pe_oi_rows_include_pivot_sr():
         "support": 24350.0,
         "resistance": None,
     }]
+
+
+def test_decision_uses_configured_nifty_target_without_40_60_band_clamp():
+    risk = Mock()
+    risk.evaluate.return_value = SimpleNamespace(approved=True, reasons=[])
+    engine = DecisionEngine(risk_manager=risk)
+    snapshot = {"spot": 25000.0, "underlying": "NIFTY", "market_strike": 25000.0}
+    market_structure = {
+        "support": 24980.0,
+        "resistance": 25020.0,
+        "trend": "BULLISH",
+        "micro_momentum": "BULLISH",
+        "option_chain": {"by_strike": {}},
+        "pivot_ladder": {},
+        "candlestick_patterns": {"bullish": True},
+        "smc": {"order_blocks": {"bullish": [{"zone": {"low": 24990.0, "high": 25008.0}}]}, "fair_value_gaps": {"bullish": []}},
+    }
+
+    with patch.object(engine, "_is_auto_square_off_time", return_value=False), \
+         patch.object(engine, "_same_side_oi_target", return_value=(None, None, "")), \
+         patch.object(engine, "_peak_oi_pivot_target", return_value=(None, None, "")), \
+         patch.object(engine, "_option_wall_pivot_target", return_value=(None, None)), \
+         patch.object(engine, "_pivot_oi_change_target", return_value=(None, None)):
+        decision = engine.decide(snapshot, market_structure)
+
+    assert decision.action == "BUY"
+    assert decision.index_target == 25030.0
+    assert any("fallback target" in reason.lower() for reason in decision.reasons)

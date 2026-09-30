@@ -34,6 +34,7 @@ import yfinance as yf
 
 from config import MCX_CRUDE_FUTURE, settings
 from engine.adaptive_config import AdaptiveConfigReloader
+from engine.crude_outcome_filter import build_live_outcome_features, predict_win_probability
 from sheets_logger import log_trade
 
 
@@ -188,6 +189,8 @@ class Position:
     entry_momentum_strength: float = 0.0
     intratrade_option_prices: list[float] = field(default_factory=list)
     entry_ai_score: Optional[float] = None
+    entry_ai_win_probability: Optional[float] = None
+    entry_ai_filter_mode: str = "OFF"
 
 
 class AngelSmartWebSocketClient:
@@ -492,6 +495,7 @@ class CrudeOptionBuyer:
         self._adaptive_config = AdaptiveConfigReloader(
             Path(self.settings.adaptive_crude_config_file)
         )
+        self._outcome_filter = self._load_outcome_filter()
         self._live_signal_queue: queue.Queue = queue.Queue()
         self._rest_client = None
         self._rest_fallback = False
@@ -519,6 +523,58 @@ class CrudeOptionBuyer:
                 logger.info("Applied approved adaptive Crude config from %s.", self._adaptive_config.path)
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             logger.error("Adaptive Crude config rejected; keeping current settings: %s", exc)
+
+    def _load_outcome_filter(self):
+        path = Path(getattr(self.settings, "crude_ai_filter_model_file", "data/crude_outcome_filter.joblib"))
+        if not path.is_file():
+            logger.info("Crude outcome filter model not found at %s; existing entry rules remain unchanged.", path)
+            return None
+        try:
+            from joblib import load
+
+            artifact = load(path)
+            if not isinstance(artifact, dict) or "estimator" not in artifact:
+                raise ValueError("invalid outcome-filter artifact")
+            return artifact
+        except Exception as exc:
+            logger.error("Crude outcome filter could not load; existing entry rules remain unchanged: %s", exc)
+            return None
+
+    def _apply_outcome_filter(self, signal: dict[str, Any]) -> bool:
+        mode = str(getattr(self.settings, "crude_ai_filter_mode", "OFF")).upper()
+        if mode not in {"SHADOW", "VETO"}:
+            return False
+        artifact = getattr(self, "_outcome_filter", None)
+        if artifact is None:
+            return False
+
+        try:
+            features = build_live_outcome_features(signal)
+            probability = predict_win_probability(artifact, features)
+        except Exception as exc:
+            logger.warning("Crude AI outcome scoring failed; allowing existing signal: %s", exc)
+            return False
+
+        threshold = float(artifact.get("threshold", 0.5))
+        approved = bool(artifact.get("approved_for_veto", False))
+        signal["ai_win_probability"] = probability
+        signal["ai_filter_mode"] = mode if mode == "SHADOW" or approved else "SHADOW_UNAPPROVED"
+        logger.info(
+            "Crude AI outcome: side=%s win_probability=%.3f threshold=%.2f mode=%s approved=%s",
+            signal.get("side"), probability, threshold, signal["ai_filter_mode"], approved,
+        )
+
+        if mode == "VETO" and approved and probability < threshold:
+            reason = (
+                f"approved AI outcome veto: win_probability={probability:.3f} "
+                f"below threshold={threshold:.2f}"
+            )
+            self._set_no_signal_reason(reason)
+            logger.warning("Crude rule signal blocked by %s.", reason)
+            return True
+        if mode == "VETO" and not approved:
+            logger.warning("Crude AI veto requested, but holdout approval is false; signal allowed in shadow mode.")
+        return False
 
     def _set_no_signal_reason(self, reason: str) -> None:
         self._last_no_signal_reason = reason
@@ -1191,7 +1247,8 @@ class CrudeOptionBuyer:
         self._last_signal_bar = current_bar.timestamp
         strike = self._nearest_atm_strike(current_price)
         oi_change = oi_delta if len(ois) >= 2 else None
-        return {
+        _, _, entry_pivot_price = self._nearest_pivot_info(current_price, pivots)
+        signal = {
             "scenario": scenario,
             "side": side,
             "strike": strike,
@@ -1211,8 +1268,16 @@ class CrudeOptionBuyer:
             "market_context": market_context,
             "ai_evaluation": ai_evaluation,
             "entry_ai_score": entry_ai_score,
+            "entry_pivot_price": entry_pivot_price,
+            "candle_open": current_bar.open,
+            "candle_high": current_bar.high,
+            "candle_low": current_bar.low,
+            "candle_close": current_bar.close,
             "timestamp": current_bar.timestamp,
         }
+        if self._apply_outcome_filter(signal):
+            return None
+        return signal
 
     def _calculate_daily_pivots(self, bars):
         if not bars:
@@ -1882,6 +1947,8 @@ class CrudeOptionBuyer:
                 (signal.get("ai_evaluation") or {}).get("momentum_strength", 0.0)
             ),
             entry_ai_score=signal.get("entry_ai_score"),
+            entry_ai_win_probability=signal.get("ai_win_probability"),
+            entry_ai_filter_mode=signal.get("ai_filter_mode", "OFF"),
             intratrade_option_prices=[entry_option_price],
         )
         self._trail_distance = trail_distance
@@ -2212,6 +2279,8 @@ class CrudeOptionBuyer:
             "Entry Momentum Strength": position.entry_momentum_strength,
             "Intratrade Option Prices": json.dumps(position.intratrade_option_prices),
             "Entry AI Score": position.entry_ai_score,
+            "Entry AI Win Probability": position.entry_ai_win_probability,
+            "Entry AI Filter Mode": position.entry_ai_filter_mode,
         }
         # Clear and checkpoint the local position before the external Sheet call.
         # A slow or failed network logger must not leave a closed trade restorable.

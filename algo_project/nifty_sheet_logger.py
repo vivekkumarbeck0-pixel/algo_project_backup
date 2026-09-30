@@ -63,10 +63,26 @@ def _append_once(event: dict) -> None:
         worksheet.update("A1", [headers])
 
     event_key = _event_key(event)
-    if event_key is not None and any(
-        _event_key(event, headers, row) == event_key for row in existing[1:]
-    ):
-        print(f"NIFTY {event.get('Event', 'event')} already exists in Google Sheet 2.")
+    target_row = None
+    for row_number, row in enumerate(existing[1:], start=2):
+        if event_key is not None and _event_key(event, headers, row) == event_key:
+            target_row = row_number
+            existing_row = row
+            break
+    else:
+        existing_row = None
+
+    if target_row is not None and existing_row is not None:
+        updated_row = []
+        for index, column in enumerate(headers):
+            if column in event and event.get(column) is not None:
+                updated_row.append(event.get(column))
+            elif index < len(existing_row):
+                updated_row.append(existing_row[index])
+            else:
+                updated_row.append("")
+        worksheet.update(f"A{target_row}", [updated_row])
+        print(f"Updated existing NIFTY {event.get('Event', 'event')} row in Google Sheet 2.")
         return
 
     worksheet.append_row([event.get(column, "") for column in headers])

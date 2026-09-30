@@ -36,11 +36,13 @@ def test_crude_sheet_appends_score_to_existing_headers():
     with patch("sheets_logger.get_gspread_client", return_value=client):
         assert log_trade({"Entry Timestamp": "new trade", "PnL": -100, "Entry AI Score": 7.4})
 
-    assert SHEET_COLUMNS[-1] == "Entry AI Score"
+    assert "Entry AI Score" in SHEET_COLUMNS
+    assert SHEET_COLUMNS[-2:] == ["Entry AI Win Probability", "Entry AI Filter Mode"]
     worksheet.update.assert_called_once_with("A1", [["Entry Timestamp", "PnL"] + [
         header for header in SHEET_COLUMNS if header not in ("Entry Timestamp", "PnL")
     ]])
-    assert worksheet.append_row.call_args.args[0][-1] == 7.4
+    row = worksheet.append_row.call_args.args[0]
+    assert row[SHEET_COLUMNS.index("Entry AI Score")] == 7.4
 
 
 @pytest.mark.parametrize(

@@ -126,6 +126,10 @@ class Settings:
     crude_max_entry_atr: float = 1_000_000.0
     crude_allowed_regimes: tuple[str, ...] = ("TRENDING", "SIDEWAYS", "UNKNOWN")
     adaptive_crude_config_file: str = "data/adaptive_crude_config.json"
+    crude_ai_filter_mode: str = _getenv("CRUDE_AI_FILTER_MODE", "SHADOW").upper()
+    crude_ai_filter_model_file: str = _getenv(
+        "CRUDE_AI_FILTER_MODEL_FILE", "data/crude_outcome_filter.joblib"
+    )
     default_option_margin: float = 1.0
 
     # Real-time data timing
