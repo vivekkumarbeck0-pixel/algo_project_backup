@@ -30,7 +30,8 @@ def _client():
     if json_env:
         info = json.loads(json_env)
     else:
-        with open("service_account.json", "r", encoding="utf-8") as handle:
+        credentials_path = Path(__file__).resolve().parent / "service_account.json"
+        with credentials_path.open("r", encoding="utf-8") as handle:
             info = json.load(handle)
     if "private_key" in info:
         info["private_key"] = info["private_key"].replace("\\n", "\n")

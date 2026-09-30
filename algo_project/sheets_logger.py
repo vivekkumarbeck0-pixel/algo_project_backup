@@ -1,6 +1,7 @@
 import os
 import json
 import time
+from pathlib import Path
 import gspread
 from google.oauth2.service_account import Credentials
 from gspread.exceptions import APIError
@@ -67,7 +68,8 @@ def get_gspread_client():
         return gspread.authorize(creds)
     
     # Local service_account.json loading
-    with open("service_account.json", "r") as f:
+    credentials_path = Path(__file__).resolve().parent / "service_account.json"
+    with credentials_path.open("r", encoding="utf-8") as f:
         info = json.load(f)
     if "private_key" in info:
         info["private_key"] = info["private_key"].replace("\\n", "\n")
