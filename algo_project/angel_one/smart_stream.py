@@ -12,7 +12,9 @@ import queue
 import sys
 import threading
 import time
+from datetime import datetime, time as datetime_time
 from typing import Any, Dict, Optional, Tuple
+from zoneinfo import ZoneInfo
 
 from logger import get_logger
 
@@ -162,15 +164,23 @@ class AngelSmartWebSocketClient:
             self.queue.put(payload)
 
     def _on_error(self, *args):
-        log.warning("Angel One websocket error: %s", args[-1] if args else "unknown")
+        error = args[-1] if args else "unknown"
+        log.error(f"RAW WEBSOCKET ERROR: {error}")
+        self.connected = False
+        self._open_event.clear()
 
     def _on_close(self, *args, **kwargs):
-        log.warning("Angel One websocket closed.")
+        error = args[-1] if args else "unknown"
+        log.error(f"RAW WEBSOCKET ERROR: {error}")
         self.connected = False
         self._open_event.clear()
 
     def subscribe(self, token: str, exchange: str) -> bool:
         if self.ws is None or not self.connected:
+            return False
+
+        if LiveTickStore._is_after_equity_close() and str(exchange).upper() != "MCX":
+            log.info("Skipping non-MCX websocket subscription for %s after 15:30 IST.", token)
             return False
 
         exchange_type = self.EXCHANGE_TYPE_MAP.get(str(exchange).upper())
@@ -185,6 +195,22 @@ class AngelSmartWebSocketClient:
         except Exception as exc:
             if self.connected:
                 log.debug("Subscription deferred for token %s on %s: %s", token, exchange, exc)
+            return False
+
+    def unsubscribe(self, token: str, exchange: str) -> bool:
+        if self.ws is None or not self.connected:
+            return False
+
+        exchange_type = self.EXCHANGE_TYPE_MAP.get(str(exchange).upper())
+        if exchange_type is None:
+            return False
+
+        try:
+            token_list = [{"exchangeType": exchange_type, "tokens": [str(token)]}]
+            self.ws.unsubscribe(self.correlation_id, self.SNAP_QUOTE_MODE, token_list)
+            return True
+        except Exception as exc:
+            log.warning("Unable to unsubscribe token %s on %s: %s", token, exchange, exc)
             return False
 
     def close(self):
@@ -261,6 +287,7 @@ class LiveTickStore:
         failures = 0
         while not self._stop_event.is_set():
             if self.connected:
+                self._filter_after_equity_close()
                 retry_delay = 1.0
                 failures = 0
                 self._reconnect_wakeup.wait(2.0)
@@ -311,12 +338,39 @@ class LiveTickStore:
             log.debug("Angel One session refresh unavailable: %s", exc)
 
     def _resubscribe_all(self):
+        self._filter_after_equity_close()
         with self._lock:
             tokens = tuple(self._subscribed)
         for token, exchange in tokens:
             if self._stop_event.is_set() or not self.connected:
                 return
             self._stream.subscribe(token, exchange)
+
+    @staticmethod
+    def _is_after_equity_close(now: Optional[datetime] = None) -> bool:
+        current = now or datetime.now(ZoneInfo("Asia/Kolkata"))
+        if current.tzinfo is None:
+            current = current.replace(tzinfo=ZoneInfo("Asia/Kolkata"))
+        else:
+            current = current.astimezone(ZoneInfo("Asia/Kolkata"))
+        return current.time() >= datetime_time(15, 30)
+
+    def _filter_after_equity_close(self, now: Optional[datetime] = None):
+        if not self._is_after_equity_close(now):
+            return
+
+        with self._lock:
+            removed = tuple(item for item in self._subscribed if item[1] != "MCX")
+            self._subscribed.difference_update(removed)
+            removed_tokens = {token for token, _ in removed}
+            retained_tokens = {token for token, _ in self._subscribed}
+            for token in removed_tokens - retained_tokens:
+                self._ticks.pop(token, None)
+
+        for token, exchange in removed:
+            self._stream.unsubscribe(token, exchange)
+        if removed:
+            log.info("Filtered %d non-MCX websocket subscriptions after 15:30 IST.", len(removed))
 
     def _consume_loop(self):
         while not self._stop_event.is_set():
@@ -356,6 +410,9 @@ class LiveTickStore:
             return
 
         key = (str(token).strip(), str(exchange).upper())
+        if self._is_after_equity_close() and key[1] != "MCX":
+            self._filter_after_equity_close()
+            return
         with self._lock:
             if key in self._subscribed:
                 return

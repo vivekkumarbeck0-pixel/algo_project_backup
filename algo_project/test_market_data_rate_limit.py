@@ -1,7 +1,11 @@
-from unittest.mock import patch
+from threading import Lock
+from unittest.mock import Mock, patch
 
 from angel_one.login import AngelOneLogin
 from angel_one.market_data import MarketDataFetcher
+from angel_one.smart_stream import LiveTickStore
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 
 class FakeCandleClient:
@@ -68,3 +72,24 @@ def test_invalid_token_reauthenticates_and_retries_ltp_and_candles_once():
     assert ltp["data"]["ltp"] == 24500.0
     assert candles["data"]
     assert len(reauthentication_calls) == 2
+
+
+def test_live_stream_filters_nse_tokens_after_equity_close():
+    store = LiveTickStore.__new__(LiveTickStore)
+    store._lock = Lock()
+    store._subscribed = {("26000", "NSE"), ("999", "MCX")}
+    store._ticks = {"26000": {"ltp": 25000}, "999": {"ltp": 7000}}
+    store._stream = Mock(connected=True)
+    after_close = datetime(2026, 10, 1, 15, 30, tzinfo=ZoneInfo("Asia/Kolkata"))
+
+    store._filter_after_equity_close(after_close)
+
+    assert store._subscribed == {("999", "MCX")}
+    assert "26000" not in store._ticks
+    store._stream.unsubscribe.assert_called_once_with("26000", "NSE")
+
+
+def test_live_stream_keeps_subscriptions_before_equity_close():
+    before_close = datetime(2026, 10, 1, 15, 29, tzinfo=ZoneInfo("Asia/Kolkata"))
+
+    assert not LiveTickStore._is_after_equity_close(before_close)

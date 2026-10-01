@@ -83,3 +83,43 @@ def test_websocket_does_not_start_parallel_connect_while_previous_thread_runs():
     client.connected = False
 
     assert client.connect() is False
+
+
+def test_max_websocket_retries_refresh_session_before_reconnecting():
+    engine = _engine_for_feed_tests()
+    engine.settings.angel_jwt_token = "stale-jwt"
+    engine.settings.angel_feed_token = "stale-feed"
+    engine.settings.angel_api_key = "key"
+    engine.settings.angel_client_code = "client"
+    engine.settings.option_exchange = "MCX"
+    engine._websocket_retry_attempts = 3
+    engine._resolve_futures_token = Mock(return_value="999")
+    engine._bootstrap_futures_bars = Mock()
+    engine._enable_rest_fallback = Mock()
+    engine._auto_login = Mock(return_value=True)
+    engine._smart_stream.connect.return_value = False
+
+    engine._connect_futures_stream()
+
+    engine._auto_login.assert_called_once()
+    engine._smart_stream.connect.assert_called_once()
+    assert engine._websocket_retry_attempts == 1
+
+
+def test_raw_websocket_callback_errors_are_logged():
+    from unittest.mock import patch
+
+    import trading_crude
+
+    client = AngelSmartWebSocketClient.__new__(AngelSmartWebSocketClient)
+    client.connected = True
+    client._open_event = threading.Event()
+
+    with patch.object(trading_crude.logger, "error") as log_error:
+        client._on_error(None, "socket failure")
+        client._on_close(None, 1006, "connection reset")
+
+    assert [call.args[0] for call in log_error.call_args_list] == [
+        "RAW WEBSOCKET ERROR: socket failure",
+        "RAW WEBSOCKET ERROR: connection reset",
+    ]

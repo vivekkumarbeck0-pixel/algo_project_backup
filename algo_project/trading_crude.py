@@ -327,18 +327,14 @@ class AngelSmartWebSocketClient:
             self.queue.put(payload)
 
     def _on_error(self, *args):
-        now = time.monotonic()
-        with self._lock:
-            should_log = now - self._last_error_log >= 30.0
-            if should_log:
-                self._last_error_log = now
-        if should_log:
-            logger.info("Angel One websocket error; reconnect will resume the stream.")
+        error = args[-1] if args else "unknown"
+        logger.error(f"RAW WEBSOCKET ERROR: {error}")
         self.connected = False
         self._open_event.clear()
 
     def _on_close(self, *args, **kwargs):
-        logger.info("Angel One websocket closed; reconnect will resume the stream.")
+        error = args[-1] if args else "unknown"
+        logger.error(f"RAW WEBSOCKET ERROR: {error}")
         self.connected = False
         self._open_event.clear()
 
@@ -514,6 +510,7 @@ class CrudeOptionBuyer:
         self._last_rest_poll = 0.0
         self._rest_poll_interval = 2.0
         self._next_websocket_reconnect = 0.0
+        self._websocket_retry_attempts = 0
         self._historical_bars_loaded = False
         self._smart_stream = AngelSmartWebSocketClient(
             api_key=self.settings.angel_api_key,
@@ -755,6 +752,11 @@ class CrudeOptionBuyer:
         )
 
     def _connect_futures_stream(self):
+        if getattr(self, "_websocket_retry_attempts", 0) >= 3:
+            logger.warning("MCX Crude websocket reached max retries; refreshing Angel One session before reconnect.")
+            self._auto_login()
+            self._websocket_retry_attempts = 0
+
         if not self.settings.angel_jwt_token or not self.settings.angel_feed_token:
             if not self._auto_login():
                 level = logger.info if self.settings.execution_mode.upper() == "PAPER" else logger.warning
@@ -773,8 +775,11 @@ class CrudeOptionBuyer:
 
         connected = self._smart_stream.connect()
         if not connected:
+            self._websocket_retry_attempts = getattr(self, "_websocket_retry_attempts", 0) + 1
             self._enable_rest_fallback("websocket connection failed")
             return
+
+        self._websocket_retry_attempts = 0
 
         if token:
             self._smart_stream.subscribe_futures(str(token), exchange=self.instrument.exchange)
