@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 from zoneinfo import ZoneInfo
 
-from trading_crude import CrudeOptionBuyer
+from trading_crude import AngelSmartWebSocketClient, CrudeOptionBuyer
 
 
 IST = ZoneInfo("Asia/Kolkata")
@@ -74,3 +74,12 @@ def test_closed_websocket_reconnects_and_disables_rest_fallback():
 
     engine._connect_futures_stream.assert_called_once()
     assert engine._rest_fallback is False
+
+
+def test_websocket_does_not_start_parallel_connect_while_previous_thread_runs():
+    client = AngelSmartWebSocketClient.__new__(AngelSmartWebSocketClient)
+    client._connect_lock = threading.Lock()
+    client._connect_thread = Mock(is_alive=Mock(return_value=True))
+    client.connected = False
+
+    assert client.connect() is False

@@ -218,6 +218,8 @@ class AngelSmartWebSocketClient:
         self._lock = threading.Lock()
         self._open_event = threading.Event()
         self._connect_thread: Optional[threading.Thread] = None
+        self._connect_lock = threading.Lock()
+        self._last_error_log = 0.0
 
         self._SmartWebSocketV2 = None
 
@@ -251,38 +253,42 @@ class AngelSmartWebSocketClient:
             return None
 
     def connect(self, timeout: float = 10.0) -> bool:
-        if self._SmartWebSocketV2 is None:
-            self._SmartWebSocketV2 = self._import_smart_websocket_v2()
+        with self._connect_lock:
+            if self._connect_thread is not None and self._connect_thread.is_alive():
+                return self.connected
 
-        if self._SmartWebSocketV2 is None:
-            logger.error(
-                "Angel One SmartWebSocketV2 is not importable. Install smartapi-python in this Python environment."
-            )
-            return False
+            if self._SmartWebSocketV2 is None:
+                self._SmartWebSocketV2 = self._import_smart_websocket_v2()
 
-        try:
-            self.ws = self._SmartWebSocketV2(
-                self.jwt_token,
-                self.api_key,
-                self.client_code,
-                self.feed_token,
-            )
-            self.ws.on_open = self._on_open
-            self.ws.on_data = self._on_message
-            self.ws.on_message = self._on_message
-            self.ws.on_error = self._on_error
-            self.ws.on_close = self._on_close
-        except Exception as exc:  # pragma: no cover
-            logger.exception("Failed to initialize Angel One websocket client: %s", exc)
-            self.connected = False
-            return False
+            if self._SmartWebSocketV2 is None:
+                logger.error(
+                    "Angel One SmartWebSocketV2 is not importable. Install smartapi-python in this Python environment."
+                )
+                return False
 
-        # SmartWebSocketV2.connect() runs a blocking run_forever() loop, so it
-        # must be driven from a background thread; we only wait here for the
-        # on_open callback (or timeout) before returning control to the caller.
-        self._open_event.clear()
-        self._connect_thread = threading.Thread(target=self._run_forever, daemon=True)
-        self._connect_thread.start()
+            try:
+                self.ws = self._SmartWebSocketV2(
+                    self.jwt_token,
+                    self.api_key,
+                    self.client_code,
+                    self.feed_token,
+                )
+                self.ws.on_open = self._on_open
+                self.ws.on_data = self._on_message
+                self.ws.on_message = self._on_message
+                self.ws.on_error = self._on_error
+                self.ws.on_close = self._on_close
+            except Exception as exc:  # pragma: no cover
+                logger.exception("Failed to initialize Angel One websocket client: %s", exc)
+                self.connected = False
+                return False
+
+            # SmartWebSocketV2.connect() runs a blocking run_forever() loop, so it
+            # must be driven from a background thread; we only wait here for the
+            # on_open callback (or timeout) before returning control to the caller.
+            self._open_event.clear()
+            self._connect_thread = threading.Thread(target=self._run_forever, daemon=True)
+            self._connect_thread.start()
 
         opened = self._open_event.wait(timeout)
         if not opened:
@@ -321,7 +327,13 @@ class AngelSmartWebSocketClient:
             self.queue.put(payload)
 
     def _on_error(self, *args):
-        logger.info("Angel One websocket error; reconnect will resume the stream.")
+        now = time.monotonic()
+        with self._lock:
+            should_log = now - self._last_error_log >= 30.0
+            if should_log:
+                self._last_error_log = now
+        if should_log:
+            logger.info("Angel One websocket error; reconnect will resume the stream.")
         self.connected = False
         self._open_event.clear()
 
