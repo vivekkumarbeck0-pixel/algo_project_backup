@@ -147,6 +147,15 @@ class PositionTracker:
         self._notify_change()
         return position
 
+    def drop_position(self, position: Position, reason: str = "DROPPED") -> Position:
+        """Mark a position closed without recording an unverified exit fill."""
+        position.exit_price = None
+        position.closed_at = datetime.now()
+        position.close_reason = reason
+        position.status = PositionStatus.CLOSED
+        self._notify_change()
+        return position
+
     def check_exit(self, position: Position, current_index_price: float) -> str | None:
         """Return 'SL_HIT'/'TARGET_HIT' based on option contract type (CE vs PE)
         and live index price level, else None."""

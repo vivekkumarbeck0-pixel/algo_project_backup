@@ -3,11 +3,15 @@
 Run with: ``python trading_nifty.py``
 """
 
+import math
 import time
 from datetime import datetime, time as dt_time
 
 from config import settings
 from engine.trading_session import IST, LivePaperTradingSession
+from logger import get_logger
+
+log = get_logger(__name__)
 
 
 class NiftyTradingSession(LivePaperTradingSession):
@@ -36,6 +40,29 @@ class NiftyTradingSession(LivePaperTradingSession):
 
     def _state_file(self) -> str:
         return "data/nifty_daily_state.json"
+
+    def _load_state(self) -> None:
+        super()._load_state()
+        today = datetime.now().date()
+        dropped = 0
+        for position in self.tracker.open_positions():
+            if position.opened_at.date() < today:
+                self.tracker.drop_position(position, reason="STARTUP_DROPPED")
+                dropped += 1
+                continue
+
+            try:
+                option_ltp = self._to_float(self._option_ltp_lookup(position))
+            except Exception as exc:
+                log.warning("Unable to validate restored NIFTY option LTP: %s", exc)
+                option_ltp = None
+            if option_ltp is None or not math.isfinite(option_ltp) or option_ltp <= 0:
+                self.tracker.drop_position(position, reason="STARTUP_DROPPED")
+                dropped += 1
+
+        if dropped:
+            self._persist_state()
+            log.info("Dropped %d restored NIFTY position(s) at startup", dropped)
 
     def _dashboard_metric_labels(self) -> tuple[str, str]:
         return "India VIX", "Option IV"

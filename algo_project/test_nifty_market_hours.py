@@ -66,19 +66,58 @@ def test_nifty_closed_market_does_not_fill_at_stale_quote(exit_ltp):
     session._persist_state.assert_called_once()
 
 
-def test_nifty_restored_position_waits_for_market_quote():
+def test_nifty_restored_position_without_option_ltp_is_dropped():
     session = NiftyTradingSession.__new__(NiftyTradingSession)
     session.tracker = PositionTracker()
-    position = session.tracker.open_position("NIFTY", 23450, "PE", "BUY", 65, 195.95)
+    session.tracker.open_position("NIFTY", 23450, "PE", "BUY", 65, 195.95)
     session.state_store = Mock()
     session.state_store.load.return_value = {"positions": session.tracker.export_state()}
     session._option_ltp_lookup = Mock(return_value=None)
+    session._persist_state = Mock()
+
+    session._load_state()
+
+    assert not session.tracker.open_positions()
+    dropped_position = session.tracker.closed_positions()[0]
+    assert dropped_position.status.value == "CLOSED"
+    assert dropped_position.exit_price is None
+    assert dropped_position.close_reason == "STARTUP_DROPPED"
+    session._option_ltp_lookup.assert_called_once()
+    session._persist_state.assert_called_once()
+
+
+def test_nifty_restored_prior_day_position_is_dropped_without_ltp_lookup():
+    session = NiftyTradingSession.__new__(NiftyTradingSession)
+    session.tracker = PositionTracker()
+    position = session.tracker.open_position("NIFTY", 23450, "PE", "BUY", 65, 195.95)
+    position.opened_at = datetime(2000, 1, 1, 9, 30)
+    session.state_store = Mock()
+    session.state_store.load.return_value = {"positions": session.tracker.export_state()}
+    session._option_ltp_lookup = Mock(return_value=195.95)
+    session._persist_state = Mock()
+
+    session._load_state()
+
+    assert not session.tracker.open_positions()
+    assert session.tracker.closed_positions()[0].close_reason == "STARTUP_DROPPED"
+    session._option_ltp_lookup.assert_not_called()
+    session._persist_state.assert_called_once()
+
+
+def test_nifty_restored_position_with_valid_option_ltp_is_retained():
+    session = NiftyTradingSession.__new__(NiftyTradingSession)
+    session.tracker = PositionTracker()
+    session.tracker.open_position("NIFTY", 23450, "PE", "BUY", 65, 195.95)
+    session.state_store = Mock()
+    session.state_store.load.return_value = {"positions": session.tracker.export_state()}
+    session._option_ltp_lookup = Mock(return_value=195.95)
+    session._persist_state = Mock()
 
     session._load_state()
 
     assert len(session.tracker.open_positions()) == 1
-    assert session.tracker.open_positions()[0].exit_price is None
-    session._option_ltp_lookup.assert_not_called()
+    session._option_ltp_lookup.assert_called_once()
+    session._persist_state.assert_not_called()
 
 
 @pytest.mark.parametrize("exit_ltp", [278.35, None])
