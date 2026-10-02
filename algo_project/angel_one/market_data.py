@@ -71,6 +71,7 @@ class MarketDataFetcher:
     _request_worker_lock = threading.Lock()
     MAX_MEMORY_CACHE_ENTRIES = 64
     MAX_DISK_CACHE_ENTRIES = 128
+    OPTION_GREEK_EMPTY_CACHE_SECONDS = 300.0
 
     @classmethod
     def _ensure_request_queue_worker(cls) -> None:
@@ -118,6 +119,8 @@ class MarketDataFetcher:
         self._cache: dict[tuple, tuple[float, Any]] = {}
         self._rate_limited_until = 0.0
         self._option_chain_previous: dict[str, float] = {}
+        self._instrument_reader = None
+        self._instrument_master_mtime = None
         self._tick_store = None
         if client is None and use_env:
             # Prefer connect_from_env (loads client_id/password/totp and creates session)
@@ -557,16 +560,86 @@ class MarketDataFetcher:
             return None
 
         cache_key = ("greeks", str(name).upper(), str(expirydate).upper())
-        rows = self._cache_get(cache_key, settings.metrics_refresh_interval_seconds)
+        cache_entry = self._cache.get(cache_key)
+        rows = self._cache_get(cache_key)
+        if cache_entry is not None and rows is not None:
+            cache_ttl = (
+                settings.metrics_refresh_interval_seconds
+                if rows
+                else self.OPTION_GREEK_EMPTY_CACHE_SECONDS
+            )
+            if time.monotonic() - cache_entry[0] > cache_ttl:
+                rows = None
 
         if rows is None and not self._cooling_down():
-            rows = self._request_option_greeks(name, expirydate)
+            listed_expiry = self._resolve_listed_option_expiry(name, expirydate)
+            if listed_expiry is None:
+                log.warning(
+                    "Option Greek request skipped: %s expiry %s is not listed in the instrument master.",
+                    str(name).upper(), expirydate,
+                )
+                rows = []
+            else:
+                rows = self._request_option_greeks(name, listed_expiry)
             self._cache_set(cache_key, rows)
 
         if rows is None:
             rows = self._cache_get(cache_key)
 
         return self._extract_iv(rows, strike, option_type) if rows else None
+
+    def _resolve_listed_option_expiry(self, name: str, expirydate: str) -> Optional[str]:
+        """Return the instrument-master expiry spelling for a live option expiry."""
+        from angel_one.instrument_reader import InstrumentReader
+        from config import SYMBOL_REGISTRY
+
+        underlying = str(name).upper()
+        cfg = SYMBOL_REGISTRY.get(underlying)
+        if not cfg:
+            return None
+
+        try:
+            master_path = InstrumentReader.MASTER_FILE
+            master_mtime = master_path.stat().st_mtime_ns if master_path.exists() else None
+            if self._instrument_reader is None or master_mtime != self._instrument_master_mtime:
+                reader = InstrumentReader()
+                reader.load()
+                self._instrument_reader = reader
+                self._instrument_master_mtime = (
+                    master_path.stat().st_mtime_ns if master_path.exists() else None
+                )
+            instruments = self._instrument_reader.instruments
+        except Exception as exc:
+            log.warning("Cannot validate %s expiry against the instrument master: %s", underlying, exc)
+            return None
+
+        requested_date = None
+        for date_format in ("%d%b%Y", "%d%b%y", "%Y-%m-%d", "%d-%m-%Y"):
+            try:
+                requested_date = datetime.strptime(str(expirydate).strip().upper(), date_format).date()
+                break
+            except ValueError:
+                continue
+        if requested_date is None:
+            return None
+
+        today = datetime.now().date()
+        for item in instruments:
+            if (
+                str(item.get("name", "")).upper() != underlying
+                or str(item.get("exch_seg", "")).upper() != cfg["exchange"]
+                or str(item.get("instrumenttype", "")).upper() != cfg["option_instrumenttype"]
+                or not str(item.get("symbol", "")).upper().endswith(("CE", "PE"))
+            ):
+                continue
+            listed_expiry = str(item.get("expiry") or "").upper()
+            try:
+                listed_date = datetime.strptime(listed_expiry, "%d%b%Y").date()
+            except ValueError:
+                continue
+            if listed_date == requested_date and listed_date >= today:
+                return listed_expiry
+        return None
 
     def fetch_option_chain(self, underlying: str, center: float, radius: int = 10, expiry: str | None = None) -> dict:
         """Fetch broker FULL quotes for nearest CE/PE strikes around ``center``.
@@ -654,8 +727,24 @@ class MarketDataFetcher:
                 try:
                     response = self._queued_call(method, payload)
                 except Exception as exc:
+                    if "ab9019" in str(exc).lower():
+                        log.warning(
+                            "Option Greek data unavailable for %s expiry %s (AB9019).",
+                            payload["name"], payload["expirydate"],
+                        )
+                        return []
                     self._note_api_failure(exc, f"option greeks {payload}")
                     continue
+
+                if (
+                    isinstance(response, dict)
+                    and str(response.get("errorcode") or response.get("errorCode") or "").upper() == "AB9019"
+                ):
+                    log.warning(
+                        "Option Greek data unavailable for %s expiry %s (AB9019).",
+                        payload["name"], payload["expirydate"],
+                    )
+                    return []
 
                 data = response.get("data") if isinstance(response, dict) else response
                 if isinstance(data, dict):
