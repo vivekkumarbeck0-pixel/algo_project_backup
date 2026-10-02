@@ -109,8 +109,8 @@ class Settings:
     ma_volume_period: int = 20
     volume_spike_factor: float = 1.05
     # Confirmation cushion so wicks that only graze a pivot cannot trigger an entry.
-    buffer_points: float = 4.0
-    crude_risk_reward_ratio: float = 1.5
+    buffer_points: float = 1.0
+    crude_risk_reward_ratio: float = 2.0
     # Skip entries whose stop would eat more than this share of the premium.
     max_stop_premium_fraction: float = 0.5
     atr_stop_mult: float = 1.5
