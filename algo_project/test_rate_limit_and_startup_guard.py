@@ -1,4 +1,5 @@
 import time
+from unittest.mock import Mock
 
 from engine.decision_engine import Decision
 from engine.position_tracker import PositionTracker
@@ -56,6 +57,69 @@ def test_trade_gate_accepts_a_fresh_quote_without_price_movement():
 
     assert session._has_fresh_live_confirmation() is True
     assert session._has_fresh_live_confirmation() is True
+
+
+def test_nifty_trade_gate_falls_back_to_fresh_rest_ltp_when_websocket_tick_is_missing():
+    session = object.__new__(LivePaperTradingSession)
+    session._startup_trade_locked_until = 0.0
+    session._last_live_tick_price = None
+    session._last_trade_ready_at = 0.0
+    session._active_symbol = "NIFTY"
+    session._resolve_underlying = lambda symbol: {"token": "26000", "symbol": "NIFTY"}
+    session.market_data = Mock()
+    session.market_data._live_quote.return_value = None
+    session.market_data.fetch_latest_price.return_value = 24_500.0
+
+    assert session._has_fresh_live_confirmation() is True
+    assert session._last_live_tick_price == 24_500.0
+    session.market_data.fetch_latest_price.assert_called_once_with(
+        "26000", exchange="NSE", tradingsymbol="NIFTY"
+    )
+
+
+def test_nifty_trade_gate_falls_back_when_websocket_tick_is_stale():
+    session = object.__new__(LivePaperTradingSession)
+    session._startup_trade_locked_until = 0.0
+    session._last_live_tick_price = None
+    session._last_trade_ready_at = 0.0
+    session._active_symbol = "NIFTY"
+    session._resolve_underlying = lambda symbol: {"token": "26000", "symbol": "NIFTY"}
+    session.market_data = Mock()
+    session.market_data._live_quote.return_value = {"ltp": 24_500.0, "time": time.time() - 40}
+    session.market_data.fetch_latest_price.return_value = 24_501.0
+
+    assert session._has_fresh_live_confirmation() is True
+    assert session._last_live_tick_price == 24_501.0
+    session.market_data.fetch_latest_price.assert_called_once()
+
+
+def test_nifty_trade_gate_rejects_invalid_rest_ltp_fallback():
+    session = object.__new__(LivePaperTradingSession)
+    session._startup_trade_locked_until = 0.0
+    session._last_trade_ready_at = 0.0
+    session._active_symbol = "NIFTY"
+    session._resolve_underlying = lambda symbol: {"token": "26000", "symbol": "NIFTY"}
+    session.market_data = Mock()
+    session.market_data._live_quote.return_value = None
+    session.market_data.fetch_latest_price.return_value = 0.0
+
+    assert session._has_fresh_live_confirmation() is False
+
+
+def test_nifty_trade_gate_rejects_stale_cached_rest_ltp_fallback():
+    session = object.__new__(LivePaperTradingSession)
+    session._startup_trade_locked_until = 0.0
+    session._last_trade_ready_at = 0.0
+    session._active_symbol = "NIFTY"
+    session._resolve_underlying = lambda symbol: {"token": "26000", "symbol": "NIFTY"}
+    session.market_data = Mock()
+    session.market_data._live_quote.return_value = None
+    session.market_data.fetch_latest_price.return_value = 24_500.0
+    session.market_data._cache = {
+        ("ltp", "NSE", "26000"): (time.monotonic() - 20.0, 24_500.0)
+    }
+
+    assert session._has_fresh_live_confirmation() is False
 
 
 def test_open_trade_refuses_second_position_when_one_is_open():

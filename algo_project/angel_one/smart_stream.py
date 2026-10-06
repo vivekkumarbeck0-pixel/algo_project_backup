@@ -344,7 +344,19 @@ class LiveTickStore:
         for token, exchange in tokens:
             if self._stop_event.is_set() or not self.connected:
                 return
-            self._stream.subscribe(token, exchange)
+            try:
+                subscribed = self._stream.subscribe(token, exchange)
+            except Exception:
+                subscribed = False
+                log.exception(
+                    "WebSocket resubscription failed for token %s on %s.",
+                    token,
+                    exchange,
+                )
+            if not subscribed:
+                with self._lock:
+                    self._subscribed.discard((token, exchange))
+                self._reconnect_wakeup.set()
 
     @staticmethod
     def _is_after_equity_close(now: Optional[datetime] = None) -> bool:
@@ -418,7 +430,18 @@ class LiveTickStore:
                 return
             self._subscribed.add(key)
 
-        if not self._stream.subscribe(key[0], key[1]):
+        try:
+            subscribed = self._stream.subscribe(key[0], key[1])
+        except Exception:
+            subscribed = False
+            log.exception(
+                "WebSocket subscription failed for token %s on %s.",
+                key[0],
+                key[1],
+            )
+        if not subscribed:
+            with self._lock:
+                self._subscribed.discard(key)
             self._reconnect_wakeup.set()
 
     def get(self, token: str, max_age: float) -> Optional[Dict[str, Any]]:

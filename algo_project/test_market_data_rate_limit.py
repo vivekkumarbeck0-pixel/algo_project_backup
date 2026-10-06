@@ -212,3 +212,42 @@ def test_live_stream_keeps_subscriptions_before_equity_close():
     before_close = datetime(2026, 10, 1, 15, 29, tzinfo=ZoneInfo("Asia/Kolkata"))
 
     assert not LiveTickStore._is_after_equity_close(before_close)
+
+
+def test_failed_nifty_spot_subscription_can_be_retried():
+    store = LiveTickStore.__new__(LiveTickStore)
+    store._lock = Lock()
+    store._subscribed = set()
+    store._ticks = {}
+    store._stream = Mock(connected=True)
+    store._stream.subscribe.side_effect = [False, True]
+    store._reconnect_wakeup = Mock()
+    store._stop_event = Mock()
+    store._stop_event.is_set.return_value = False
+
+    store.ensure_subscribed("26000", "NSE")
+    assert ("26000", "NSE") not in store._subscribed
+
+    store.ensure_subscribed("26000", "NSE")
+    assert ("26000", "NSE") in store._subscribed
+    assert [call.args for call in store._stream.subscribe.call_args_list] == [
+        ("26000", "NSE"),
+        ("26000", "NSE"),
+    ]
+
+
+def test_failed_nifty_spot_resubscription_is_retryable():
+    store = LiveTickStore.__new__(LiveTickStore)
+    store._lock = Lock()
+    store._subscribed = {("26000", "NSE")}
+    store._stream = Mock(connected=True)
+    store._stream.subscribe.return_value = False
+    store._stop_event = Mock()
+    store._stop_event.is_set.return_value = False
+    store._reconnect_wakeup = Mock()
+
+    store._resubscribe_all()
+
+    assert ("26000", "NSE") not in store._subscribed
+    store._stream.subscribe.assert_called_once_with("26000", "NSE")
+    store._reconnect_wakeup.set.assert_called_once()

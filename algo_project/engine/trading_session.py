@@ -129,29 +129,66 @@ class LivePaperTradingSession:
         if token is None:
             return False
 
+        current = None
         live = self.market_data._live_quote(token, exchange)
-        if live is None:
-            return False
+        if live is not None:
+            age = None
+            for key in ("time", "timestamp", "last_trade_time", "tick_time"):
+                value = live.get(key)
+                if value is not None:
+                    try:
+                        age = time.time() - float(value)
+                    except (TypeError, ValueError):
+                        age = None
+                    break
 
-        age = None
-        for key in ("time", "timestamp", "last_trade_time", "tick_time"):
-            value = live.get(key)
-            if value is not None:
-                try:
-                    age = time.time() - float(value)
-                except (TypeError, ValueError):
-                    age = None
-                break
-        if age is not None and age > 15.0:
-            return False
+            try:
+                live_price = float(live.get("ltp"))
+            except (TypeError, ValueError):
+                live_price = None
+            if (
+                live_price is not None
+                and math.isfinite(live_price)
+                and live_price > 0
+                and (age is None or age <= 15.0)
+            ):
+                current = live_price
 
-        try:
-            current = float(live.get("ltp"))
-        except (TypeError, ValueError):
-            return False
+        if current is None:
+            if self._active_symbol != "NIFTY":
+                return False
 
-        if not math.isfinite(current) or current <= 0:
-            return False
+            fetch_started = time.monotonic()
+            try:
+                rest_price = self.market_data.fetch_latest_price(
+                    token,
+                    exchange=exchange,
+                    tradingsymbol=underlying.get("symbol"),
+                )
+            except Exception as exc:
+                log.warning("NIFTY REST LTP freshness fallback failed: %s", exc)
+                return False
+            fetched_at = time.monotonic()
+            if fetched_at - fetch_started > 15.0:
+                return False
+
+            price_cache = getattr(self.market_data, "_cache", None)
+            cache_key = ("ltp", str(exchange), str(token))
+            cached_quote = price_cache.get(cache_key) if isinstance(price_cache, dict) else None
+            if (
+                isinstance(cached_quote, tuple)
+                and len(cached_quote) == 2
+                and isinstance(cached_quote[0], (int, float))
+                and fetched_at - cached_quote[0] > 15.0
+            ):
+                return False
+
+            try:
+                current = float(rest_price)
+            except (TypeError, ValueError):
+                return False
+            if not math.isfinite(current) or current <= 0:
+                return False
 
         self._last_live_tick_price = current
         self._last_trade_ready_at = time.monotonic()
