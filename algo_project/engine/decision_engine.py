@@ -743,17 +743,13 @@ class DecisionEngine:
         if underlying == "NIFTY" and nifty_entries:
             ce_entry = nifty_entries.get("CE", (None, "", None, None))
             pe_entry = nifty_entries.get("PE", (None, "", None, None))
-            ce_target = nifty_targets.get("CE", (None, None, ""))
-            pe_target = nifty_targets.get("PE", (None, None, ""))
             bullish_pivot_setup = self._buffer_touch(current_price, ce_entry[2], "CE")
             bearish_pivot_setup = self._buffer_touch(current_price, pe_entry[2], "PE")
             bullish_oi_confirmation = (
-                ce_entry[0] is not None and ce_entry[3] is not None
-                and ce_target[0] is not None and ce_target[1] is not None
+                ce_entry[0] is not None and ce_entry[2] is not None
             )
             bearish_oi_confirmation = (
-                pe_entry[0] is not None and pe_entry[3] is not None
-                and pe_target[0] is not None and pe_target[1] is not None
+                pe_entry[0] is not None and pe_entry[2] is not None
             )
         bullish_setup = bullish_smc_setup or (bullish_pivot_setup and bullish_oi_confirmation)
         bearish_setup = bearish_smc_setup or (bearish_pivot_setup and bearish_oi_confirmation)
@@ -771,8 +767,8 @@ class DecisionEngine:
 
         entry_strike = atm_strike
         if underlying == "NIFTY" and option_type in nifty_entries:
-            selected_strike, _, entry_level, target_level = nifty_entries[option_type]
-            if selected_strike is not None and entry_level is not None and target_level is not None:
+            selected_strike, _, entry_level, _ = nifty_entries[option_type]
+            if selected_strike is not None and entry_level is not None:
                 entry_strike = selected_strike
 
         oi_pivot_setup = (
@@ -799,9 +795,6 @@ class DecisionEngine:
             and bearish_setup
             and (bearish_trigger or bearish_trend_alignment)
         )
-        if underlying == "NIFTY" and nifty_entries and option_type is not None:
-            entry_confirmed = entry_confirmed and nifty_targets.get(option_type, (None, None, ""))[1] is not None
-        
         # Check 3:15 PM IST Auto Square-off cutoff
         time_cutoff_reached = self._is_auto_square_off_time(underlying)
         square_off = bool(signal.get("square_off")) or time_cutoff_reached

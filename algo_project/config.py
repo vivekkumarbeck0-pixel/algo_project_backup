@@ -207,7 +207,7 @@ SYMBOL_REGISTRY: dict[str, dict] = {
         "strike_step": 50,
         "lot_size": 65,
         "sl_points": 25.0,
-        "target_points": 30.0,
+        "target_points": 50.0,
     },
     "CRUDEOIL": {
         "exchange": "MCX",
