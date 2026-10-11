@@ -477,8 +477,14 @@ class CrudeOptionBuyer:
         self._option_ltp_token = ""
         self._option_ltp_time = 0.0
         self._option_ltp_max_age = 5.0
+        self._option_ltp_max_variation = 0.30
         self._last_option_poll = 0.0
         self._option_poll_interval = 2.0
+        self._exit_confirmation_seconds = 3.0
+        self._exit_confirmation_ticks = 2
+        self._exit_confirmation: Optional[dict[str, Any]] = None
+        self._sl_cooldown_seconds = 180.0
+        self._sl_cooldowns: dict[str, float] = {}
         self._option_ltp_warning_interval = 60.0
         # A subscribe-triggered snap-quote tick can arrive a moment after entry carrying
         # a stale/last-close premium; ignore it until real prints settle.
@@ -701,6 +707,7 @@ class CrudeOptionBuyer:
             "paper_realized_pnl": self.paper_realized_pnl,
             "paper_wins": self.paper_wins,
             "paper_losses": self.paper_losses,
+            "sl_cooldowns": getattr(self, "_sl_cooldowns", {}),
         }
         temporary_path = self.state_path.with_suffix(".tmp")
         temporary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -718,6 +725,20 @@ class CrudeOptionBuyer:
         today = datetime.now(IST).date().isoformat()
         state_date = payload.get("date")
         is_rollover = state_date != today
+
+        cooldowns = payload.get("sl_cooldowns", {})
+        if isinstance(cooldowns, dict):
+            now = time.time()
+            restored_cooldowns = {}
+            for key, expiry in cooldowns.items():
+                try:
+                    expiry = float(expiry)
+                except (TypeError, ValueError):
+                    logger.warning("Ignoring invalid stop-loss cooldown for contract %s.", key)
+                    continue
+                if expiry > now:
+                    restored_cooldowns[str(key)] = expiry
+            self._sl_cooldowns = restored_cooldowns
 
         self.paper_realized_pnl = 0.0 if is_rollover else float(payload.get("paper_realized_pnl", 0.0))
         self.paper_wins = 0 if is_rollover else int(payload.get("paper_wins", 0))
@@ -1022,23 +1043,13 @@ class CrudeOptionBuyer:
             if not token or not futures_token or token != str(futures_token):
                 position = self._position
                 if position is not None and token and token == position.option_token:
-                    # Guard against the first subscribe-triggered snap-quote right after entry:
-                    # it can carry a stale/last-close premium wildly off the fill price, which
-                    # would otherwise slam the stop loss within the same second as the entry.
-                    since_entry = (_now_ist() - position.entry_time).total_seconds()
-                    if (
-                        since_entry < self._entry_settle_seconds
-                        and position.entry_price
-                        and abs(ltp - position.entry_price) > 0.5 * position.entry_price
-                    ):
+                    if not self._option_quote_is_fresh(raw_data):
                         logger.warning(
-                            "Ignoring implausible option tick %.2f (entry=%.2f) within settle window for %s.",
-                            ltp, position.entry_price, position.option_symbol,
+                            "Ignoring stale option quote for %s.",
+                            position.option_symbol,
                         )
                         return
-                    self._option_ltp = ltp
-                    self._option_ltp_token = token
-                    self._option_ltp_time = time.monotonic()
+                    self._accept_option_price(token, ltp)
                 return
 
             now = datetime.now()
@@ -1057,6 +1068,34 @@ class CrudeOptionBuyer:
                 self._live_signal_queue.put(signal)
         except Exception as exc:  # pragma: no cover
             logger.exception("Tick processing failed: %s", exc)
+
+    def _accept_option_price(self, token: str, price: float, received_at: Optional[float] = None) -> bool:
+        """Accept only plausible prices for the active contract; rejected ticks do not refresh age."""
+        position = self._position
+        if position is None or token != position.option_token or not math.isfinite(price) or price <= 0:
+            return False
+
+        previous_price = (
+            self._option_ltp
+            if self._option_ltp_token == token and self._option_ltp is not None
+            else position.entry_price
+        )
+        max_variation = float(getattr(self, "_option_ltp_max_variation", 0.30))
+        if previous_price > 0 and abs(price - previous_price) / previous_price > max_variation:
+            self._exit_confirmation = None
+            logger.warning(
+                "Ignoring implausible option tick %.2f after %.2f (over %.0f%%) for %s.",
+                price,
+                previous_price,
+                max_variation * 100,
+                position.option_symbol,
+            )
+            return False
+
+        self._option_ltp = price
+        self._option_ltp_token = token
+        self._option_ltp_time = time.monotonic() if received_at is None else received_at
+        return True
 
     def _volume_delta(self, cumulative_volume: float) -> float:
         """Feeds report volume traded for the whole day, so bars need the increment."""
@@ -1247,6 +1286,7 @@ class CrudeOptionBuyer:
         )
         confirmed, pivot_name, pivot_level = self._pivot_breakout(current_price, pivots, side)
         if not confirmed:
+            self._exit_confirmation = None
             logger.warning(
                 "%s %s proceeding without pivot confirmation: price=%.2f, pivot=%s (%.2f).",
                 scenario,
@@ -1675,31 +1715,32 @@ class CrudeOptionBuyer:
             print(f"  {label:<18}: {value}")
         print("=" * width, flush=True)
 
-    def _current_option_price(self, position: Position) -> float:
+    def _current_option_price(self, position: Position) -> Optional[float]:
         """Live broker premium: websocket tick first, then a throttled REST quote."""
         now = time.monotonic()
         if (
             self._option_ltp is not None
             and self._option_ltp_token == position.option_token
-            and (now - self._option_ltp_time) <= self._option_ltp_max_age
+            and 0 <= now - self._option_ltp_time <= self._option_ltp_max_age
         ):
             return self._option_ltp
 
-        if position.option_token and (now - self._last_option_poll) >= self._option_poll_interval:
+        if position.option_token and (
+            now - getattr(self, "_last_option_poll", 0.0)
+        ) >= getattr(self, "_option_poll_interval", 2.0):
             self._last_option_poll = now
             live = self._fetch_option_ltp(
                 {"symbol": position.option_symbol, "token": position.option_token}
             )
-            if live:
-                self._option_ltp = live
-                self._option_ltp_token = position.option_token
-                self._option_ltp_time = now
+            if live and self._accept_option_price(position.option_token, live):
                 return live
 
-        # Hold only this contract's last real quote rather than modelling a price the market never printed.
-        if self._option_ltp is not None and self._option_ltp_token == position.option_token:
-            return self._option_ltp
-        return position.entry_price
+        self._warn_option_ltp_unavailable(
+            {"symbol": position.option_symbol, "token": position.option_token},
+            "No fresh plausible option LTP for %s; position management is paused.",
+            position.option_symbol,
+        )
+        return None
 
     @staticmethod
     def _parse_ist_time(value: str, fallback: dt_time) -> dt_time:
@@ -1719,6 +1760,55 @@ class CrudeOptionBuyer:
         trade_end = self._parse_ist_time(self.settings.trade_end_time_ist, dt_time(23, 15))
         return min(trade_end, self._square_off_time())
 
+    def _sl_cooldown_key(
+        self,
+        contract: Dict[str, Any],
+        strike: Optional[int] = None,
+        side: Optional[str] = None,
+    ) -> str:
+        symbol = str(contract.get("symbol") or "").strip()
+        if symbol:
+            return symbol.upper()
+        token = str(contract.get("token") or "").strip()
+        if token:
+            return f"TOKEN:{token}"
+        return f"{self.instrument.symbol} {strike} {side}".upper()
+
+    def _sl_cooldown_remaining(self, key: str) -> float:
+        cooldowns = getattr(self, "_sl_cooldowns", {})
+        remaining = float(cooldowns.get(key, 0.0)) - time.time()
+        if remaining <= 0:
+            cooldowns.pop(key, None)
+            self._sl_cooldowns = cooldowns
+            return 0.0
+        return remaining
+
+    def _sl_symbol_cooldown_key(self) -> str:
+        return str(self.instrument.symbol).upper()
+
+    @staticmethod
+    def _is_stop_loss_exit(reason: str) -> bool:
+        normalized = reason.upper().replace("_", " ")
+        return "STOP LOSS" in normalized or "TRAILING STOP" in normalized or normalized.startswith("SL ")
+
+    def _record_stop_loss_cooldown(self, position: Position) -> None:
+        cooldowns = getattr(self, "_sl_cooldowns", {})
+        key = self._sl_cooldown_key(
+            {"symbol": position.option_symbol, "token": position.option_token},
+            strike=position.strike,
+            side=position.side,
+        )
+        expiry = time.time() + getattr(self, "_sl_cooldown_seconds", 180.0)
+        cooldowns[key] = expiry
+        cooldowns[self._sl_symbol_cooldown_key()] = expiry
+        self._sl_cooldowns = cooldowns
+        logger.info(
+            "Stop-loss cooldown started for %s and %s (%ds).",
+            key,
+            self._sl_symbol_cooldown_key(),
+            int(getattr(self, "_sl_cooldown_seconds", 180.0)),
+        )
+
     def _is_square_off_window(self) -> bool:
         return datetime.now(IST).time() >= self._square_off_time()
 
@@ -1730,7 +1820,10 @@ class CrudeOptionBuyer:
 
         if self._position is not None:
             option_price = self._current_option_price(self._position)
-            self._close_position(option_price, "DAY CLOSE SQUARE-OFF")
+            if option_price is not None:
+                self._close_position(option_price, "DAY CLOSE SQUARE-OFF")
+            else:
+                logger.error("Cannot square off %s: no fresh option quote is available.", self._position.option_symbol)
 
         if not self._square_off_done:
             self._square_off_done = True
@@ -1868,6 +1961,22 @@ class CrudeOptionBuyer:
         # Paper mode prices the same live contract as real mode, so the premium the
         # engine reports always matches what the broker terminal shows.
         contract = self._resolve_option_contract(strike, option_type) or {}
+        cooldown_key = self._sl_cooldown_key(
+            contract,
+            strike=strike,
+            side=option_type,
+        )
+        cooldown_remaining = max(
+            self._sl_cooldown_remaining(cooldown_key),
+            self._sl_cooldown_remaining(self._sl_symbol_cooldown_key()),
+        )
+        if cooldown_remaining > 0:
+            self._set_no_signal_reason(
+                f"stop-loss cooldown for {self.instrument.symbol} / {cooldown_key} "
+                f"({cooldown_remaining:.0f}s remaining)"
+            )
+            return
+
         if is_real and (not self.settings.angel_api_key or not contract.get("token")):
             logger.error(
                 "REAL entry aborted: %s.",
@@ -1972,6 +2081,7 @@ class CrudeOptionBuyer:
         self._option_ltp = entry_option_price
         self._option_ltp_token = self._position.option_token
         self._option_ltp_time = time.monotonic()
+        self._exit_confirmation = None
         if self._position.option_token:
             self._smart_stream.subscribe_futures(
                 self._position.option_token, exchange=self.settings.option_exchange
@@ -2097,6 +2207,14 @@ class CrudeOptionBuyer:
                     response = self._rest_client.get_api().ltpData(exchange, symbol, token)
                 ltp = self._parse_ltp_response(response)
                 if ltp is not None:
+                    data = response.get("data") if isinstance(response, dict) else None
+                    if not self._option_quote_is_fresh(data):
+                        self._warn_option_ltp_unavailable(
+                            contract,
+                            "Ignoring stale REST option quote for %s.",
+                            symbol,
+                        )
+                        continue
                     return ltp
             except Exception as exc:
                 self._warn_option_ltp_unavailable(
@@ -2141,7 +2259,72 @@ class CrudeOptionBuyer:
         fetched = data.get("fetched") if isinstance(data, dict) else None
         if not isinstance(fetched, list) or not fetched or not isinstance(fetched[0], dict):
             return None
+        if not self._option_quote_is_fresh(fetched[0]):
+            self._warn_option_ltp_unavailable(
+                {"symbol": symbol, "token": token},
+                "Ignoring stale FULL option quote for %s.",
+                symbol,
+            )
+            return None
         return self._parse_ltp_response({"data": fetched[0]})
+
+    def _option_quote_is_fresh(self, data: Any) -> bool:
+        if not isinstance(data, dict):
+            return True
+
+        timestamp = None
+        for key in (
+            "exchange_timestamp",
+            "exchFeedTime",
+            "time",
+            "timestamp",
+            "last_trade_time",
+            "tick_time",
+            "exchTradeTime",
+        ):
+            value = data.get(key)
+            if value is None:
+                continue
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError):
+                numeric = None
+
+            if numeric is not None:
+                if numeric > 100_000_000_000:
+                    numeric /= 1000.0
+                if numeric > 1_000_000_000:
+                    timestamp = datetime.fromtimestamp(numeric, tz=IST)
+                    break
+                continue
+
+            text = str(value).strip()
+            for parser in (
+                datetime.fromisoformat,
+                lambda item: datetime.strptime(item, "%d-%b-%Y %H:%M:%S"),
+                lambda item: datetime.combine(
+                    datetime.now(IST).date(),
+                    datetime.strptime(item, "%H:%M:%S").time(),
+                ),
+                lambda item: datetime.combine(
+                    datetime.now(IST).date(),
+                    datetime.strptime(item, "%H:%M").time(),
+                ),
+            ):
+                try:
+                    timestamp = parser(text)
+                    break
+                except ValueError:
+                    continue
+            if timestamp is not None:
+                break
+
+        if timestamp is None:
+            return True
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=IST)
+        age = (_now_ist() - timestamp.astimezone(IST)).total_seconds()
+        return -5.0 <= age <= float(getattr(self, "_option_ltp_max_age", 5.0))
 
     def _close_position(self, option_price: float, reason: str):
         position = self._position
@@ -2301,15 +2484,38 @@ class CrudeOptionBuyer:
         }
         # Clear and checkpoint the local position before the external Sheet call.
         # A slow or failed network logger must not leave a closed trade restorable.
+        if self._is_stop_loss_exit(reason):
+            self._record_stop_loss_cooldown(position)
         self._position = None
         self._option_ltp = None
         self._option_ltp_token = ""
         self._option_ltp_time = 0.0
+        self._exit_confirmation = None
         self._persist_state()
         try:
             log_trade(trade_info)
         except Exception:
             logger.exception("Failed to log crude trade exit to Google Sheets.")
+
+    def _exit_confirmed(self, reason: str, tick_key: Any) -> bool:
+        now = time.monotonic()
+        confirmation = getattr(self, "_exit_confirmation", None)
+        if not confirmation or confirmation["reason"] != reason:
+            confirmation = {
+                "reason": reason,
+                "since": now,
+                "ticks": 1,
+                "last_tick": tick_key,
+            }
+        elif tick_key is not None and tick_key != confirmation["last_tick"]:
+            confirmation["ticks"] += 1
+            confirmation["last_tick"] = tick_key
+
+        self._exit_confirmation = confirmation
+        return (
+            confirmation["ticks"] >= getattr(self, "_exit_confirmation_ticks", 2)
+            or now - confirmation["since"] >= getattr(self, "_exit_confirmation_seconds", 3.0)
+        )
 
     def _update_position_management(self):
         if self._position is None or self.current_price is None:
@@ -2323,6 +2529,9 @@ class CrudeOptionBuyer:
         if (_now_ist() - _as_ist(position.entry_time)).total_seconds() < settle_seconds:
             return
         option_price = self._current_option_price(position)
+        if option_price is None:
+            self._exit_confirmation = None
+            return
         if (
             len(position.intratrade_option_prices) < 5_000
             and (
@@ -2348,24 +2557,34 @@ class CrudeOptionBuyer:
         trailing_active = position.trailing_stop > position.stop_loss
 
         futures_target = position.futures_target
-        if futures_target is not None and (
+        current_timestamp = getattr(self, "current_timestamp", None)
+        future_tick_is_fresh = (
+            current_timestamp is not None
+            and (_now_ist() - _as_ist(current_timestamp)).total_seconds()
+            <= float(getattr(self.settings, "futures_tick_timeout_seconds", 5.0))
+        )
+        exit_reason = None
+        exit_price = option_price
+        exit_tick_key = getattr(self, "_option_ltp_time", None)
+        if futures_target is not None and future_tick_is_fresh and (
             (position.side == "CE" and self.current_price >= futures_target)
             or (position.side == "PE" and self.current_price <= futures_target)
         ):
-            self._close_position(option_price, "S&R TARGET HIT")
+            exit_reason = "S&R TARGET HIT"
+            exit_tick_key = current_timestamp
+        elif futures_target is None and option_price >= position.target_price:
+            exit_reason = "TARGET HIT"
+        elif option_price <= position.stop_loss:
+            exit_reason = "STOP LOSS"
+        elif trailing_active and option_price <= position.trailing_stop:
+            exit_reason = "TRAILING STOP"
+
+        if exit_reason is None:
+            self._exit_confirmation = None
             return
 
-        if futures_target is None and option_price >= position.target_price:
-            self._close_position(option_price, "TARGET HIT")
-            return
-
-        if option_price <= position.stop_loss:
-            self._close_position(option_price, "STOP LOSS")
-            return
-
-        if trailing_active and option_price <= position.trailing_stop:
-            self._close_position(option_price, "TRAILING STOP")
-            return
+        if self._exit_confirmed(exit_reason, exit_tick_key):
+            self._close_position(exit_price, exit_reason)
 
     def _process_live_cycle(self):
         self._refresh_adaptive_config()
@@ -2417,10 +2636,15 @@ class CrudeOptionBuyer:
             elif self._position is not None:
                 position = self._position
                 option_price = self._current_option_price(position)
+                if option_price is None:
+                    premium_text = "no fresh quote"
+                else:
+                    premium_text = (
+                        f"now {option_price:.2f} ({option_price - position.entry_price:+.2f})"
+                    )
                 state = (
                     f"IN {position.side} {position.strike} @ {position.entry_price:.2f} "
-                    f"now {option_price:.2f} ({option_price - position.entry_price:+.2f}) "
-                    f"sl {max(position.stop_loss, position.trailing_stop):.2f} "
+                    f"{premium_text} sl {max(position.stop_loss, position.trailing_stop):.2f} "
                     f"tgt {position.target_price:.2f}"
                 )
             else:

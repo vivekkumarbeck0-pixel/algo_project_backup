@@ -56,6 +56,20 @@ def test_crude_state_restores_open_position_on_same_day_restart():
         assert restarted._trail_distance == 7.5
         assert restarted.paper_realized_pnl == 125.0
 
+
+def test_crude_state_restores_active_stop_loss_cooldowns():
+    with TemporaryDirectory() as temporary_directory:
+        state_path = f"{temporary_directory}/crude_daily_state.json"
+        original = _make_engine(state_path)
+        original._sl_cooldowns = {"CRUDEOIL17SEP267200CE": 4_000_000_000.0}
+        original._persist_state()
+
+        restarted = _make_engine(state_path)
+        restarted._restore_state()
+
+        assert restarted._sl_cooldowns == original._sl_cooldowns
+
+
 def test_crude_state_rollover_preserves_open_position_and_updates_date():
     with TemporaryDirectory() as temporary_directory:
         state_path = f"{temporary_directory}/crude_daily_state.json"
@@ -351,6 +365,10 @@ def test_crude_trailing_stop_starts_after_eight_profit_points():
     engine._current_option_price.return_value = 106.0
 
     engine._update_position_management()
+    engine._close_position.assert_not_called()
+
+    engine._option_ltp_time = 1.0
+    engine._update_position_management()
 
     engine._close_position.assert_called_once_with(106.0, "TRAILING STOP")
 
@@ -389,6 +407,10 @@ def test_crude_trailing_floor_protects_entry_after_activation():
 
     engine._current_option_price.return_value = 100.5
     engine._update_position_management()
+    engine._close_position.assert_not_called()
+
+    engine._option_ltp_time = 1.0
+    engine._update_position_management()
     engine._close_position.assert_called_once_with(100.5, "TRAILING STOP")
     assert engine._position.stop_loss == 90.0
     assert engine._position.target_price == 130.0
@@ -416,6 +438,10 @@ def test_crude_target_keeps_priority_when_trailing_floor_is_active():
         scenario="Long Buildup",
     )
 
+    engine._update_position_management()
+    engine._close_position.assert_not_called()
+
+    engine._option_ltp_time = 1.0
     engine._update_position_management()
 
     engine._close_position.assert_called_once_with(130.0, "TARGET HIT")

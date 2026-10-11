@@ -77,9 +77,9 @@
       "trailing_stop": 23467.5,
       "opened_at": "2026-09-15T09:38:10.625670",
       "exit_price": null,
-      "closed_at": null,
-      "close_reason": null,
-      "status": "OPEN"
+      "closed_at": "2026-10-02T07:53:15.426146",
+      "close_reason": "MANUAL",
+      "status": "CLOSED"
     }
   ],
   "trades_today": 2,
