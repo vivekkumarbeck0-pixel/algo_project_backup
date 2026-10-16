@@ -1,0 +1,6 @@
+gymnasium>=0.29
+numpy>=1.24
+pandas>=2.0
+stable-baselines3>=2.3
+gspread
+google-auth

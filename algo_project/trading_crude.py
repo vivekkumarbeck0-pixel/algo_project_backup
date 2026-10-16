@@ -35,6 +35,7 @@ import yfinance as yf
 from config import MCX_CRUDE_FUTURE, settings
 from engine.adaptive_config import AdaptiveConfigReloader
 from engine.crude_outcome_filter import build_live_outcome_features, predict_win_probability
+from crude_tick_shadow_observer import CrudeTickShadowObserver
 from sheets_logger import log_trade
 
 
@@ -214,7 +215,7 @@ class AngelSmartWebSocketClient:
         self.jwt_token = jwt_token
         self.ws = None
         self.connected = False
-        self.queue: queue.Queue = queue.Queue()
+        self._latest_ticks: dict[str, Dict[str, Any]] = {}
         self._lock = threading.Lock()
         self._open_event = threading.Event()
         self._connect_thread: Optional[threading.Thread] = None
@@ -323,20 +324,53 @@ class AngelSmartWebSocketClient:
         else:
             payload = message
 
-        if payload is not None:
-            self.queue.put(payload)
+        for tick_record in self._tick_records(payload):
+            token = str(tick_record.get("token") or tick_record.get("symbolToken") or "").strip()
+            if token:
+                with self._lock:
+                    self._latest_ticks[token] = {"data": tick_record}
+
+    @staticmethod
+    def _tick_records(payload: Any) -> list[Dict[str, Any]]:
+        if isinstance(payload, dict):
+            raw_data = payload.get("data") or payload.get("tokenData") or payload.get("tick")
+            if isinstance(raw_data, list):
+                records = raw_data
+            elif isinstance(raw_data, dict):
+                records = [raw_data]
+            elif "last_traded_price" in payload or "last_price" in payload:
+                records = [payload]
+            else:
+                records = []
+        elif isinstance(payload, list):
+            records = payload
+        else:
+            records = []
+        return [record for record in records if isinstance(record, dict)]
+
+    def drain_latest_ticks(self) -> list[Dict[str, Any]]:
+        with self._lock:
+            latest_ticks = list(self._latest_ticks.values())
+            self._latest_ticks.clear()
+        return latest_ticks
+
+    def _clear_latest_ticks(self) -> None:
+        with self._lock:
+            self._latest_ticks.clear()
 
     def _on_error(self, *args):
         error = args[-1] if args else "unknown"
         logger.error(f"RAW WEBSOCKET ERROR: {error}")
         self.connected = False
         self._open_event.clear()
+        self._clear_latest_ticks()
 
     def _on_close(self, *args, **kwargs):
         error = args[-1] if args else "unknown"
         logger.error(f"RAW WEBSOCKET ERROR: {error}")
         self.connected = False
         self._open_event.clear()
+        self._clear_latest_ticks()
 
     def subscribe_futures(self, token: str, exchange: str = "MCX") -> None:
         if self.ws is None:
@@ -355,6 +389,7 @@ class AngelSmartWebSocketClient:
         except Exception as exc:  # pragma: no cover
             self.connected = False
             self._open_event.clear()
+            self._clear_latest_ticks()
             logger.info("MCX Crude websocket subscription closed; reconnect will resume the stream.")
 
     def close(self):
@@ -498,6 +533,9 @@ class CrudeOptionBuyer:
         self._last_oi: Optional[float] = None
         self._last_close: Optional[float] = None
         self._last_cum_volume: Optional[float] = None
+        self._last_valid_oi: Optional[float] = None
+        self._last_valid_cumulative_volume: Optional[float] = None
+        self._market_data_cache_date = _now_ist().date()
         self._last_signal_bar: Optional[datetime] = None
         self._last_no_signal_reason = ""
         self._last_no_signal_log = 0.0
@@ -528,6 +566,15 @@ class CrudeOptionBuyer:
         self._futures_token_cache: Optional[str] = None
         self._restore_state()
         self._refresh_adaptive_config()
+        try:
+            self._tick_shadow_observer = CrudeTickShadowObserver(
+                market_start=self.settings.market_start_time_ist,
+                market_close=self.settings.market_close_time_ist,
+            )
+            self._tick_shadow_observer.start()
+        except Exception:
+            # Shadow initialization is optional and must not affect bot startup.
+            logger.exception("Could not start the Crude PPO shadow observer.")
 
     def _refresh_adaptive_config(self) -> None:
         try:
@@ -1008,6 +1055,14 @@ class CrudeOptionBuyer:
         )
         return self._futures_token_cache
 
+    @staticmethod
+    def _positive_tick_value(value: Any) -> Optional[float]:
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return None
+        return number if math.isfinite(number) and number > 0 else None
+
     def _handle_tick(self, tick_payload: Dict[str, Any]):
         try:
             if not isinstance(tick_payload, dict):
@@ -1022,16 +1077,25 @@ class CrudeOptionBuyer:
             if "last_traded_price" in raw_data:
                 # SmartWebSocketV2 SNAP_QUOTE payload: prices are paisa-scaled integers.
                 ltp = float(raw_data.get("last_traded_price") or 0.0) / 100.0
-                oi = float(raw_data.get("open_interest") or 0.0)
-                cumulative_volume = float(raw_data.get("volume_trade_for_the_day") or 0.0)
+                oi = self._positive_tick_value(raw_data.get("open_interest"))
+                cumulative_volume = self._positive_tick_value(
+                    raw_data.get("volume_trade_for_the_day")
+                )
             else:
                 ltp = float(raw_data.get("last_price") or raw_data.get("ltp") or raw_data.get("LTP") or 0.0)
-                oi = float(raw_data.get("oi") or raw_data.get("OI") or raw_data.get("opnInterest") or raw_data.get("open_interest") or 0.0)
-                cumulative_volume = float(
-                    raw_data.get("tradeVolume")
-                    or raw_data.get("volume")
-                    or raw_data.get("totalVolume")
-                    or 0.0
+                oi = next(
+                    (
+                        value for key in ("oi", "OI", "opnInterest", "open_interest")
+                        if (value := self._positive_tick_value(raw_data.get(key))) is not None
+                    ),
+                    None,
+                )
+                cumulative_volume = next(
+                    (
+                        value for key in ("tradeVolume", "volume", "totalVolume")
+                        if (value := self._positive_tick_value(raw_data.get(key))) is not None
+                    ),
+                    None,
                 )
             if ltp <= 0:
                 return
@@ -1053,6 +1117,23 @@ class CrudeOptionBuyer:
                 return
 
             now = datetime.now()
+            cache_date = _now_ist().date()
+            if getattr(self, "_market_data_cache_date", cache_date) != cache_date:
+                self._last_valid_oi = None
+                self._last_valid_cumulative_volume = None
+                self._last_cum_volume = None
+            self._market_data_cache_date = cache_date
+
+            if oi is not None:
+                self._last_valid_oi = oi
+            else:
+                oi = self._last_valid_oi or 0.0
+
+            if cumulative_volume is not None:
+                self._last_valid_cumulative_volume = cumulative_volume
+            else:
+                cumulative_volume = self._last_valid_cumulative_volume or 0.0
+
             with self._bar_lock:
                 volume_delta = self._volume_delta(cumulative_volume)
                 self.current_price = ltp
@@ -1257,10 +1338,6 @@ class CrudeOptionBuyer:
         elif futures_down and oi_down and volume_spike and nymex_red:
             scenario = "Long Unwinding"
             side = "PE"
-
-        if scenario == "Short Covering":
-            self._set_no_signal_reason("Short Covering scenario is disabled")
-            return None
 
         if side is None or scenario is None:
             price_delta = current_price - previous_close
@@ -2532,6 +2609,27 @@ class CrudeOptionBuyer:
         if option_price is None:
             self._exit_confirmation = None
             return
+        observer = getattr(self, "_tick_shadow_observer", None)
+        if observer is not None:
+            try:
+                observer.submit_tick(
+                    timestamp=_now_ist(),
+                    tick_key=getattr(self, "_option_ltp_time", 0.0),
+                    trade_id=(
+                        f"{position.option_symbol}|"
+                        f"{_as_ist(position.entry_time).isoformat()}"
+                    ),
+                    symbol=position.option_symbol,
+                    option_type=position.side,
+                    live_price=option_price,
+                    entry_price=position.entry_price,
+                    atr=position.atr_value,
+                    baseline_sl=max(position.stop_loss, position.trailing_stop),
+                    baseline_tp=position.target_price,
+                )
+            except Exception:
+                # No observer failure is allowed to escape position management.
+                pass
         if (
             len(position.intratrade_option_prices) < 5_000
             and (
@@ -2586,6 +2684,10 @@ class CrudeOptionBuyer:
         if self._exit_confirmed(exit_reason, exit_tick_key):
             self._close_position(exit_price, exit_reason)
 
+    def _process_latest_websocket_ticks(self) -> None:
+        for payload in self._smart_stream.drain_latest_ticks():
+            self._handle_tick(payload)
+
     def _process_live_cycle(self):
         self._refresh_adaptive_config()
         if not self._smart_stream.connected and not self._rest_fallback:
@@ -2594,9 +2696,7 @@ class CrudeOptionBuyer:
         if not self._smart_stream.connected:
             self._reconnect_websocket_if_due()
 
-        if not self._smart_stream.queue.empty():
-            payload = self._smart_stream.queue.get()
-            self._handle_tick(payload)
+        self._process_latest_websocket_ticks()
 
         if self._rest_fallback:
             now = time.monotonic()
