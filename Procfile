@@ -1,1 +1,1 @@
-worker: python algo_project/trading_nifty.py
+web: cd algo_project && python main.py
