@@ -13,4 +13,6 @@ websocket-client
 Flask
 gspread
 google-auth
--r algo_project/requirements-crude-ppo.txt
+stable-baselines3
+torch
+gymnasium
