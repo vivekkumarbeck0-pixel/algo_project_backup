@@ -1,1 +1,1 @@
-web: cd algo_project && python main.py
+﻿worker: python algo_project/main.py
