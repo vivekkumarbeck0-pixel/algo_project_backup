@@ -1,0 +1,42 @@
+{
+  "source": "Google Sheet 1: Crude_Algo_Trade_Logs",
+  "model": "models\\crude_tick_ppo_run_trailing_1r",
+  "mode": "train",
+  "test_fraction": 0.2,
+  "total_valid_trade_paths": 482,
+  "training_trade_paths": 385,
+  "holdout_trade_paths": 97,
+  "training_period": {
+    "first_entry": "2026-09-17T09:38:41+00:00",
+    "last_entry": "2026-10-12T15:38:34+00:00"
+  },
+  "holdout_period": {
+    "first_entry": "2026-10-12T15:53:01+00:00",
+    "last_entry": "2026-10-16T23:07:01+00:00"
+  },
+  "excluded_rows": {
+    "missing price path": 236
+  },
+  "pnl_unit": "option premium points (not rupees; quantity and costs are not applied)",
+  "reward_unit": "R multiples; 1R is the initial entry-to-stop risk",
+  "results": {
+    "trades_tested": 97,
+    "wins": 40,
+    "losses": 57,
+    "breakeven": 0,
+    "win_rate": 0.41237113402061853,
+    "total_simulated_pnl_points": -62.79999999999994,
+    "average_simulated_pnl_points": -0.6474226804123705,
+    "total_simulated_pnl_r": -2.9182424459946885,
+    "average_simulated_pnl_r": -0.030084973670048334,
+    "average_win_r": 0.9605346241249393,
+    "average_loss_r": -0.7252566212454783,
+    "profit_factor": 0.818234442836469,
+    "profit_factor_r": 0.9294081096333556,
+    "max_drawdown_points": 88.30000000000001,
+    "exit_reasons": {
+      "stop_loss": 95,
+      "recorded_exit": 2
+    }
+  }
+}

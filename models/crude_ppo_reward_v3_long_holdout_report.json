@@ -1,0 +1,29 @@
+{
+  "data_file": "data\\crude_closed_trades.csv",
+  "total_rows": 647,
+  "training_rows": 517,
+  "holdout_rows": 130,
+  "split": "chronological; oldest 80% train, newest 20% holdout",
+  "model_file": "models\\crude_ppo_reward_v3_long.zip",
+  "normalization_file": "models\\crude_ppo_reward_v3_long_vecnormalize.pkl",
+  "training_timesteps": 150000,
+  "holdout": {
+    "metrics": {
+      "trades": 0,
+      "wins": 0,
+      "losses": 0,
+      "win_rate": 0.0,
+      "total_pnl": 0.0,
+      "average_pnl": 0.0,
+      "profit_factor": 0.0,
+      "max_drawdown": 0.0
+    },
+    "holdout_rows": 130,
+    "skipped_rows": 129,
+    "unsupported_counterfactual_entries": 1,
+    "invalid_reentries": 0,
+    "executed_trades": [],
+    "interpretation": "PnL and win rate use only trades where the model selected the side recorded in the historical log. Opposite-side outcomes are unknown."
+  },
+  "warning": "Historical replay is not proof of future profitability. This offline environment has no counterfactual prices for the opposite option side."
+}

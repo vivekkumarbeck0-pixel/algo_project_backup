@@ -1,0 +1,145 @@
+import json
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from crude_tick_env import CrudeTickEnv, OBSERVATION_FEATURES, prepare_tick_trades
+
+
+def _trade(path, *, entry=100.0, exit_price=None, atr=2.0):
+    exit_price = (path[-1] if path else entry) if exit_price is None else exit_price
+    return {
+        "Entry Timestamp": "2026-09-01 10:00:00",
+        "Exit Timestamp": "2026-09-01 10:05:00",
+        "Symbol": "CRUDEOIL_OPTION",
+        "Action": "CE",
+        "Entry Price": entry,
+        "Exit Price": exit_price,
+        "Entry ATR": atr,
+        "PnL": (exit_price - entry) * 100,
+        "Intratrade Option Prices": json.dumps(path),
+    }
+
+
+def _action(*, sl_atr=0.5, trail_gap_r=1.0, buffer_atr=0.0):
+    return np.asarray(
+        [
+            (sl_atr - 0.25) / (4.0 - 0.25),
+            (trail_gap_r - 0.5) / (1.0 - 0.5),
+            buffer_atr / 2.0,
+        ],
+        dtype=np.float32,
+    )
+
+
+def test_replays_price_samples_and_stops_when_stop_is_hit_first():
+    env = CrudeTickEnv(pd.DataFrame([_trade([100.0, 99.0, 103.0])]))
+    observation, reset_info = env.reset()
+    assert observation.shape == (len(OBSERVATION_FEATURES),)
+    assert reset_info["path_timestamps_available"] is False
+
+    _, reward, terminated, truncated, info = env.step(
+        _action(sl_atr=0.5)
+    )
+
+    assert terminated
+    assert not truncated
+    assert info["exit_reason"] == "stop_loss"
+    assert info["tick_index"] == 1
+    assert info["exit_price"] == 99.0
+    assert reward == pytest.approx(-1.0 / 2.2)
+
+
+def test_one_r_activates_trailing_stop_and_later_pullback_locks_profit():
+    env = CrudeTickEnv(pd.DataFrame([_trade([100.0, 102.2, 105.0, 102.7])]))
+    env.reset()
+    _, first_reward, terminated, _, first_info = env.step(
+        _action(sl_atr=0.25, trail_gap_r=1.0)
+    )
+    assert not terminated
+    assert first_info["trail_active"]
+    assert first_info["trail_activation_price"] == pytest.approx(102.2)
+    assert first_info["sl_price"] == pytest.approx(100.0)
+    assert first_reward == 0.0
+
+    _, second_reward, terminated, _, second_info = env.step(
+        _action(sl_atr=0.25, trail_gap_r=1.0)
+    )
+    assert not terminated
+    assert second_info["sl_price"] == pytest.approx(102.8)
+    assert second_reward == 0.0
+
+    _, final_reward, terminated, _, info = env.step(
+        _action(sl_atr=0.25, trail_gap_r=1.0)
+    )
+    assert terminated
+    assert info["exit_reason"] == "stop_loss"
+    assert info["exit_price"] == pytest.approx(102.7)
+    assert info["pnl_points"] == pytest.approx(2.7)
+    assert first_reward + second_reward + final_reward == pytest.approx(2.7 / 2.2)
+
+
+def test_initial_risk_defines_one_r_trail_activation():
+    env = CrudeTickEnv(pd.DataFrame([_trade([100.0, 100.2, 100.4])]))
+    _, reset_info = env.reset()
+    assert reset_info["path_timestamps_available"] is False
+    assert env.initial_risk_points == pytest.approx(2.2)
+    assert env.trail_activation_price == pytest.approx(102.2)
+
+
+def test_stop_can_tighten_but_never_widen():
+    env = CrudeTickEnv(pd.DataFrame([_trade([100.0, 101.0, 100.0, 98.9])]))
+    env.reset()
+    _, _, terminated, _, first_info = env.step(
+        _action(sl_atr=0.5)
+    )
+    assert not terminated
+    initial_stop = first_info["sl_price"]
+
+    _, _, terminated, _, second_info = env.step(
+        _action(sl_atr=3.0)
+    )
+    assert not terminated
+    assert second_info["sl_price"] >= initial_stop
+
+    _, _, terminated, _, final_info = env.step(_action(sl_atr=3.0))
+    assert terminated
+    assert final_info["exit_reason"] == "stop_loss"
+    assert final_info["sl_price"] == pytest.approx(initial_stop)
+
+
+def test_recorded_exit_is_terminal_when_no_dynamic_level_was_touched():
+    env = CrudeTickEnv(pd.DataFrame([_trade([100.0, 100.5, 101.0], exit_price=101.0)]))
+    env.reset()
+    env.step(_action(sl_atr=4.0))
+    _, reward, terminated, _, info = env.step(_action(sl_atr=4.0))
+
+    assert terminated
+    assert info["exit_reason"] == "recorded_exit"
+    assert info["exit_price"] == 101.0
+    assert info["pnl_points"] == 1.0
+    assert reward == pytest.approx(1.0 / 2.2)
+
+
+def test_missing_paths_are_excluded_and_reported():
+    frame = pd.DataFrame(
+        [_trade([100.0, 101.0]), {**_trade([]), "Intratrade Option Prices": ""}]
+    )
+    with pytest.warns(UserWarning, match="1 trade row"):
+        prepared = prepare_tick_trades(frame)
+
+    assert len(prepared) == 1
+    assert prepared.attrs["skipped_rows"] == {"missing price path": 1}
+
+
+def test_invalid_actions_and_finished_episodes_are_rejected():
+    env = CrudeTickEnv(pd.DataFrame([_trade([100.0, 101.0])]))
+    env.reset()
+    with pytest.raises(ValueError, match="three finite values"):
+        env.step(np.asarray([1.5, 0.5, 0.5], dtype=np.float32))
+
+    _, _, terminated, _, _ = env.step(_action(sl_atr=4.0))
+    assert terminated
+    with pytest.raises(RuntimeError, match="call reset"):
+        env.step(_action())

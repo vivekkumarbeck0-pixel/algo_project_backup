@@ -1,0 +1,36 @@
+{
+  "source": "data\\crude_closed_trades.csv",
+  "model": "models\\crude_tick_ppo_80_20",
+  "mode": "evaluate",
+  "test_fraction": 0.2,
+  "total_valid_trade_paths": 411,
+  "training_trade_paths": 328,
+  "holdout_trade_paths": 83,
+  "training_period": {
+    "first_entry": "2026-09-17T09:38:00+00:00",
+    "last_entry": "2026-10-08T14:59:00+00:00"
+  },
+  "holdout_period": {
+    "first_entry": "2026-10-08T15:29:00+00:00",
+    "last_entry": "2026-10-13T18:16:00+00:00"
+  },
+  "excluded_rows": {
+    "missing price path": 236
+  },
+  "pnl_unit": "option premium points (not rupees; quantity and costs are not applied)",
+  "results": {
+    "trades_tested": 83,
+    "wins": 64,
+    "losses": 19,
+    "breakeven": 0,
+    "win_rate": 0.7710843373493976,
+    "total_simulated_pnl_points": 85.89999999999995,
+    "average_simulated_pnl_points": 1.034939759036144,
+    "profit_factor": 1.448798328108673,
+    "max_drawdown_points": 55.99999999999997,
+    "exit_reasons": {
+      "take_profit": 64,
+      "stop_loss": 19
+    }
+  }
+}

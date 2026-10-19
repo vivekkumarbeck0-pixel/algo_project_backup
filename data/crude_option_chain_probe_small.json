@@ -1,0 +1,5377 @@
+{
+  "timestamp": "2026-08-19T18:40:41",
+  "underlying": "CRUDEOIL",
+  "expiry": "17SEP2026",
+  "contract_count": 18,
+  "rows": [
+    {
+      "strike": 7950.0,
+      "right": "CE",
+      "symbol": "CRUDEOIL17SEP267950CE",
+      "token": "576367",
+      "expiry": "17SEP2026",
+      "ltp": 476.4,
+      "open_interest": 3600,
+      "trade_volume": 89,
+      "depth": {
+        "buy": [
+          {
+            "price": 487.3,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 487.2,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 487.1,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 486.9,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 486.7,
+            "quantity": 200,
+            "orders": 1
+          }
+        ],
+        "sell": [
+          {
+            "price": 492.5,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 492.6,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 492.7,
+            "quantity": 400,
+            "orders": 2
+          },
+          {
+            "price": 492.9,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 493.1,
+            "quantity": 200,
+            "orders": 1
+          }
+        ]
+      },
+      "raw_quote": {
+        "exchange": "MCX",
+        "tradingSymbol": "CRUDEOIL17SEP267950CE",
+        "symbolToken": "576367",
+        "ltp": 476.4,
+        "open": 528.1,
+        "high": 560.0,
+        "low": 448.0,
+        "close": 508.7,
+        "lastTradeQty": 100,
+        "exchFeedTime": "19-Aug-2026 18:40:40",
+        "exchTradeTime": "19-Aug-2026 18:37:22",
+        "netChange": -32.3,
+        "percentChange": -6.35,
+        "avgPrice": 511.11,
+        "tradeVolume": 89,
+        "opnInterest": 3600,
+        "lowerCircuit": 38.1,
+        "upperCircuit": 1630.7,
+        "totBuyQuan": 13600,
+        "totSellQuan": 8400,
+        "referenceLimitPrice": 0.0,
+        "52WeekLow": 164.3,
+        "52WeekHigh": 580.8,
+        "depth": {
+          "buy": [
+            {
+              "price": 487.3,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 487.2,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 487.1,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 486.9,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 486.7,
+              "quantity": 200,
+              "orders": 1
+            }
+          ],
+          "sell": [
+            {
+              "price": 492.5,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 492.6,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 492.7,
+              "quantity": 400,
+              "orders": 2
+            },
+            {
+              "price": 492.9,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 493.1,
+              "quantity": 200,
+              "orders": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "strike": 7950.0,
+      "right": "PE",
+      "symbol": "CRUDEOIL17SEP267950PE",
+      "token": "576520",
+      "expiry": "17SEP2026",
+      "ltp": 364.6,
+      "open_interest": 30600,
+      "trade_volume": 1533,
+      "depth": {
+        "buy": [
+          {
+            "price": 364.2,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 363.9,
+            "quantity": 200,
+            "orders": 2
+          },
+          {
+            "price": 363.8,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 363.7,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 363.6,
+            "quantity": 200,
+            "orders": 2
+          }
+        ],
+        "sell": [
+          {
+            "price": 365.5,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 365.6,
+            "quantity": 300,
+            "orders": 2
+          },
+          {
+            "price": 365.7,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 365.8,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 366.0,
+            "quantity": 200,
+            "orders": 1
+          }
+        ]
+      },
+      "raw_quote": {
+        "exchange": "MCX",
+        "tradingSymbol": "CRUDEOIL17SEP267950PE",
+        "symbolToken": "576520",
+        "ltp": 364.6,
+        "open": 357.8,
+        "high": 393.2,
+        "low": 325.8,
+        "close": 371.5,
+        "lastTradeQty": 100,
+        "exchFeedTime": "19-Aug-2026 18:40:40",
+        "exchTradeTime": "19-Aug-2026 18:40:26",
+        "netChange": -6.9,
+        "percentChange": -1.86,
+        "avgPrice": 172.97,
+        "tradeVolume": 1533,
+        "opnInterest": 30600,
+        "lowerCircuit": 44.6,
+        "upperCircuit": 1349.5,
+        "totBuyQuan": 12200,
+        "totSellQuan": 12100,
+        "referenceLimitPrice": 0.0,
+        "52WeekLow": 325.8,
+        "52WeekHigh": 600.7,
+        "depth": {
+          "buy": [
+            {
+              "price": 364.2,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 363.9,
+              "quantity": 200,
+              "orders": 2
+            },
+            {
+              "price": 363.8,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 363.7,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 363.6,
+              "quantity": 200,
+              "orders": 2
+            }
+          ],
+          "sell": [
+            {
+              "price": 365.5,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 365.6,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 365.7,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 365.8,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 366.0,
+              "quantity": 200,
+              "orders": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "strike": 8000.0,
+      "right": "CE",
+      "symbol": "CRUDEOIL17SEP268000CE",
+      "token": "576368",
+      "expiry": "17SEP2026",
+      "ltp": 462.9,
+      "open_interest": 554400,
+      "trade_volume": 16857,
+      "depth": {
+        "buy": [
+          {
+            "price": 462.1,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 461.8,
+            "quantity": 300,
+            "orders": 1
+          },
+          {
+            "price": 461.7,
+            "quantity": 400,
+            "orders": 2
+          },
+          {
+            "price": 461.6,
+            "quantity": 400,
+            "orders": 2
+          },
+          {
+            "price": 461.4,
+            "quantity": 300,
+            "orders": 2
+          }
+        ],
+        "sell": [
+          {
+            "price": 463.0,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 463.2,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 463.3,
+            "quantity": 200,
+            "orders": 2
+          },
+          {
+            "price": 463.4,
+            "quantity": 300,
+            "orders": 2
+          },
+          {
+            "price": 463.5,
+            "quantity": 100,
+            "orders": 1
+          }
+        ]
+      },
+      "raw_quote": {
+        "exchange": "MCX",
+        "tradingSymbol": "CRUDEOIL17SEP268000CE",
+        "symbolToken": "576368",
+        "ltp": 462.9,
+        "open": 520.9,
+        "high": 542.0,
+        "low": 420.0,
+        "close": 482.0,
+        "lastTradeQty": 200,
+        "exchFeedTime": "19-Aug-2026 18:40:40",
+        "exchTradeTime": "19-Aug-2026 18:40:40",
+        "netChange": -19.1,
+        "percentChange": -3.96,
+        "avgPrice": 478.15,
+        "tradeVolume": 16857,
+        "opnInterest": 554400,
+        "lowerCircuit": 34.5,
+        "upperCircuit": 1585.9,
+        "totBuyQuan": 49000,
+        "totSellQuan": 65000,
+        "referenceLimitPrice": 0.0,
+        "52WeekLow": 100.0,
+        "52WeekHigh": 1129.0,
+        "depth": {
+          "buy": [
+            {
+              "price": 462.1,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 461.8,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 461.7,
+              "quantity": 400,
+              "orders": 2
+            },
+            {
+              "price": 461.6,
+              "quantity": 400,
+              "orders": 2
+            },
+            {
+              "price": 461.4,
+              "quantity": 300,
+              "orders": 2
+            }
+          ],
+          "sell": [
+            {
+              "price": 463.0,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 463.2,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 463.3,
+              "quantity": 200,
+              "orders": 2
+            },
+            {
+              "price": 463.4,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 463.5,
+              "quantity": 100,
+              "orders": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "strike": 8000.0,
+      "right": "PE",
+      "symbol": "CRUDEOIL17SEP268000PE",
+      "token": "576521",
+      "expiry": "17SEP2026",
+      "ltp": 389.3,
+      "open_interest": 850300,
+      "trade_volume": 27278,
+      "depth": {
+        "buy": [
+          {
+            "price": 389.5,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 389.4,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 389.3,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 389.2,
+            "quantity": 200,
+            "orders": 2
+          },
+          {
+            "price": 389.1,
+            "quantity": 100,
+            "orders": 1
+          }
+        ],
+        "sell": [
+          {
+            "price": 390.3,
+            "quantity": 400,
+            "orders": 2
+          },
+          {
+            "price": 390.4,
+            "quantity": 700,
+            "orders": 2
+          },
+          {
+            "price": 390.5,
+            "quantity": 700,
+            "orders": 4
+          },
+          {
+            "price": 390.6,
+            "quantity": 900,
+            "orders": 3
+          },
+          {
+            "price": 390.7,
+            "quantity": 300,
+            "orders": 1
+          }
+        ]
+      },
+      "raw_quote": {
+        "exchange": "MCX",
+        "tradingSymbol": "CRUDEOIL17SEP268000PE",
+        "symbolToken": "576521",
+        "ltp": 389.3,
+        "open": 382.0,
+        "high": 419.9,
+        "low": 347.0,
+        "close": 397.1,
+        "lastTradeQty": 100,
+        "exchFeedTime": "19-Aug-2026 18:40:40",
+        "exchTradeTime": "19-Aug-2026 18:40:39",
+        "netChange": -7.8,
+        "percentChange": -1.96,
+        "avgPrice": 384.6,
+        "tradeVolume": 27278,
+        "opnInterest": 850300,
+        "lowerCircuit": 49.5,
+        "upperCircuit": 1395.6,
+        "totBuyQuan": 65800,
+        "totSellQuan": 106500,
+        "referenceLimitPrice": 0.0,
+        "52WeekLow": 347.0,
+        "52WeekHigh": 1125.0,
+        "depth": {
+          "buy": [
+            {
+              "price": 389.5,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 389.4,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 389.3,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 389.2,
+              "quantity": 200,
+              "orders": 2
+            },
+            {
+              "price": 389.1,
+              "quantity": 100,
+              "orders": 1
+            }
+          ],
+          "sell": [
+            {
+              "price": 390.3,
+              "quantity": 400,
+              "orders": 2
+            },
+            {
+              "price": 390.4,
+              "quantity": 700,
+              "orders": 2
+            },
+            {
+              "price": 390.5,
+              "quantity": 700,
+              "orders": 4
+            },
+            {
+              "price": 390.6,
+              "quantity": 900,
+              "orders": 3
+            },
+            {
+              "price": 390.7,
+              "quantity": 300,
+              "orders": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "strike": 8050.0,
+      "right": "CE",
+      "symbol": "CRUDEOIL17SEP268050CE",
+      "token": "576369",
+      "expiry": "17SEP2026",
+      "ltp": 444.8,
+      "open_interest": 69900,
+      "trade_volume": 4433,
+      "depth": {
+        "buy": [
+          {
+            "price": 442.6,
+            "quantity": 400,
+            "orders": 1
+          },
+          {
+            "price": 442.5,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 442.4,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 442.2,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 442.0,
+            "quantity": 100,
+            "orders": 1
+          }
+        ],
+        "sell": [
+          {
+            "price": 443.6,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 443.7,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 443.8,
+            "quantity": 500,
+            "orders": 3
+          },
+          {
+            "price": 444.0,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 444.2,
+            "quantity": 200,
+            "orders": 1
+          }
+        ]
+      },
+      "raw_quote": {
+        "exchange": "MCX",
+        "tradingSymbol": "CRUDEOIL17SEP268050CE",
+        "symbolToken": "576369",
+        "ltp": 444.8,
+        "open": 499.3,
+        "high": 518.5,
+        "low": 400.7,
+        "close": 462.0,
+        "lastTradeQty": 100,
+        "exchFeedTime": "19-Aug-2026 18:40:40",
+        "exchTradeTime": "19-Aug-2026 18:40:37",
+        "netChange": -17.2,
+        "percentChange": -3.72,
+        "avgPrice": 460.98,
+        "tradeVolume": 4433,
+        "opnInterest": 69900,
+        "lowerCircuit": 31.1,
+        "upperCircuit": 1541.5,
+        "totBuyQuan": 21700,
+        "totSellQuan": 21800,
+        "referenceLimitPrice": 0.0,
+        "52WeekLow": 312.8,
+        "52WeekHigh": 861.7,
+        "depth": {
+          "buy": [
+            {
+              "price": 442.6,
+              "quantity": 400,
+              "orders": 1
+            },
+            {
+              "price": 442.5,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 442.4,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 442.2,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 442.0,
+              "quantity": 100,
+              "orders": 1
+            }
+          ],
+          "sell": [
+            {
+              "price": 443.6,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 443.7,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 443.8,
+              "quantity": 500,
+              "orders": 3
+            },
+            {
+              "price": 444.0,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 444.2,
+              "quantity": 200,
+              "orders": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "strike": 8050.0,
+      "right": "PE",
+      "symbol": "CRUDEOIL17SEP268050PE",
+      "token": "576522",
+      "expiry": "17SEP2026",
+      "ltp": 417.3,
+      "open_interest": 81600,
+      "trade_volume": 4604,
+      "depth": {
+        "buy": [
+          {
+            "price": 417.6,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 417.5,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 417.4,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 417.2,
+            "quantity": 300,
+            "orders": 2
+          },
+          {
+            "price": 417.1,
+            "quantity": 400,
+            "orders": 2
+          }
+        ],
+        "sell": [
+          {
+            "price": 418.8,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 419.0,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 419.1,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 419.2,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 419.3,
+            "quantity": 300,
+            "orders": 2
+          }
+        ]
+      },
+      "raw_quote": {
+        "exchange": "MCX",
+        "tradingSymbol": "CRUDEOIL17SEP268050PE",
+        "symbolToken": "576522",
+        "ltp": 417.3,
+        "open": 412.3,
+        "high": 449.6,
+        "low": 376.4,
+        "close": 425.2,
+        "lastTradeQty": 100,
+        "exchFeedTime": "19-Aug-2026 18:40:40",
+        "exchTradeTime": "19-Aug-2026 18:40:37",
+        "netChange": -7.9,
+        "percentChange": -1.86,
+        "avgPrice": 334.11,
+        "tradeVolume": 4604,
+        "opnInterest": 81600,
+        "lowerCircuit": 54.9,
+        "upperCircuit": 1442.1,
+        "totBuyQuan": 16700,
+        "totSellQuan": 15600,
+        "referenceLimitPrice": 0.0,
+        "52WeekLow": 376.4,
+        "52WeekHigh": 514.6,
+        "depth": {
+          "buy": [
+            {
+              "price": 417.6,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 417.5,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 417.4,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 417.2,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 417.1,
+              "quantity": 400,
+              "orders": 2
+            }
+          ],
+          "sell": [
+            {
+              "price": 418.8,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 419.0,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 419.1,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 419.2,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 419.3,
+              "quantity": 300,
+              "orders": 2
+            }
+          ]
+        }
+      }
+    },
+    {
+      "strike": 8100.0,
+      "right": "CE",
+      "symbol": "CRUDEOIL17SEP268100CE",
+      "token": "576370",
+      "expiry": "17SEP2026",
+      "ltp": 420.4,
+      "open_interest": 429500,
+      "trade_volume": 28906,
+      "depth": {
+        "buy": [
+          {
+            "price": 420.0,
+            "quantity": 200,
+            "orders": 2
+          },
+          {
+            "price": 419.5,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 419.2,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 419.1,
+            "quantity": 400,
+            "orders": 2
+          },
+          {
+            "price": 419.0,
+            "quantity": 1900,
+            "orders": 2
+          }
+        ],
+        "sell": [
+          {
+            "price": 420.3,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 420.4,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 420.5,
+            "quantity": 300,
+            "orders": 2
+          },
+          {
+            "price": 420.6,
+            "quantity": 200,
+            "orders": 2
+          },
+          {
+            "price": 420.7,
+            "quantity": 100,
+            "orders": 1
+          }
+        ]
+      },
+      "raw_quote": {
+        "exchange": "MCX",
+        "tradingSymbol": "CRUDEOIL17SEP268100CE",
+        "symbolToken": "576370",
+        "ltp": 420.4,
+        "open": 476.5,
+        "high": 496.4,
+        "low": 378.9,
+        "close": 441.2,
+        "lastTradeQty": 100,
+        "exchFeedTime": "19-Aug-2026 18:40:40",
+        "exchTradeTime": "19-Aug-2026 18:40:38",
+        "netChange": -20.8,
+        "percentChange": -4.71,
+        "avgPrice": 478.16,
+        "tradeVolume": 28906,
+        "opnInterest": 429500,
+        "lowerCircuit": 28.1,
+        "upperCircuit": 1497.5,
+        "totBuyQuan": 47400,
+        "totSellQuan": 64500,
+        "referenceLimitPrice": 0.0,
+        "52WeekLow": 280.0,
+        "52WeekHigh": 513.6,
+        "depth": {
+          "buy": [
+            {
+              "price": 420.0,
+              "quantity": 200,
+              "orders": 2
+            },
+            {
+              "price": 419.5,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 419.2,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 419.1,
+              "quantity": 400,
+              "orders": 2
+            },
+            {
+              "price": 419.0,
+              "quantity": 1900,
+              "orders": 2
+            }
+          ],
+          "sell": [
+            {
+              "price": 420.3,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 420.4,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 420.5,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 420.6,
+              "quantity": 200,
+              "orders": 2
+            },
+            {
+              "price": 420.7,
+              "quantity": 100,
+              "orders": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "strike": 8100.0,
+      "right": "PE",
+      "symbol": "CRUDEOIL17SEP268100PE",
+      "token": "576523",
+      "expiry": "17SEP2026",
+      "ltp": 444.3,
+      "open_interest": 373200,
+      "trade_volume": 24605,
+      "depth": {
+        "buy": [
+          {
+            "price": 444.6,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 444.4,
+            "quantity": 500,
+            "orders": 1
+          },
+          {
+            "price": 444.2,
+            "quantity": 500,
+            "orders": 3
+          },
+          {
+            "price": 444.1,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 444.0,
+            "quantity": 400,
+            "orders": 3
+          }
+        ],
+        "sell": [
+          {
+            "price": 445.1,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 445.6,
+            "quantity": 300,
+            "orders": 1
+          },
+          {
+            "price": 445.7,
+            "quantity": 300,
+            "orders": 1
+          },
+          {
+            "price": 445.8,
+            "quantity": 500,
+            "orders": 2
+          },
+          {
+            "price": 446.1,
+            "quantity": 400,
+            "orders": 1
+          }
+        ]
+      },
+      "raw_quote": {
+        "exchange": "MCX",
+        "tradingSymbol": "CRUDEOIL17SEP268100PE",
+        "symbolToken": "576523",
+        "ltp": 444.3,
+        "open": 434.1,
+        "high": 479.0,
+        "low": 400.0,
+        "close": 453.3,
+        "lastTradeQty": 100,
+        "exchFeedTime": "19-Aug-2026 18:40:40",
+        "exchTradeTime": "19-Aug-2026 18:40:37",
+        "netChange": -9.0,
+        "percentChange": -1.99,
+        "avgPrice": 334.11,
+        "tradeVolume": 24605,
+        "opnInterest": 373200,
+        "lowerCircuit": 60.7,
+        "upperCircuit": 1488.8,
+        "totBuyQuan": 38200,
+        "totSellQuan": 49500,
+        "referenceLimitPrice": 0.0,
+        "52WeekLow": 400.0,
+        "52WeekHigh": 1271.6,
+        "depth": {
+          "buy": [
+            {
+              "price": 444.6,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 444.4,
+              "quantity": 500,
+              "orders": 1
+            },
+            {
+              "price": 444.2,
+              "quantity": 500,
+              "orders": 3
+            },
+            {
+              "price": 444.1,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 444.0,
+              "quantity": 400,
+              "orders": 3
+            }
+          ],
+          "sell": [
+            {
+              "price": 445.1,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 445.6,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 445.7,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 445.8,
+              "quantity": 500,
+              "orders": 2
+            },
+            {
+              "price": 446.1,
+              "quantity": 400,
+              "orders": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "strike": 8150.0,
+      "right": "CE",
+      "symbol": "CRUDEOIL17SEP268150CE",
+      "token": "576371",
+      "expiry": "17SEP2026",
+      "ltp": 400.2,
+      "open_interest": 157600,
+      "trade_volume": 10501,
+      "depth": {
+        "buy": [
+          {
+            "price": 399.1,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 398.8,
+            "quantity": 300,
+            "orders": 1
+          },
+          {
+            "price": 398.7,
+            "quantity": 300,
+            "orders": 1
+          },
+          {
+            "price": 398.6,
+            "quantity": 300,
+            "orders": 1
+          },
+          {
+            "price": 398.5,
+            "quantity": 1100,
+            "orders": 3
+          }
+        ],
+        "sell": [
+          {
+            "price": 400.2,
+            "quantity": 200,
+            "orders": 2
+          },
+          {
+            "price": 400.4,
+            "quantity": 400,
+            "orders": 2
+          },
+          {
+            "price": 400.5,
+            "quantity": 300,
+            "orders": 1
+          },
+          {
+            "price": 400.6,
+            "quantity": 1200,
+            "orders": 3
+          },
+          {
+            "price": 400.7,
+            "quantity": 400,
+            "orders": 2
+          }
+        ]
+      },
+      "raw_quote": {
+        "exchange": "MCX",
+        "tradingSymbol": "CRUDEOIL17SEP268150CE",
+        "symbolToken": "576371",
+        "ltp": 400.2,
+        "open": 455.3,
+        "high": 474.0,
+        "low": 360.0,
+        "close": 420.2,
+        "lastTradeQty": 100,
+        "exchFeedTime": "19-Aug-2026 18:40:40",
+        "exchTradeTime": "19-Aug-2026 18:40:38",
+        "netChange": -20.0,
+        "percentChange": -4.76,
+        "avgPrice": 445.92,
+        "tradeVolume": 10501,
+        "opnInterest": 157600,
+        "lowerCircuit": 25.4,
+        "upperCircuit": 1454.1,
+        "totBuyQuan": 29400,
+        "totSellQuan": 39000,
+        "referenceLimitPrice": 0.0,
+        "52WeekLow": 360.0,
+        "52WeekHigh": 493.8,
+        "depth": {
+          "buy": [
+            {
+              "price": 399.1,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 398.8,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 398.7,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 398.6,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 398.5,
+              "quantity": 1100,
+              "orders": 3
+            }
+          ],
+          "sell": [
+            {
+              "price": 400.2,
+              "quantity": 200,
+              "orders": 2
+            },
+            {
+              "price": 400.4,
+              "quantity": 400,
+              "orders": 2
+            },
+            {
+              "price": 400.5,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 400.6,
+              "quantity": 1200,
+              "orders": 3
+            },
+            {
+              "price": 400.7,
+              "quantity": 400,
+              "orders": 2
+            }
+          ]
+        }
+      }
+    },
+    {
+      "strike": 8150.0,
+      "right": "PE",
+      "symbol": "CRUDEOIL17SEP268150PE",
+      "token": "576524",
+      "expiry": "17SEP2026",
+      "ltp": 472.6,
+      "open_interest": 69100,
+      "trade_volume": 7427,
+      "depth": {
+        "buy": [
+          {
+            "price": 472.6,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 472.5,
+            "quantity": 900,
+            "orders": 2
+          },
+          {
+            "price": 472.4,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 472.3,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 472.2,
+            "quantity": 200,
+            "orders": 1
+          }
+        ],
+        "sell": [
+          {
+            "price": 474.1,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 474.2,
+            "quantity": 500,
+            "orders": 3
+          },
+          {
+            "price": 474.4,
+            "quantity": 400,
+            "orders": 2
+          },
+          {
+            "price": 474.5,
+            "quantity": 800,
+            "orders": 1
+          },
+          {
+            "price": 474.6,
+            "quantity": 200,
+            "orders": 1
+          }
+        ]
+      },
+      "raw_quote": {
+        "exchange": "MCX",
+        "tradingSymbol": "CRUDEOIL17SEP268150PE",
+        "symbolToken": "576524",
+        "ltp": 472.6,
+        "open": 464.6,
+        "high": 508.0,
+        "low": 427.6,
+        "close": 482.3,
+        "lastTradeQty": 100,
+        "exchFeedTime": "19-Aug-2026 18:40:40",
+        "exchTradeTime": "19-Aug-2026 18:40:38",
+        "netChange": -9.7,
+        "percentChange": -2.01,
+        "avgPrice": 458.72,
+        "tradeVolume": 7427,
+        "opnInterest": 69100,
+        "lowerCircuit": 67.0,
+        "upperCircuit": 1535.8,
+        "totBuyQuan": 17400,
+        "totSellQuan": 19400,
+        "referenceLimitPrice": 0.0,
+        "52WeekLow": 142.9,
+        "52WeekHigh": 707.2,
+        "depth": {
+          "buy": [
+            {
+              "price": 472.6,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 472.5,
+              "quantity": 900,
+              "orders": 2
+            },
+            {
+              "price": 472.4,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 472.3,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 472.2,
+              "quantity": 200,
+              "orders": 1
+            }
+          ],
+          "sell": [
+            {
+              "price": 474.1,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 474.2,
+              "quantity": 500,
+              "orders": 3
+            },
+            {
+              "price": 474.4,
+              "quantity": 400,
+              "orders": 2
+            },
+            {
+              "price": 474.5,
+              "quantity": 800,
+              "orders": 1
+            },
+            {
+              "price": 474.6,
+              "quantity": 200,
+              "orders": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "strike": 8200.0,
+      "right": "CE",
+      "symbol": "CRUDEOIL17SEP268200CE",
+      "token": "576372",
+      "expiry": "17SEP2026",
+      "ltp": 379.1,
+      "open_interest": 503300,
+      "trade_volume": 32963,
+      "depth": {
+        "buy": [
+          {
+            "price": 378.0,
+            "quantity": 700,
+            "orders": 3
+          },
+          {
+            "price": 377.9,
+            "quantity": 300,
+            "orders": 1
+          },
+          {
+            "price": 377.8,
+            "quantity": 400,
+            "orders": 2
+          },
+          {
+            "price": 377.7,
+            "quantity": 400,
+            "orders": 2
+          },
+          {
+            "price": 377.6,
+            "quantity": 500,
+            "orders": 2
+          }
+        ],
+        "sell": [
+          {
+            "price": 379.1,
+            "quantity": 200,
+            "orders": 2
+          },
+          {
+            "price": 379.2,
+            "quantity": 300,
+            "orders": 2
+          },
+          {
+            "price": 379.3,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 379.4,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 379.5,
+            "quantity": 100,
+            "orders": 1
+          }
+        ]
+      },
+      "raw_quote": {
+        "exchange": "MCX",
+        "tradingSymbol": "CRUDEOIL17SEP268200CE",
+        "symbolToken": "576372",
+        "ltp": 379.1,
+        "open": 434.7,
+        "high": 452.9,
+        "low": 339.4,
+        "close": 400.4,
+        "lastTradeQty": 100,
+        "exchFeedTime": "19-Aug-2026 18:40:40",
+        "exchTradeTime": "19-Aug-2026 18:40:39",
+        "netChange": -21.3,
+        "percentChange": -5.32,
+        "avgPrice": 478.16,
+        "tradeVolume": 32963,
+        "opnInterest": 503300,
+        "lowerCircuit": 22.8,
+        "upperCircuit": 1411.1,
+        "totBuyQuan": 38800,
+        "totSellQuan": 103400,
+        "referenceLimitPrice": 0.0,
+        "52WeekLow": 205.1,
+        "52WeekHigh": 473.0,
+        "depth": {
+          "buy": [
+            {
+              "price": 378.0,
+              "quantity": 700,
+              "orders": 3
+            },
+            {
+              "price": 377.9,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 377.8,
+              "quantity": 400,
+              "orders": 2
+            },
+            {
+              "price": 377.7,
+              "quantity": 400,
+              "orders": 2
+            },
+            {
+              "price": 377.6,
+              "quantity": 500,
+              "orders": 2
+            }
+          ],
+          "sell": [
+            {
+              "price": 379.1,
+              "quantity": 200,
+              "orders": 2
+            },
+            {
+              "price": 379.2,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 379.3,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 379.4,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 379.5,
+              "quantity": 100,
+              "orders": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "strike": 8200.0,
+      "right": "PE",
+      "symbol": "CRUDEOIL17SEP268200PE",
+      "token": "576525",
+      "expiry": "17SEP2026",
+      "ltp": 503.6,
+      "open_interest": 255300,
+      "trade_volume": 17467,
+      "depth": {
+        "buy": [
+          {
+            "price": 502.3,
+            "quantity": 200,
+            "orders": 2
+          },
+          {
+            "price": 502.0,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 501.9,
+            "quantity": 300,
+            "orders": 2
+          },
+          {
+            "price": 501.8,
+            "quantity": 1000,
+            "orders": 2
+          },
+          {
+            "price": 501.7,
+            "quantity": 600,
+            "orders": 2
+          }
+        ],
+        "sell": [
+          {
+            "price": 503.7,
+            "quantity": 300,
+            "orders": 1
+          },
+          {
+            "price": 503.8,
+            "quantity": 400,
+            "orders": 2
+          },
+          {
+            "price": 503.9,
+            "quantity": 300,
+            "orders": 1
+          },
+          {
+            "price": 504.0,
+            "quantity": 300,
+            "orders": 2
+          },
+          {
+            "price": 504.1,
+            "quantity": 400,
+            "orders": 2
+          }
+        ]
+      },
+      "raw_quote": {
+        "exchange": "MCX",
+        "tradingSymbol": "CRUDEOIL17SEP268200PE",
+        "symbolToken": "576525",
+        "ltp": 503.6,
+        "open": 492.4,
+        "high": 540.0,
+        "low": 456.0,
+        "close": 513.1,
+        "lastTradeQty": 200,
+        "exchFeedTime": "19-Aug-2026 18:40:40",
+        "exchTradeTime": "19-Aug-2026 18:40:39",
+        "netChange": -9.5,
+        "percentChange": -1.85,
+        "avgPrice": 487.37,
+        "tradeVolume": 17467,
+        "opnInterest": 255300,
+        "lowerCircuit": 73.8,
+        "upperCircuit": 1583.1,
+        "totBuyQuan": 28000,
+        "totSellQuan": 37900,
+        "referenceLimitPrice": 0.0,
+        "52WeekLow": 456.0,
+        "52WeekHigh": 740.0,
+        "depth": {
+          "buy": [
+            {
+              "price": 502.3,
+              "quantity": 200,
+              "orders": 2
+            },
+            {
+              "price": 502.0,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 501.9,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 501.8,
+              "quantity": 1000,
+              "orders": 2
+            },
+            {
+              "price": 501.7,
+              "quantity": 600,
+              "orders": 2
+            }
+          ],
+          "sell": [
+            {
+              "price": 503.7,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 503.8,
+              "quantity": 400,
+              "orders": 2
+            },
+            {
+              "price": 503.9,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 504.0,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 504.1,
+              "quantity": 400,
+              "orders": 2
+            }
+          ]
+        }
+      }
+    },
+    {
+      "strike": 8250.0,
+      "right": "CE",
+      "symbol": "CRUDEOIL17SEP268250CE",
+      "token": "576373",
+      "expiry": "17SEP2026",
+      "ltp": 360.0,
+      "open_interest": 80100,
+      "trade_volume": 5222,
+      "depth": {
+        "buy": [
+          {
+            "price": 360.2,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 360.1,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 360.0,
+            "quantity": 1000,
+            "orders": 2
+          },
+          {
+            "price": 359.9,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 359.8,
+            "quantity": 200,
+            "orders": 1
+          }
+        ],
+        "sell": [
+          {
+            "price": 361.3,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 361.4,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 361.5,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 361.6,
+            "quantity": 500,
+            "orders": 2
+          },
+          {
+            "price": 361.7,
+            "quantity": 200,
+            "orders": 1
+          }
+        ]
+      },
+      "raw_quote": {
+        "exchange": "MCX",
+        "tradingSymbol": "CRUDEOIL17SEP268250CE",
+        "symbolToken": "576373",
+        "ltp": 360.0,
+        "open": 405.0,
+        "high": 431.9,
+        "low": 324.2,
+        "close": 381.1,
+        "lastTradeQty": 100,
+        "exchFeedTime": "19-Aug-2026 18:40:40",
+        "exchTradeTime": "19-Aug-2026 18:40:18",
+        "netChange": -21.1,
+        "percentChange": -5.54,
+        "avgPrice": 391.19,
+        "tradeVolume": 5222,
+        "opnInterest": 80100,
+        "lowerCircuit": 20.6,
+        "upperCircuit": 1368.6,
+        "totBuyQuan": 16800,
+        "totSellQuan": 28100,
+        "referenceLimitPrice": 0.0,
+        "52WeekLow": 324.2,
+        "52WeekHigh": 453.2,
+        "depth": {
+          "buy": [
+            {
+              "price": 360.2,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 360.1,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 360.0,
+              "quantity": 1000,
+              "orders": 2
+            },
+            {
+              "price": 359.9,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 359.8,
+              "quantity": 200,
+              "orders": 1
+            }
+          ],
+          "sell": [
+            {
+              "price": 361.3,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 361.4,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 361.5,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 361.6,
+              "quantity": 500,
+              "orders": 2
+            },
+            {
+              "price": 361.7,
+              "quantity": 200,
+              "orders": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "strike": 8250.0,
+      "right": "PE",
+      "symbol": "CRUDEOIL17SEP268250PE",
+      "token": "576526",
+      "expiry": "17SEP2026",
+      "ltp": 535.9,
+      "open_interest": 9000,
+      "trade_volume": 1010,
+      "depth": {
+        "buy": [
+          {
+            "price": 533.1,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 533.0,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 532.8,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 532.6,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 532.0,
+            "quantity": 100,
+            "orders": 1
+          }
+        ],
+        "sell": [
+          {
+            "price": 535.0,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 535.1,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 535.3,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 535.5,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 535.6,
+            "quantity": 200,
+            "orders": 1
+          }
+        ]
+      },
+      "raw_quote": {
+        "exchange": "MCX",
+        "tradingSymbol": "CRUDEOIL17SEP268250PE",
+        "symbolToken": "576526",
+        "ltp": 535.9,
+        "open": 527.8,
+        "high": 568.6,
+        "low": 485.0,
+        "close": 544.4,
+        "lastTradeQty": 200,
+        "exchFeedTime": "19-Aug-2026 18:40:39",
+        "exchTradeTime": "19-Aug-2026 18:40:00",
+        "netChange": -8.5,
+        "percentChange": -1.56,
+        "avgPrice": 515.15,
+        "tradeVolume": 1010,
+        "opnInterest": 9000,
+        "lowerCircuit": 81.0,
+        "upperCircuit": 1630.5,
+        "totBuyQuan": 5200,
+        "totSellQuan": 8200,
+        "referenceLimitPrice": 0.0,
+        "52WeekLow": 485.0,
+        "52WeekHigh": 593.0,
+        "depth": {
+          "buy": [
+            {
+              "price": 533.1,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 533.0,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 532.8,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 532.6,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 532.0,
+              "quantity": 100,
+              "orders": 1
+            }
+          ],
+          "sell": [
+            {
+              "price": 535.0,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 535.1,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 535.3,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 535.5,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 535.6,
+              "quantity": 200,
+              "orders": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "strike": 8300.0,
+      "right": "CE",
+      "symbol": "CRUDEOIL17SEP268300CE",
+      "token": "576374",
+      "expiry": "17SEP2026",
+      "ltp": 342.0,
+      "open_interest": 187600,
+      "trade_volume": 12038,
+      "depth": {
+        "buy": [
+          {
+            "price": 341.2,
+            "quantity": 500,
+            "orders": 2
+          },
+          {
+            "price": 341.1,
+            "quantity": 900,
+            "orders": 3
+          },
+          {
+            "price": 341.0,
+            "quantity": 500,
+            "orders": 2
+          },
+          {
+            "price": 340.9,
+            "quantity": 300,
+            "orders": 1
+          },
+          {
+            "price": 340.8,
+            "quantity": 400,
+            "orders": 2
+          }
+        ],
+        "sell": [
+          {
+            "price": 342.1,
+            "quantity": 300,
+            "orders": 1
+          },
+          {
+            "price": 342.2,
+            "quantity": 300,
+            "orders": 1
+          },
+          {
+            "price": 342.3,
+            "quantity": 300,
+            "orders": 1
+          },
+          {
+            "price": 342.4,
+            "quantity": 300,
+            "orders": 1
+          },
+          {
+            "price": 342.5,
+            "quantity": 700,
+            "orders": 3
+          }
+        ]
+      },
+      "raw_quote": {
+        "exchange": "MCX",
+        "tradingSymbol": "CRUDEOIL17SEP268300CE",
+        "symbolToken": "576374",
+        "ltp": 342.0,
+        "open": 395.2,
+        "high": 411.2,
+        "low": 306.8,
+        "close": 362.4,
+        "lastTradeQty": 100,
+        "exchFeedTime": "19-Aug-2026 18:40:40",
+        "exchTradeTime": "19-Aug-2026 18:40:40",
+        "netChange": -20.4,
+        "percentChange": -5.63,
+        "avgPrice": 478.15,
+        "tradeVolume": 12038,
+        "opnInterest": 187600,
+        "lowerCircuit": 18.5,
+        "upperCircuit": 1326.6,
+        "totBuyQuan": 35400,
+        "totSellQuan": 40000,
+        "referenceLimitPrice": 0.0,
+        "52WeekLow": 269.8,
+        "52WeekHigh": 431.1,
+        "depth": {
+          "buy": [
+            {
+              "price": 341.2,
+              "quantity": 500,
+              "orders": 2
+            },
+            {
+              "price": 341.1,
+              "quantity": 900,
+              "orders": 3
+            },
+            {
+              "price": 341.0,
+              "quantity": 500,
+              "orders": 2
+            },
+            {
+              "price": 340.9,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 340.8,
+              "quantity": 400,
+              "orders": 2
+            }
+          ],
+          "sell": [
+            {
+              "price": 342.1,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 342.2,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 342.3,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 342.4,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 342.5,
+              "quantity": 700,
+              "orders": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "strike": 8300.0,
+      "right": "PE",
+      "symbol": "CRUDEOIL17SEP268300PE",
+      "token": "576527",
+      "expiry": "17SEP2026",
+      "ltp": 565.1,
+      "open_interest": 24600,
+      "trade_volume": 3364,
+      "depth": {
+        "buy": [
+          {
+            "price": 564.7,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 564.6,
+            "quantity": 200,
+            "orders": 2
+          },
+          {
+            "price": 564.5,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 564.4,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 564.3,
+            "quantity": 100,
+            "orders": 1
+          }
+        ],
+        "sell": [
+          {
+            "price": 566.7,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 567.0,
+            "quantity": 300,
+            "orders": 2
+          },
+          {
+            "price": 567.3,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 567.4,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 567.5,
+            "quantity": 100,
+            "orders": 1
+          }
+        ]
+      },
+      "raw_quote": {
+        "exchange": "MCX",
+        "tradingSymbol": "CRUDEOIL17SEP268300PE",
+        "symbolToken": "576527",
+        "ltp": 565.1,
+        "open": 554.3,
+        "high": 601.6,
+        "low": 515.4,
+        "close": 576.4,
+        "lastTradeQty": 100,
+        "exchFeedTime": "19-Aug-2026 18:40:40",
+        "exchTradeTime": "19-Aug-2026 18:40:25",
+        "netChange": -11.3,
+        "percentChange": -1.96,
+        "avgPrice": 458.71,
+        "tradeVolume": 3364,
+        "opnInterest": 24600,
+        "lowerCircuit": 88.9,
+        "upperCircuit": 1678.2,
+        "totBuyQuan": 12000,
+        "totSellQuan": 13200,
+        "referenceLimitPrice": 0.0,
+        "52WeekLow": 515.4,
+        "52WeekHigh": 754.7,
+        "depth": {
+          "buy": [
+            {
+              "price": 564.7,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 564.6,
+              "quantity": 200,
+              "orders": 2
+            },
+            {
+              "price": 564.5,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 564.4,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 564.3,
+              "quantity": 100,
+              "orders": 1
+            }
+          ],
+          "sell": [
+            {
+              "price": 566.7,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 567.0,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 567.3,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 567.4,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 567.5,
+              "quantity": 100,
+              "orders": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "strike": 8350.0,
+      "right": "CE",
+      "symbol": "CRUDEOIL17SEP268350CE",
+      "token": "576375",
+      "expiry": "17SEP2026",
+      "ltp": 325.7,
+      "open_interest": 69300,
+      "trade_volume": 3152,
+      "depth": {
+        "buy": [
+          {
+            "price": 324.5,
+            "quantity": 300,
+            "orders": 2
+          },
+          {
+            "price": 324.4,
+            "quantity": 300,
+            "orders": 2
+          },
+          {
+            "price": 324.2,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 324.0,
+            "quantity": 300,
+            "orders": 2
+          },
+          {
+            "price": 323.9,
+            "quantity": 200,
+            "orders": 1
+          }
+        ],
+        "sell": [
+          {
+            "price": 325.7,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 325.8,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 325.9,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 326.0,
+            "quantity": 200,
+            "orders": 1
+          },
+          {
+            "price": 326.1,
+            "quantity": 200,
+            "orders": 2
+          }
+        ]
+      },
+      "raw_quote": {
+        "exchange": "MCX",
+        "tradingSymbol": "CRUDEOIL17SEP268350CE",
+        "symbolToken": "576375",
+        "ltp": 325.7,
+        "open": 370.1,
+        "high": 389.0,
+        "low": 291.0,
+        "close": 345.7,
+        "lastTradeQty": 100,
+        "exchFeedTime": "19-Aug-2026 18:40:40",
+        "exchTradeTime": "19-Aug-2026 18:40:37",
+        "netChange": -20.0,
+        "percentChange": -5.79,
+        "avgPrice": 408.73,
+        "tradeVolume": 3152,
+        "opnInterest": 69300,
+        "lowerCircuit": 16.6,
+        "upperCircuit": 1285.2,
+        "totBuyQuan": 13500,
+        "totSellQuan": 14500,
+        "referenceLimitPrice": 0.0,
+        "52WeekLow": 259.8,
+        "52WeekHigh": 413.0,
+        "depth": {
+          "buy": [
+            {
+              "price": 324.5,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 324.4,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 324.2,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 324.0,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 323.9,
+              "quantity": 200,
+              "orders": 1
+            }
+          ],
+          "sell": [
+            {
+              "price": 325.7,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 325.8,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 325.9,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 326.0,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 326.1,
+              "quantity": 200,
+              "orders": 2
+            }
+          ]
+        }
+      }
+    },
+    {
+      "strike": 8350.0,
+      "right": "PE",
+      "symbol": "CRUDEOIL17SEP268350PE",
+      "token": "576528",
+      "expiry": "17SEP2026",
+      "ltp": 597.4,
+      "open_interest": 1600,
+      "trade_volume": 107,
+      "depth": {
+        "buy": [
+          {
+            "price": 595.5,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 595.3,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 595.2,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 595.1,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 595.0,
+            "quantity": 200,
+            "orders": 2
+          }
+        ],
+        "sell": [
+          {
+            "price": 598.7,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 598.9,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 599.1,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 599.2,
+            "quantity": 100,
+            "orders": 1
+          },
+          {
+            "price": 599.3,
+            "quantity": 100,
+            "orders": 1
+          }
+        ]
+      },
+      "raw_quote": {
+        "exchange": "MCX",
+        "tradingSymbol": "CRUDEOIL17SEP268350PE",
+        "symbolToken": "576528",
+        "ltp": 597.4,
+        "open": 657.2,
+        "high": 657.2,
+        "low": 555.1,
+        "close": 605.9,
+        "lastTradeQty": 100,
+        "exchFeedTime": "19-Aug-2026 18:40:40",
+        "exchTradeTime": "19-Aug-2026 18:38:26",
+        "netChange": -8.5,
+        "percentChange": -1.4,
+        "avgPrice": 593.32,
+        "tradeVolume": 107,
+        "opnInterest": 1600,
+        "lowerCircuit": 97.2,
+        "upperCircuit": 1726.1,
+        "totBuyQuan": 3200,
+        "totSellQuan": 4900,
+        "referenceLimitPrice": 0.0,
+        "52WeekLow": 555.1,
+        "52WeekHigh": 661.5,
+        "depth": {
+          "buy": [
+            {
+              "price": 595.5,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 595.3,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 595.2,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 595.1,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 595.0,
+              "quantity": 200,
+              "orders": 2
+            }
+          ],
+          "sell": [
+            {
+              "price": 598.7,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 598.9,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 599.1,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 599.2,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 599.3,
+              "quantity": 100,
+              "orders": 1
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "by_strike": {
+    "7950.0": {
+      "CE": {
+        "strike": 7950.0,
+        "right": "CE",
+        "symbol": "CRUDEOIL17SEP267950CE",
+        "token": "576367",
+        "expiry": "17SEP2026",
+        "ltp": 476.4,
+        "open_interest": 3600,
+        "trade_volume": 89,
+        "depth": {
+          "buy": [
+            {
+              "price": 487.3,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 487.2,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 487.1,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 486.9,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 486.7,
+              "quantity": 200,
+              "orders": 1
+            }
+          ],
+          "sell": [
+            {
+              "price": 492.5,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 492.6,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 492.7,
+              "quantity": 400,
+              "orders": 2
+            },
+            {
+              "price": 492.9,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 493.1,
+              "quantity": 200,
+              "orders": 1
+            }
+          ]
+        },
+        "raw_quote": {
+          "exchange": "MCX",
+          "tradingSymbol": "CRUDEOIL17SEP267950CE",
+          "symbolToken": "576367",
+          "ltp": 476.4,
+          "open": 528.1,
+          "high": 560.0,
+          "low": 448.0,
+          "close": 508.7,
+          "lastTradeQty": 100,
+          "exchFeedTime": "19-Aug-2026 18:40:40",
+          "exchTradeTime": "19-Aug-2026 18:37:22",
+          "netChange": -32.3,
+          "percentChange": -6.35,
+          "avgPrice": 511.11,
+          "tradeVolume": 89,
+          "opnInterest": 3600,
+          "lowerCircuit": 38.1,
+          "upperCircuit": 1630.7,
+          "totBuyQuan": 13600,
+          "totSellQuan": 8400,
+          "referenceLimitPrice": 0.0,
+          "52WeekLow": 164.3,
+          "52WeekHigh": 580.8,
+          "depth": {
+            "buy": [
+              {
+                "price": 487.3,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 487.2,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 487.1,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 486.9,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 486.7,
+                "quantity": 200,
+                "orders": 1
+              }
+            ],
+            "sell": [
+              {
+                "price": 492.5,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 492.6,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 492.7,
+                "quantity": 400,
+                "orders": 2
+              },
+              {
+                "price": 492.9,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 493.1,
+                "quantity": 200,
+                "orders": 1
+              }
+            ]
+          }
+        }
+      },
+      "PE": {
+        "strike": 7950.0,
+        "right": "PE",
+        "symbol": "CRUDEOIL17SEP267950PE",
+        "token": "576520",
+        "expiry": "17SEP2026",
+        "ltp": 364.6,
+        "open_interest": 30600,
+        "trade_volume": 1533,
+        "depth": {
+          "buy": [
+            {
+              "price": 364.2,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 363.9,
+              "quantity": 200,
+              "orders": 2
+            },
+            {
+              "price": 363.8,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 363.7,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 363.6,
+              "quantity": 200,
+              "orders": 2
+            }
+          ],
+          "sell": [
+            {
+              "price": 365.5,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 365.6,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 365.7,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 365.8,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 366.0,
+              "quantity": 200,
+              "orders": 1
+            }
+          ]
+        },
+        "raw_quote": {
+          "exchange": "MCX",
+          "tradingSymbol": "CRUDEOIL17SEP267950PE",
+          "symbolToken": "576520",
+          "ltp": 364.6,
+          "open": 357.8,
+          "high": 393.2,
+          "low": 325.8,
+          "close": 371.5,
+          "lastTradeQty": 100,
+          "exchFeedTime": "19-Aug-2026 18:40:40",
+          "exchTradeTime": "19-Aug-2026 18:40:26",
+          "netChange": -6.9,
+          "percentChange": -1.86,
+          "avgPrice": 172.97,
+          "tradeVolume": 1533,
+          "opnInterest": 30600,
+          "lowerCircuit": 44.6,
+          "upperCircuit": 1349.5,
+          "totBuyQuan": 12200,
+          "totSellQuan": 12100,
+          "referenceLimitPrice": 0.0,
+          "52WeekLow": 325.8,
+          "52WeekHigh": 600.7,
+          "depth": {
+            "buy": [
+              {
+                "price": 364.2,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 363.9,
+                "quantity": 200,
+                "orders": 2
+              },
+              {
+                "price": 363.8,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 363.7,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 363.6,
+                "quantity": 200,
+                "orders": 2
+              }
+            ],
+            "sell": [
+              {
+                "price": 365.5,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 365.6,
+                "quantity": 300,
+                "orders": 2
+              },
+              {
+                "price": 365.7,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 365.8,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 366.0,
+                "quantity": 200,
+                "orders": 1
+              }
+            ]
+          }
+        }
+      }
+    },
+    "8000.0": {
+      "CE": {
+        "strike": 8000.0,
+        "right": "CE",
+        "symbol": "CRUDEOIL17SEP268000CE",
+        "token": "576368",
+        "expiry": "17SEP2026",
+        "ltp": 462.9,
+        "open_interest": 554400,
+        "trade_volume": 16857,
+        "depth": {
+          "buy": [
+            {
+              "price": 462.1,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 461.8,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 461.7,
+              "quantity": 400,
+              "orders": 2
+            },
+            {
+              "price": 461.6,
+              "quantity": 400,
+              "orders": 2
+            },
+            {
+              "price": 461.4,
+              "quantity": 300,
+              "orders": 2
+            }
+          ],
+          "sell": [
+            {
+              "price": 463.0,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 463.2,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 463.3,
+              "quantity": 200,
+              "orders": 2
+            },
+            {
+              "price": 463.4,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 463.5,
+              "quantity": 100,
+              "orders": 1
+            }
+          ]
+        },
+        "raw_quote": {
+          "exchange": "MCX",
+          "tradingSymbol": "CRUDEOIL17SEP268000CE",
+          "symbolToken": "576368",
+          "ltp": 462.9,
+          "open": 520.9,
+          "high": 542.0,
+          "low": 420.0,
+          "close": 482.0,
+          "lastTradeQty": 200,
+          "exchFeedTime": "19-Aug-2026 18:40:40",
+          "exchTradeTime": "19-Aug-2026 18:40:40",
+          "netChange": -19.1,
+          "percentChange": -3.96,
+          "avgPrice": 478.15,
+          "tradeVolume": 16857,
+          "opnInterest": 554400,
+          "lowerCircuit": 34.5,
+          "upperCircuit": 1585.9,
+          "totBuyQuan": 49000,
+          "totSellQuan": 65000,
+          "referenceLimitPrice": 0.0,
+          "52WeekLow": 100.0,
+          "52WeekHigh": 1129.0,
+          "depth": {
+            "buy": [
+              {
+                "price": 462.1,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 461.8,
+                "quantity": 300,
+                "orders": 1
+              },
+              {
+                "price": 461.7,
+                "quantity": 400,
+                "orders": 2
+              },
+              {
+                "price": 461.6,
+                "quantity": 400,
+                "orders": 2
+              },
+              {
+                "price": 461.4,
+                "quantity": 300,
+                "orders": 2
+              }
+            ],
+            "sell": [
+              {
+                "price": 463.0,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 463.2,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 463.3,
+                "quantity": 200,
+                "orders": 2
+              },
+              {
+                "price": 463.4,
+                "quantity": 300,
+                "orders": 2
+              },
+              {
+                "price": 463.5,
+                "quantity": 100,
+                "orders": 1
+              }
+            ]
+          }
+        }
+      },
+      "PE": {
+        "strike": 8000.0,
+        "right": "PE",
+        "symbol": "CRUDEOIL17SEP268000PE",
+        "token": "576521",
+        "expiry": "17SEP2026",
+        "ltp": 389.3,
+        "open_interest": 850300,
+        "trade_volume": 27278,
+        "depth": {
+          "buy": [
+            {
+              "price": 389.5,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 389.4,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 389.3,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 389.2,
+              "quantity": 200,
+              "orders": 2
+            },
+            {
+              "price": 389.1,
+              "quantity": 100,
+              "orders": 1
+            }
+          ],
+          "sell": [
+            {
+              "price": 390.3,
+              "quantity": 400,
+              "orders": 2
+            },
+            {
+              "price": 390.4,
+              "quantity": 700,
+              "orders": 2
+            },
+            {
+              "price": 390.5,
+              "quantity": 700,
+              "orders": 4
+            },
+            {
+              "price": 390.6,
+              "quantity": 900,
+              "orders": 3
+            },
+            {
+              "price": 390.7,
+              "quantity": 300,
+              "orders": 1
+            }
+          ]
+        },
+        "raw_quote": {
+          "exchange": "MCX",
+          "tradingSymbol": "CRUDEOIL17SEP268000PE",
+          "symbolToken": "576521",
+          "ltp": 389.3,
+          "open": 382.0,
+          "high": 419.9,
+          "low": 347.0,
+          "close": 397.1,
+          "lastTradeQty": 100,
+          "exchFeedTime": "19-Aug-2026 18:40:40",
+          "exchTradeTime": "19-Aug-2026 18:40:39",
+          "netChange": -7.8,
+          "percentChange": -1.96,
+          "avgPrice": 384.6,
+          "tradeVolume": 27278,
+          "opnInterest": 850300,
+          "lowerCircuit": 49.5,
+          "upperCircuit": 1395.6,
+          "totBuyQuan": 65800,
+          "totSellQuan": 106500,
+          "referenceLimitPrice": 0.0,
+          "52WeekLow": 347.0,
+          "52WeekHigh": 1125.0,
+          "depth": {
+            "buy": [
+              {
+                "price": 389.5,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 389.4,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 389.3,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 389.2,
+                "quantity": 200,
+                "orders": 2
+              },
+              {
+                "price": 389.1,
+                "quantity": 100,
+                "orders": 1
+              }
+            ],
+            "sell": [
+              {
+                "price": 390.3,
+                "quantity": 400,
+                "orders": 2
+              },
+              {
+                "price": 390.4,
+                "quantity": 700,
+                "orders": 2
+              },
+              {
+                "price": 390.5,
+                "quantity": 700,
+                "orders": 4
+              },
+              {
+                "price": 390.6,
+                "quantity": 900,
+                "orders": 3
+              },
+              {
+                "price": 390.7,
+                "quantity": 300,
+                "orders": 1
+              }
+            ]
+          }
+        }
+      }
+    },
+    "8050.0": {
+      "CE": {
+        "strike": 8050.0,
+        "right": "CE",
+        "symbol": "CRUDEOIL17SEP268050CE",
+        "token": "576369",
+        "expiry": "17SEP2026",
+        "ltp": 444.8,
+        "open_interest": 69900,
+        "trade_volume": 4433,
+        "depth": {
+          "buy": [
+            {
+              "price": 442.6,
+              "quantity": 400,
+              "orders": 1
+            },
+            {
+              "price": 442.5,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 442.4,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 442.2,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 442.0,
+              "quantity": 100,
+              "orders": 1
+            }
+          ],
+          "sell": [
+            {
+              "price": 443.6,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 443.7,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 443.8,
+              "quantity": 500,
+              "orders": 3
+            },
+            {
+              "price": 444.0,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 444.2,
+              "quantity": 200,
+              "orders": 1
+            }
+          ]
+        },
+        "raw_quote": {
+          "exchange": "MCX",
+          "tradingSymbol": "CRUDEOIL17SEP268050CE",
+          "symbolToken": "576369",
+          "ltp": 444.8,
+          "open": 499.3,
+          "high": 518.5,
+          "low": 400.7,
+          "close": 462.0,
+          "lastTradeQty": 100,
+          "exchFeedTime": "19-Aug-2026 18:40:40",
+          "exchTradeTime": "19-Aug-2026 18:40:37",
+          "netChange": -17.2,
+          "percentChange": -3.72,
+          "avgPrice": 460.98,
+          "tradeVolume": 4433,
+          "opnInterest": 69900,
+          "lowerCircuit": 31.1,
+          "upperCircuit": 1541.5,
+          "totBuyQuan": 21700,
+          "totSellQuan": 21800,
+          "referenceLimitPrice": 0.0,
+          "52WeekLow": 312.8,
+          "52WeekHigh": 861.7,
+          "depth": {
+            "buy": [
+              {
+                "price": 442.6,
+                "quantity": 400,
+                "orders": 1
+              },
+              {
+                "price": 442.5,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 442.4,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 442.2,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 442.0,
+                "quantity": 100,
+                "orders": 1
+              }
+            ],
+            "sell": [
+              {
+                "price": 443.6,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 443.7,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 443.8,
+                "quantity": 500,
+                "orders": 3
+              },
+              {
+                "price": 444.0,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 444.2,
+                "quantity": 200,
+                "orders": 1
+              }
+            ]
+          }
+        }
+      },
+      "PE": {
+        "strike": 8050.0,
+        "right": "PE",
+        "symbol": "CRUDEOIL17SEP268050PE",
+        "token": "576522",
+        "expiry": "17SEP2026",
+        "ltp": 417.3,
+        "open_interest": 81600,
+        "trade_volume": 4604,
+        "depth": {
+          "buy": [
+            {
+              "price": 417.6,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 417.5,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 417.4,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 417.2,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 417.1,
+              "quantity": 400,
+              "orders": 2
+            }
+          ],
+          "sell": [
+            {
+              "price": 418.8,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 419.0,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 419.1,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 419.2,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 419.3,
+              "quantity": 300,
+              "orders": 2
+            }
+          ]
+        },
+        "raw_quote": {
+          "exchange": "MCX",
+          "tradingSymbol": "CRUDEOIL17SEP268050PE",
+          "symbolToken": "576522",
+          "ltp": 417.3,
+          "open": 412.3,
+          "high": 449.6,
+          "low": 376.4,
+          "close": 425.2,
+          "lastTradeQty": 100,
+          "exchFeedTime": "19-Aug-2026 18:40:40",
+          "exchTradeTime": "19-Aug-2026 18:40:37",
+          "netChange": -7.9,
+          "percentChange": -1.86,
+          "avgPrice": 334.11,
+          "tradeVolume": 4604,
+          "opnInterest": 81600,
+          "lowerCircuit": 54.9,
+          "upperCircuit": 1442.1,
+          "totBuyQuan": 16700,
+          "totSellQuan": 15600,
+          "referenceLimitPrice": 0.0,
+          "52WeekLow": 376.4,
+          "52WeekHigh": 514.6,
+          "depth": {
+            "buy": [
+              {
+                "price": 417.6,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 417.5,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 417.4,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 417.2,
+                "quantity": 300,
+                "orders": 2
+              },
+              {
+                "price": 417.1,
+                "quantity": 400,
+                "orders": 2
+              }
+            ],
+            "sell": [
+              {
+                "price": 418.8,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 419.0,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 419.1,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 419.2,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 419.3,
+                "quantity": 300,
+                "orders": 2
+              }
+            ]
+          }
+        }
+      }
+    },
+    "8100.0": {
+      "CE": {
+        "strike": 8100.0,
+        "right": "CE",
+        "symbol": "CRUDEOIL17SEP268100CE",
+        "token": "576370",
+        "expiry": "17SEP2026",
+        "ltp": 420.4,
+        "open_interest": 429500,
+        "trade_volume": 28906,
+        "depth": {
+          "buy": [
+            {
+              "price": 420.0,
+              "quantity": 200,
+              "orders": 2
+            },
+            {
+              "price": 419.5,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 419.2,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 419.1,
+              "quantity": 400,
+              "orders": 2
+            },
+            {
+              "price": 419.0,
+              "quantity": 1900,
+              "orders": 2
+            }
+          ],
+          "sell": [
+            {
+              "price": 420.3,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 420.4,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 420.5,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 420.6,
+              "quantity": 200,
+              "orders": 2
+            },
+            {
+              "price": 420.7,
+              "quantity": 100,
+              "orders": 1
+            }
+          ]
+        },
+        "raw_quote": {
+          "exchange": "MCX",
+          "tradingSymbol": "CRUDEOIL17SEP268100CE",
+          "symbolToken": "576370",
+          "ltp": 420.4,
+          "open": 476.5,
+          "high": 496.4,
+          "low": 378.9,
+          "close": 441.2,
+          "lastTradeQty": 100,
+          "exchFeedTime": "19-Aug-2026 18:40:40",
+          "exchTradeTime": "19-Aug-2026 18:40:38",
+          "netChange": -20.8,
+          "percentChange": -4.71,
+          "avgPrice": 478.16,
+          "tradeVolume": 28906,
+          "opnInterest": 429500,
+          "lowerCircuit": 28.1,
+          "upperCircuit": 1497.5,
+          "totBuyQuan": 47400,
+          "totSellQuan": 64500,
+          "referenceLimitPrice": 0.0,
+          "52WeekLow": 280.0,
+          "52WeekHigh": 513.6,
+          "depth": {
+            "buy": [
+              {
+                "price": 420.0,
+                "quantity": 200,
+                "orders": 2
+              },
+              {
+                "price": 419.5,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 419.2,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 419.1,
+                "quantity": 400,
+                "orders": 2
+              },
+              {
+                "price": 419.0,
+                "quantity": 1900,
+                "orders": 2
+              }
+            ],
+            "sell": [
+              {
+                "price": 420.3,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 420.4,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 420.5,
+                "quantity": 300,
+                "orders": 2
+              },
+              {
+                "price": 420.6,
+                "quantity": 200,
+                "orders": 2
+              },
+              {
+                "price": 420.7,
+                "quantity": 100,
+                "orders": 1
+              }
+            ]
+          }
+        }
+      },
+      "PE": {
+        "strike": 8100.0,
+        "right": "PE",
+        "symbol": "CRUDEOIL17SEP268100PE",
+        "token": "576523",
+        "expiry": "17SEP2026",
+        "ltp": 444.3,
+        "open_interest": 373200,
+        "trade_volume": 24605,
+        "depth": {
+          "buy": [
+            {
+              "price": 444.6,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 444.4,
+              "quantity": 500,
+              "orders": 1
+            },
+            {
+              "price": 444.2,
+              "quantity": 500,
+              "orders": 3
+            },
+            {
+              "price": 444.1,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 444.0,
+              "quantity": 400,
+              "orders": 3
+            }
+          ],
+          "sell": [
+            {
+              "price": 445.1,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 445.6,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 445.7,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 445.8,
+              "quantity": 500,
+              "orders": 2
+            },
+            {
+              "price": 446.1,
+              "quantity": 400,
+              "orders": 1
+            }
+          ]
+        },
+        "raw_quote": {
+          "exchange": "MCX",
+          "tradingSymbol": "CRUDEOIL17SEP268100PE",
+          "symbolToken": "576523",
+          "ltp": 444.3,
+          "open": 434.1,
+          "high": 479.0,
+          "low": 400.0,
+          "close": 453.3,
+          "lastTradeQty": 100,
+          "exchFeedTime": "19-Aug-2026 18:40:40",
+          "exchTradeTime": "19-Aug-2026 18:40:37",
+          "netChange": -9.0,
+          "percentChange": -1.99,
+          "avgPrice": 334.11,
+          "tradeVolume": 24605,
+          "opnInterest": 373200,
+          "lowerCircuit": 60.7,
+          "upperCircuit": 1488.8,
+          "totBuyQuan": 38200,
+          "totSellQuan": 49500,
+          "referenceLimitPrice": 0.0,
+          "52WeekLow": 400.0,
+          "52WeekHigh": 1271.6,
+          "depth": {
+            "buy": [
+              {
+                "price": 444.6,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 444.4,
+                "quantity": 500,
+                "orders": 1
+              },
+              {
+                "price": 444.2,
+                "quantity": 500,
+                "orders": 3
+              },
+              {
+                "price": 444.1,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 444.0,
+                "quantity": 400,
+                "orders": 3
+              }
+            ],
+            "sell": [
+              {
+                "price": 445.1,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 445.6,
+                "quantity": 300,
+                "orders": 1
+              },
+              {
+                "price": 445.7,
+                "quantity": 300,
+                "orders": 1
+              },
+              {
+                "price": 445.8,
+                "quantity": 500,
+                "orders": 2
+              },
+              {
+                "price": 446.1,
+                "quantity": 400,
+                "orders": 1
+              }
+            ]
+          }
+        }
+      }
+    },
+    "8150.0": {
+      "CE": {
+        "strike": 8150.0,
+        "right": "CE",
+        "symbol": "CRUDEOIL17SEP268150CE",
+        "token": "576371",
+        "expiry": "17SEP2026",
+        "ltp": 400.2,
+        "open_interest": 157600,
+        "trade_volume": 10501,
+        "depth": {
+          "buy": [
+            {
+              "price": 399.1,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 398.8,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 398.7,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 398.6,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 398.5,
+              "quantity": 1100,
+              "orders": 3
+            }
+          ],
+          "sell": [
+            {
+              "price": 400.2,
+              "quantity": 200,
+              "orders": 2
+            },
+            {
+              "price": 400.4,
+              "quantity": 400,
+              "orders": 2
+            },
+            {
+              "price": 400.5,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 400.6,
+              "quantity": 1200,
+              "orders": 3
+            },
+            {
+              "price": 400.7,
+              "quantity": 400,
+              "orders": 2
+            }
+          ]
+        },
+        "raw_quote": {
+          "exchange": "MCX",
+          "tradingSymbol": "CRUDEOIL17SEP268150CE",
+          "symbolToken": "576371",
+          "ltp": 400.2,
+          "open": 455.3,
+          "high": 474.0,
+          "low": 360.0,
+          "close": 420.2,
+          "lastTradeQty": 100,
+          "exchFeedTime": "19-Aug-2026 18:40:40",
+          "exchTradeTime": "19-Aug-2026 18:40:38",
+          "netChange": -20.0,
+          "percentChange": -4.76,
+          "avgPrice": 445.92,
+          "tradeVolume": 10501,
+          "opnInterest": 157600,
+          "lowerCircuit": 25.4,
+          "upperCircuit": 1454.1,
+          "totBuyQuan": 29400,
+          "totSellQuan": 39000,
+          "referenceLimitPrice": 0.0,
+          "52WeekLow": 360.0,
+          "52WeekHigh": 493.8,
+          "depth": {
+            "buy": [
+              {
+                "price": 399.1,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 398.8,
+                "quantity": 300,
+                "orders": 1
+              },
+              {
+                "price": 398.7,
+                "quantity": 300,
+                "orders": 1
+              },
+              {
+                "price": 398.6,
+                "quantity": 300,
+                "orders": 1
+              },
+              {
+                "price": 398.5,
+                "quantity": 1100,
+                "orders": 3
+              }
+            ],
+            "sell": [
+              {
+                "price": 400.2,
+                "quantity": 200,
+                "orders": 2
+              },
+              {
+                "price": 400.4,
+                "quantity": 400,
+                "orders": 2
+              },
+              {
+                "price": 400.5,
+                "quantity": 300,
+                "orders": 1
+              },
+              {
+                "price": 400.6,
+                "quantity": 1200,
+                "orders": 3
+              },
+              {
+                "price": 400.7,
+                "quantity": 400,
+                "orders": 2
+              }
+            ]
+          }
+        }
+      },
+      "PE": {
+        "strike": 8150.0,
+        "right": "PE",
+        "symbol": "CRUDEOIL17SEP268150PE",
+        "token": "576524",
+        "expiry": "17SEP2026",
+        "ltp": 472.6,
+        "open_interest": 69100,
+        "trade_volume": 7427,
+        "depth": {
+          "buy": [
+            {
+              "price": 472.6,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 472.5,
+              "quantity": 900,
+              "orders": 2
+            },
+            {
+              "price": 472.4,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 472.3,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 472.2,
+              "quantity": 200,
+              "orders": 1
+            }
+          ],
+          "sell": [
+            {
+              "price": 474.1,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 474.2,
+              "quantity": 500,
+              "orders": 3
+            },
+            {
+              "price": 474.4,
+              "quantity": 400,
+              "orders": 2
+            },
+            {
+              "price": 474.5,
+              "quantity": 800,
+              "orders": 1
+            },
+            {
+              "price": 474.6,
+              "quantity": 200,
+              "orders": 1
+            }
+          ]
+        },
+        "raw_quote": {
+          "exchange": "MCX",
+          "tradingSymbol": "CRUDEOIL17SEP268150PE",
+          "symbolToken": "576524",
+          "ltp": 472.6,
+          "open": 464.6,
+          "high": 508.0,
+          "low": 427.6,
+          "close": 482.3,
+          "lastTradeQty": 100,
+          "exchFeedTime": "19-Aug-2026 18:40:40",
+          "exchTradeTime": "19-Aug-2026 18:40:38",
+          "netChange": -9.7,
+          "percentChange": -2.01,
+          "avgPrice": 458.72,
+          "tradeVolume": 7427,
+          "opnInterest": 69100,
+          "lowerCircuit": 67.0,
+          "upperCircuit": 1535.8,
+          "totBuyQuan": 17400,
+          "totSellQuan": 19400,
+          "referenceLimitPrice": 0.0,
+          "52WeekLow": 142.9,
+          "52WeekHigh": 707.2,
+          "depth": {
+            "buy": [
+              {
+                "price": 472.6,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 472.5,
+                "quantity": 900,
+                "orders": 2
+              },
+              {
+                "price": 472.4,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 472.3,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 472.2,
+                "quantity": 200,
+                "orders": 1
+              }
+            ],
+            "sell": [
+              {
+                "price": 474.1,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 474.2,
+                "quantity": 500,
+                "orders": 3
+              },
+              {
+                "price": 474.4,
+                "quantity": 400,
+                "orders": 2
+              },
+              {
+                "price": 474.5,
+                "quantity": 800,
+                "orders": 1
+              },
+              {
+                "price": 474.6,
+                "quantity": 200,
+                "orders": 1
+              }
+            ]
+          }
+        }
+      }
+    },
+    "8200.0": {
+      "CE": {
+        "strike": 8200.0,
+        "right": "CE",
+        "symbol": "CRUDEOIL17SEP268200CE",
+        "token": "576372",
+        "expiry": "17SEP2026",
+        "ltp": 379.1,
+        "open_interest": 503300,
+        "trade_volume": 32963,
+        "depth": {
+          "buy": [
+            {
+              "price": 378.0,
+              "quantity": 700,
+              "orders": 3
+            },
+            {
+              "price": 377.9,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 377.8,
+              "quantity": 400,
+              "orders": 2
+            },
+            {
+              "price": 377.7,
+              "quantity": 400,
+              "orders": 2
+            },
+            {
+              "price": 377.6,
+              "quantity": 500,
+              "orders": 2
+            }
+          ],
+          "sell": [
+            {
+              "price": 379.1,
+              "quantity": 200,
+              "orders": 2
+            },
+            {
+              "price": 379.2,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 379.3,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 379.4,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 379.5,
+              "quantity": 100,
+              "orders": 1
+            }
+          ]
+        },
+        "raw_quote": {
+          "exchange": "MCX",
+          "tradingSymbol": "CRUDEOIL17SEP268200CE",
+          "symbolToken": "576372",
+          "ltp": 379.1,
+          "open": 434.7,
+          "high": 452.9,
+          "low": 339.4,
+          "close": 400.4,
+          "lastTradeQty": 100,
+          "exchFeedTime": "19-Aug-2026 18:40:40",
+          "exchTradeTime": "19-Aug-2026 18:40:39",
+          "netChange": -21.3,
+          "percentChange": -5.32,
+          "avgPrice": 478.16,
+          "tradeVolume": 32963,
+          "opnInterest": 503300,
+          "lowerCircuit": 22.8,
+          "upperCircuit": 1411.1,
+          "totBuyQuan": 38800,
+          "totSellQuan": 103400,
+          "referenceLimitPrice": 0.0,
+          "52WeekLow": 205.1,
+          "52WeekHigh": 473.0,
+          "depth": {
+            "buy": [
+              {
+                "price": 378.0,
+                "quantity": 700,
+                "orders": 3
+              },
+              {
+                "price": 377.9,
+                "quantity": 300,
+                "orders": 1
+              },
+              {
+                "price": 377.8,
+                "quantity": 400,
+                "orders": 2
+              },
+              {
+                "price": 377.7,
+                "quantity": 400,
+                "orders": 2
+              },
+              {
+                "price": 377.6,
+                "quantity": 500,
+                "orders": 2
+              }
+            ],
+            "sell": [
+              {
+                "price": 379.1,
+                "quantity": 200,
+                "orders": 2
+              },
+              {
+                "price": 379.2,
+                "quantity": 300,
+                "orders": 2
+              },
+              {
+                "price": 379.3,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 379.4,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 379.5,
+                "quantity": 100,
+                "orders": 1
+              }
+            ]
+          }
+        }
+      },
+      "PE": {
+        "strike": 8200.0,
+        "right": "PE",
+        "symbol": "CRUDEOIL17SEP268200PE",
+        "token": "576525",
+        "expiry": "17SEP2026",
+        "ltp": 503.6,
+        "open_interest": 255300,
+        "trade_volume": 17467,
+        "depth": {
+          "buy": [
+            {
+              "price": 502.3,
+              "quantity": 200,
+              "orders": 2
+            },
+            {
+              "price": 502.0,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 501.9,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 501.8,
+              "quantity": 1000,
+              "orders": 2
+            },
+            {
+              "price": 501.7,
+              "quantity": 600,
+              "orders": 2
+            }
+          ],
+          "sell": [
+            {
+              "price": 503.7,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 503.8,
+              "quantity": 400,
+              "orders": 2
+            },
+            {
+              "price": 503.9,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 504.0,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 504.1,
+              "quantity": 400,
+              "orders": 2
+            }
+          ]
+        },
+        "raw_quote": {
+          "exchange": "MCX",
+          "tradingSymbol": "CRUDEOIL17SEP268200PE",
+          "symbolToken": "576525",
+          "ltp": 503.6,
+          "open": 492.4,
+          "high": 540.0,
+          "low": 456.0,
+          "close": 513.1,
+          "lastTradeQty": 200,
+          "exchFeedTime": "19-Aug-2026 18:40:40",
+          "exchTradeTime": "19-Aug-2026 18:40:39",
+          "netChange": -9.5,
+          "percentChange": -1.85,
+          "avgPrice": 487.37,
+          "tradeVolume": 17467,
+          "opnInterest": 255300,
+          "lowerCircuit": 73.8,
+          "upperCircuit": 1583.1,
+          "totBuyQuan": 28000,
+          "totSellQuan": 37900,
+          "referenceLimitPrice": 0.0,
+          "52WeekLow": 456.0,
+          "52WeekHigh": 740.0,
+          "depth": {
+            "buy": [
+              {
+                "price": 502.3,
+                "quantity": 200,
+                "orders": 2
+              },
+              {
+                "price": 502.0,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 501.9,
+                "quantity": 300,
+                "orders": 2
+              },
+              {
+                "price": 501.8,
+                "quantity": 1000,
+                "orders": 2
+              },
+              {
+                "price": 501.7,
+                "quantity": 600,
+                "orders": 2
+              }
+            ],
+            "sell": [
+              {
+                "price": 503.7,
+                "quantity": 300,
+                "orders": 1
+              },
+              {
+                "price": 503.8,
+                "quantity": 400,
+                "orders": 2
+              },
+              {
+                "price": 503.9,
+                "quantity": 300,
+                "orders": 1
+              },
+              {
+                "price": 504.0,
+                "quantity": 300,
+                "orders": 2
+              },
+              {
+                "price": 504.1,
+                "quantity": 400,
+                "orders": 2
+              }
+            ]
+          }
+        }
+      }
+    },
+    "8250.0": {
+      "CE": {
+        "strike": 8250.0,
+        "right": "CE",
+        "symbol": "CRUDEOIL17SEP268250CE",
+        "token": "576373",
+        "expiry": "17SEP2026",
+        "ltp": 360.0,
+        "open_interest": 80100,
+        "trade_volume": 5222,
+        "depth": {
+          "buy": [
+            {
+              "price": 360.2,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 360.1,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 360.0,
+              "quantity": 1000,
+              "orders": 2
+            },
+            {
+              "price": 359.9,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 359.8,
+              "quantity": 200,
+              "orders": 1
+            }
+          ],
+          "sell": [
+            {
+              "price": 361.3,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 361.4,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 361.5,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 361.6,
+              "quantity": 500,
+              "orders": 2
+            },
+            {
+              "price": 361.7,
+              "quantity": 200,
+              "orders": 1
+            }
+          ]
+        },
+        "raw_quote": {
+          "exchange": "MCX",
+          "tradingSymbol": "CRUDEOIL17SEP268250CE",
+          "symbolToken": "576373",
+          "ltp": 360.0,
+          "open": 405.0,
+          "high": 431.9,
+          "low": 324.2,
+          "close": 381.1,
+          "lastTradeQty": 100,
+          "exchFeedTime": "19-Aug-2026 18:40:40",
+          "exchTradeTime": "19-Aug-2026 18:40:18",
+          "netChange": -21.1,
+          "percentChange": -5.54,
+          "avgPrice": 391.19,
+          "tradeVolume": 5222,
+          "opnInterest": 80100,
+          "lowerCircuit": 20.6,
+          "upperCircuit": 1368.6,
+          "totBuyQuan": 16800,
+          "totSellQuan": 28100,
+          "referenceLimitPrice": 0.0,
+          "52WeekLow": 324.2,
+          "52WeekHigh": 453.2,
+          "depth": {
+            "buy": [
+              {
+                "price": 360.2,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 360.1,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 360.0,
+                "quantity": 1000,
+                "orders": 2
+              },
+              {
+                "price": 359.9,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 359.8,
+                "quantity": 200,
+                "orders": 1
+              }
+            ],
+            "sell": [
+              {
+                "price": 361.3,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 361.4,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 361.5,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 361.6,
+                "quantity": 500,
+                "orders": 2
+              },
+              {
+                "price": 361.7,
+                "quantity": 200,
+                "orders": 1
+              }
+            ]
+          }
+        }
+      },
+      "PE": {
+        "strike": 8250.0,
+        "right": "PE",
+        "symbol": "CRUDEOIL17SEP268250PE",
+        "token": "576526",
+        "expiry": "17SEP2026",
+        "ltp": 535.9,
+        "open_interest": 9000,
+        "trade_volume": 1010,
+        "depth": {
+          "buy": [
+            {
+              "price": 533.1,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 533.0,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 532.8,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 532.6,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 532.0,
+              "quantity": 100,
+              "orders": 1
+            }
+          ],
+          "sell": [
+            {
+              "price": 535.0,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 535.1,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 535.3,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 535.5,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 535.6,
+              "quantity": 200,
+              "orders": 1
+            }
+          ]
+        },
+        "raw_quote": {
+          "exchange": "MCX",
+          "tradingSymbol": "CRUDEOIL17SEP268250PE",
+          "symbolToken": "576526",
+          "ltp": 535.9,
+          "open": 527.8,
+          "high": 568.6,
+          "low": 485.0,
+          "close": 544.4,
+          "lastTradeQty": 200,
+          "exchFeedTime": "19-Aug-2026 18:40:39",
+          "exchTradeTime": "19-Aug-2026 18:40:00",
+          "netChange": -8.5,
+          "percentChange": -1.56,
+          "avgPrice": 515.15,
+          "tradeVolume": 1010,
+          "opnInterest": 9000,
+          "lowerCircuit": 81.0,
+          "upperCircuit": 1630.5,
+          "totBuyQuan": 5200,
+          "totSellQuan": 8200,
+          "referenceLimitPrice": 0.0,
+          "52WeekLow": 485.0,
+          "52WeekHigh": 593.0,
+          "depth": {
+            "buy": [
+              {
+                "price": 533.1,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 533.0,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 532.8,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 532.6,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 532.0,
+                "quantity": 100,
+                "orders": 1
+              }
+            ],
+            "sell": [
+              {
+                "price": 535.0,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 535.1,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 535.3,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 535.5,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 535.6,
+                "quantity": 200,
+                "orders": 1
+              }
+            ]
+          }
+        }
+      }
+    },
+    "8300.0": {
+      "CE": {
+        "strike": 8300.0,
+        "right": "CE",
+        "symbol": "CRUDEOIL17SEP268300CE",
+        "token": "576374",
+        "expiry": "17SEP2026",
+        "ltp": 342.0,
+        "open_interest": 187600,
+        "trade_volume": 12038,
+        "depth": {
+          "buy": [
+            {
+              "price": 341.2,
+              "quantity": 500,
+              "orders": 2
+            },
+            {
+              "price": 341.1,
+              "quantity": 900,
+              "orders": 3
+            },
+            {
+              "price": 341.0,
+              "quantity": 500,
+              "orders": 2
+            },
+            {
+              "price": 340.9,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 340.8,
+              "quantity": 400,
+              "orders": 2
+            }
+          ],
+          "sell": [
+            {
+              "price": 342.1,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 342.2,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 342.3,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 342.4,
+              "quantity": 300,
+              "orders": 1
+            },
+            {
+              "price": 342.5,
+              "quantity": 700,
+              "orders": 3
+            }
+          ]
+        },
+        "raw_quote": {
+          "exchange": "MCX",
+          "tradingSymbol": "CRUDEOIL17SEP268300CE",
+          "symbolToken": "576374",
+          "ltp": 342.0,
+          "open": 395.2,
+          "high": 411.2,
+          "low": 306.8,
+          "close": 362.4,
+          "lastTradeQty": 100,
+          "exchFeedTime": "19-Aug-2026 18:40:40",
+          "exchTradeTime": "19-Aug-2026 18:40:40",
+          "netChange": -20.4,
+          "percentChange": -5.63,
+          "avgPrice": 478.15,
+          "tradeVolume": 12038,
+          "opnInterest": 187600,
+          "lowerCircuit": 18.5,
+          "upperCircuit": 1326.6,
+          "totBuyQuan": 35400,
+          "totSellQuan": 40000,
+          "referenceLimitPrice": 0.0,
+          "52WeekLow": 269.8,
+          "52WeekHigh": 431.1,
+          "depth": {
+            "buy": [
+              {
+                "price": 341.2,
+                "quantity": 500,
+                "orders": 2
+              },
+              {
+                "price": 341.1,
+                "quantity": 900,
+                "orders": 3
+              },
+              {
+                "price": 341.0,
+                "quantity": 500,
+                "orders": 2
+              },
+              {
+                "price": 340.9,
+                "quantity": 300,
+                "orders": 1
+              },
+              {
+                "price": 340.8,
+                "quantity": 400,
+                "orders": 2
+              }
+            ],
+            "sell": [
+              {
+                "price": 342.1,
+                "quantity": 300,
+                "orders": 1
+              },
+              {
+                "price": 342.2,
+                "quantity": 300,
+                "orders": 1
+              },
+              {
+                "price": 342.3,
+                "quantity": 300,
+                "orders": 1
+              },
+              {
+                "price": 342.4,
+                "quantity": 300,
+                "orders": 1
+              },
+              {
+                "price": 342.5,
+                "quantity": 700,
+                "orders": 3
+              }
+            ]
+          }
+        }
+      },
+      "PE": {
+        "strike": 8300.0,
+        "right": "PE",
+        "symbol": "CRUDEOIL17SEP268300PE",
+        "token": "576527",
+        "expiry": "17SEP2026",
+        "ltp": 565.1,
+        "open_interest": 24600,
+        "trade_volume": 3364,
+        "depth": {
+          "buy": [
+            {
+              "price": 564.7,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 564.6,
+              "quantity": 200,
+              "orders": 2
+            },
+            {
+              "price": 564.5,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 564.4,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 564.3,
+              "quantity": 100,
+              "orders": 1
+            }
+          ],
+          "sell": [
+            {
+              "price": 566.7,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 567.0,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 567.3,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 567.4,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 567.5,
+              "quantity": 100,
+              "orders": 1
+            }
+          ]
+        },
+        "raw_quote": {
+          "exchange": "MCX",
+          "tradingSymbol": "CRUDEOIL17SEP268300PE",
+          "symbolToken": "576527",
+          "ltp": 565.1,
+          "open": 554.3,
+          "high": 601.6,
+          "low": 515.4,
+          "close": 576.4,
+          "lastTradeQty": 100,
+          "exchFeedTime": "19-Aug-2026 18:40:40",
+          "exchTradeTime": "19-Aug-2026 18:40:25",
+          "netChange": -11.3,
+          "percentChange": -1.96,
+          "avgPrice": 458.71,
+          "tradeVolume": 3364,
+          "opnInterest": 24600,
+          "lowerCircuit": 88.9,
+          "upperCircuit": 1678.2,
+          "totBuyQuan": 12000,
+          "totSellQuan": 13200,
+          "referenceLimitPrice": 0.0,
+          "52WeekLow": 515.4,
+          "52WeekHigh": 754.7,
+          "depth": {
+            "buy": [
+              {
+                "price": 564.7,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 564.6,
+                "quantity": 200,
+                "orders": 2
+              },
+              {
+                "price": 564.5,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 564.4,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 564.3,
+                "quantity": 100,
+                "orders": 1
+              }
+            ],
+            "sell": [
+              {
+                "price": 566.7,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 567.0,
+                "quantity": 300,
+                "orders": 2
+              },
+              {
+                "price": 567.3,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 567.4,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 567.5,
+                "quantity": 100,
+                "orders": 1
+              }
+            ]
+          }
+        }
+      }
+    },
+    "8350.0": {
+      "CE": {
+        "strike": 8350.0,
+        "right": "CE",
+        "symbol": "CRUDEOIL17SEP268350CE",
+        "token": "576375",
+        "expiry": "17SEP2026",
+        "ltp": 325.7,
+        "open_interest": 69300,
+        "trade_volume": 3152,
+        "depth": {
+          "buy": [
+            {
+              "price": 324.5,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 324.4,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 324.2,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 324.0,
+              "quantity": 300,
+              "orders": 2
+            },
+            {
+              "price": 323.9,
+              "quantity": 200,
+              "orders": 1
+            }
+          ],
+          "sell": [
+            {
+              "price": 325.7,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 325.8,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 325.9,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 326.0,
+              "quantity": 200,
+              "orders": 1
+            },
+            {
+              "price": 326.1,
+              "quantity": 200,
+              "orders": 2
+            }
+          ]
+        },
+        "raw_quote": {
+          "exchange": "MCX",
+          "tradingSymbol": "CRUDEOIL17SEP268350CE",
+          "symbolToken": "576375",
+          "ltp": 325.7,
+          "open": 370.1,
+          "high": 389.0,
+          "low": 291.0,
+          "close": 345.7,
+          "lastTradeQty": 100,
+          "exchFeedTime": "19-Aug-2026 18:40:40",
+          "exchTradeTime": "19-Aug-2026 18:40:37",
+          "netChange": -20.0,
+          "percentChange": -5.79,
+          "avgPrice": 408.73,
+          "tradeVolume": 3152,
+          "opnInterest": 69300,
+          "lowerCircuit": 16.6,
+          "upperCircuit": 1285.2,
+          "totBuyQuan": 13500,
+          "totSellQuan": 14500,
+          "referenceLimitPrice": 0.0,
+          "52WeekLow": 259.8,
+          "52WeekHigh": 413.0,
+          "depth": {
+            "buy": [
+              {
+                "price": 324.5,
+                "quantity": 300,
+                "orders": 2
+              },
+              {
+                "price": 324.4,
+                "quantity": 300,
+                "orders": 2
+              },
+              {
+                "price": 324.2,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 324.0,
+                "quantity": 300,
+                "orders": 2
+              },
+              {
+                "price": 323.9,
+                "quantity": 200,
+                "orders": 1
+              }
+            ],
+            "sell": [
+              {
+                "price": 325.7,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 325.8,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 325.9,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 326.0,
+                "quantity": 200,
+                "orders": 1
+              },
+              {
+                "price": 326.1,
+                "quantity": 200,
+                "orders": 2
+              }
+            ]
+          }
+        }
+      },
+      "PE": {
+        "strike": 8350.0,
+        "right": "PE",
+        "symbol": "CRUDEOIL17SEP268350PE",
+        "token": "576528",
+        "expiry": "17SEP2026",
+        "ltp": 597.4,
+        "open_interest": 1600,
+        "trade_volume": 107,
+        "depth": {
+          "buy": [
+            {
+              "price": 595.5,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 595.3,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 595.2,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 595.1,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 595.0,
+              "quantity": 200,
+              "orders": 2
+            }
+          ],
+          "sell": [
+            {
+              "price": 598.7,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 598.9,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 599.1,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 599.2,
+              "quantity": 100,
+              "orders": 1
+            },
+            {
+              "price": 599.3,
+              "quantity": 100,
+              "orders": 1
+            }
+          ]
+        },
+        "raw_quote": {
+          "exchange": "MCX",
+          "tradingSymbol": "CRUDEOIL17SEP268350PE",
+          "symbolToken": "576528",
+          "ltp": 597.4,
+          "open": 657.2,
+          "high": 657.2,
+          "low": 555.1,
+          "close": 605.9,
+          "lastTradeQty": 100,
+          "exchFeedTime": "19-Aug-2026 18:40:40",
+          "exchTradeTime": "19-Aug-2026 18:38:26",
+          "netChange": -8.5,
+          "percentChange": -1.4,
+          "avgPrice": 593.32,
+          "tradeVolume": 107,
+          "opnInterest": 1600,
+          "lowerCircuit": 97.2,
+          "upperCircuit": 1726.1,
+          "totBuyQuan": 3200,
+          "totSellQuan": 4900,
+          "referenceLimitPrice": 0.0,
+          "52WeekLow": 555.1,
+          "52WeekHigh": 661.5,
+          "depth": {
+            "buy": [
+              {
+                "price": 595.5,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 595.3,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 595.2,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 595.1,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 595.0,
+                "quantity": 200,
+                "orders": 2
+              }
+            ],
+            "sell": [
+              {
+                "price": 598.7,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 598.9,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 599.1,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 599.2,
+                "quantity": 100,
+                "orders": 1
+              },
+              {
+                "price": 599.3,
+                "quantity": 100,
+                "orders": 1
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "oi_candidates": {
+    "7950.0": {
+      "support": 7950.0,
+      "resistance": 8000.0,
+      "support_pe_oi": 30600,
+      "resistance_ce_oi": 554400
+    },
+    "8000.0": {
+      "support": 8000.0,
+      "resistance": 8000.0,
+      "support_pe_oi": 850300,
+      "resistance_ce_oi": 554400
+    },
+    "8050.0": {
+      "support": 8000.0,
+      "resistance": 8200.0,
+      "support_pe_oi": 850300,
+      "resistance_ce_oi": 503300
+    },
+    "8100.0": {
+      "support": 8000.0,
+      "resistance": 8200.0,
+      "support_pe_oi": 850300,
+      "resistance_ce_oi": 503300
+    },
+    "8150.0": {
+      "support": 8000.0,
+      "resistance": 8200.0,
+      "support_pe_oi": 850300,
+      "resistance_ce_oi": 503300
+    },
+    "8200.0": {
+      "support": 8000.0,
+      "resistance": 8200.0,
+      "support_pe_oi": 850300,
+      "resistance_ce_oi": 503300
+    },
+    "8250.0": {
+      "support": 8000.0,
+      "resistance": 8300.0,
+      "support_pe_oi": 850300,
+      "resistance_ce_oi": 187600
+    },
+    "8300.0": {
+      "support": 8000.0,
+      "resistance": 8300.0,
+      "support_pe_oi": 850300,
+      "resistance_ce_oi": 187600
+    },
+    "8350.0": {
+      "support": 8000.0,
+      "resistance": 8350.0,
+      "support_pe_oi": 850300,
+      "resistance_ce_oi": 69300
+    }
+  },
+  "note": "No S/R formula is applied yet; validate broker fields before bot integration."
+}

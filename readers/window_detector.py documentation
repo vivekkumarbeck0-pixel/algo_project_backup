@@ -1,0 +1,43 @@
+"""
+WINDOW DETECTOR
+
+Purpose :
+
+Find Required Trading Windows
+
+Functions :
+
+enum()
+find()
+find_bottom_left()
+find_bottom_right()
+
+Current Detection :
+
+AOC
+TradingView / Index
+CE Option Window
+PE Option Window
+
+CE Window Pattern :
+
+NIFTY + ... + C + Strike
+
+PE Window Pattern :
+
+NIFTY + ... + P + Strike
+
+Status :
+
+Stable
+
+Current Setup :
+
+CE and PE are Google Chrome option windows.
+CE is positioned bottom-left.
+PE is positioned bottom-right.
+
+Future :
+
+Automatic Symbol Detection
+"""

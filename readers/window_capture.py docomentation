@@ -1,0 +1,19 @@
+"""
+WINDOW CAPTURE
+
+Purpose :
+
+Capture Window Screenshot
+
+Current :
+
+MSS Capture
+
+Future :
+
+Windows API Capture
+
+Output :
+
+OpenCV Image
+"""

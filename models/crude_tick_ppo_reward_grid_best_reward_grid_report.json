@@ -1,0 +1,292 @@
+{
+  "objective": "validation positive PnL first, then total PnL points, net R, R profit factor, and win rate",
+  "selection_data": {
+    "training_trades": 308,
+    "validation_trades": 77,
+    "final_holdout_trades": 97,
+    "pnl_reward_scale_points": 10.135714285400002
+  },
+  "selected_trial": {
+    "trial": 4,
+    "pnl_reward_weight": 0.5,
+    "rr_reward_weight": 0.5,
+    "pnl_reward_scale_points": 10.135714285400002,
+    "validation": {
+      "trades_tested": 77,
+      "wins": 23,
+      "losses": 54,
+      "breakeven": 0,
+      "win_rate": 0.2987012987012987,
+      "total_simulated_pnl_points": 90.50000000000014,
+      "average_simulated_pnl_points": 1.175324675324677,
+      "total_simulated_pnl_r": 8.74507021963322,
+      "average_simulated_pnl_r": 0.11357234051471715,
+      "average_win_r": 1.1589605219546273,
+      "average_loss_r": -0.3316855886170964,
+      "profit_factor": 1.548817465130383,
+      "profit_factor_r": 1.4882507723149092,
+      "max_drawdown_points": 37.29999999999998,
+      "exit_reasons": {
+        "stop_loss": 74,
+        "recorded_exit": 3
+      }
+    }
+  },
+  "ranked_trials": [
+    {
+      "trial": 4,
+      "pnl_reward_weight": 0.5,
+      "rr_reward_weight": 0.5,
+      "pnl_reward_scale_points": 10.135714285400002,
+      "validation": {
+        "trades_tested": 77,
+        "wins": 23,
+        "losses": 54,
+        "breakeven": 0,
+        "win_rate": 0.2987012987012987,
+        "total_simulated_pnl_points": 90.50000000000014,
+        "average_simulated_pnl_points": 1.175324675324677,
+        "total_simulated_pnl_r": 8.74507021963322,
+        "average_simulated_pnl_r": 0.11357234051471715,
+        "average_win_r": 1.1589605219546273,
+        "average_loss_r": -0.3316855886170964,
+        "profit_factor": 1.548817465130383,
+        "profit_factor_r": 1.4882507723149092,
+        "max_drawdown_points": 37.29999999999998,
+        "exit_reasons": {
+          "stop_loss": 74,
+          "recorded_exit": 3
+        }
+      }
+    },
+    {
+      "trial": 9,
+      "pnl_reward_weight": 1.0,
+      "rr_reward_weight": 2.0,
+      "pnl_reward_scale_points": 10.135714285400002,
+      "validation": {
+        "trades_tested": 77,
+        "wins": 28,
+        "losses": 49,
+        "breakeven": 0,
+        "win_rate": 0.36363636363636365,
+        "total_simulated_pnl_points": 90.10000000000008,
+        "average_simulated_pnl_points": 1.1701298701298712,
+        "total_simulated_pnl_r": 9.825083520178183,
+        "average_simulated_pnl_r": 0.12759848727504133,
+        "average_win_r": 1.1832298211392671,
+        "average_loss_r": -0.4756194177902306,
+        "profit_factor": 1.4133027522935782,
+        "profit_factor_r": 1.421580576980353,
+        "max_drawdown_points": 47.099999999999966,
+        "exit_reasons": {
+          "stop_loss": 73,
+          "recorded_exit": 4
+        }
+      }
+    },
+    {
+      "trial": 8,
+      "pnl_reward_weight": 1.0,
+      "rr_reward_weight": 1.0,
+      "pnl_reward_scale_points": 10.135714285400002,
+      "validation": {
+        "trades_tested": 77,
+        "wins": 25,
+        "losses": 52,
+        "breakeven": 0,
+        "win_rate": 0.3246753246753247,
+        "total_simulated_pnl_points": 79.30000000000015,
+        "average_simulated_pnl_points": 1.0298701298701318,
+        "total_simulated_pnl_r": 8.261409822529275,
+        "average_simulated_pnl_r": 0.10729103665622436,
+        "average_win_r": 1.1152735371917535,
+        "average_loss_r": -0.37731593475508785,
+        "profit_factor": 1.4323882224645594,
+        "profit_factor_r": 1.421061638759025,
+        "max_drawdown_points": 43.19999999999996,
+        "exit_reasons": {
+          "stop_loss": 74,
+          "recorded_exit": 3
+        }
+      }
+    },
+    {
+      "trial": 7,
+      "pnl_reward_weight": 1.0,
+      "rr_reward_weight": 0.5,
+      "pnl_reward_scale_points": 10.135714285400002,
+      "validation": {
+        "trades_tested": 77,
+        "wins": 25,
+        "losses": 52,
+        "breakeven": 0,
+        "win_rate": 0.3246753246753247,
+        "total_simulated_pnl_points": 72.40000000000009,
+        "average_simulated_pnl_points": 0.9402597402597415,
+        "total_simulated_pnl_r": 7.490979612157264,
+        "average_simulated_pnl_r": 0.09728544950853589,
+        "average_win_r": 1.1387101659913221,
+        "average_loss_r": -0.4033995103389575,
+        "profit_factor": 1.3697650663942806,
+        "profit_factor_r": 1.3571082674660386,
+        "max_drawdown_points": 44.69999999999996,
+        "exit_reasons": {
+          "stop_loss": 74,
+          "recorded_exit": 3
+        }
+      }
+    },
+    {
+      "trial": 1,
+      "pnl_reward_weight": 0.0,
+      "rr_reward_weight": 0.5,
+      "pnl_reward_scale_points": 10.135714285400002,
+      "validation": {
+        "trades_tested": 77,
+        "wins": 27,
+        "losses": 50,
+        "breakeven": 0,
+        "win_rate": 0.35064935064935066,
+        "total_simulated_pnl_points": 68.90000000000006,
+        "average_simulated_pnl_points": 0.8948051948051956,
+        "total_simulated_pnl_r": 8.302635844078857,
+        "average_simulated_pnl_r": 0.10782643953349165,
+        "average_win_r": 1.2032484340505565,
+        "average_loss_r": -0.4837014375057235,
+        "profit_factor": 1.3007420340462683,
+        "profit_factor_r": 1.3432958928918053,
+        "max_drawdown_points": 47.60000000000002,
+        "exit_reasons": {
+          "stop_loss": 73,
+          "recorded_exit": 4
+        }
+      }
+    },
+    {
+      "trial": 2,
+      "pnl_reward_weight": 0.0,
+      "rr_reward_weight": 1.0,
+      "pnl_reward_scale_points": 10.135714285400002,
+      "validation": {
+        "trades_tested": 77,
+        "wins": 29,
+        "losses": 48,
+        "breakeven": 0,
+        "win_rate": 0.37662337662337664,
+        "total_simulated_pnl_points": 54.39999999999998,
+        "average_simulated_pnl_points": 0.7064935064935062,
+        "total_simulated_pnl_r": 6.784762817781226,
+        "average_simulated_pnl_r": 0.0881138028283276,
+        "average_win_r": 1.154967977777098,
+        "average_loss_r": -0.5564439278698878,
+        "profit_factor": 1.2135846093443263,
+        "profit_factor_r": 1.2540224060158918,
+        "max_drawdown_points": 53.19999999999996,
+        "exit_reasons": {
+          "stop_loss": 73,
+          "recorded_exit": 4
+        }
+      }
+    },
+    {
+      "trial": 3,
+      "pnl_reward_weight": 0.0,
+      "rr_reward_weight": 2.0,
+      "pnl_reward_scale_points": 10.135714285400002,
+      "validation": {
+        "trades_tested": 77,
+        "wins": 42,
+        "losses": 35,
+        "breakeven": 0,
+        "win_rate": 0.5454545454545454,
+        "total_simulated_pnl_points": 28.600000000000193,
+        "average_simulated_pnl_points": 0.37142857142857394,
+        "total_simulated_pnl_r": 9.953202125396018,
+        "average_simulated_pnl_r": 0.12926236526488336,
+        "average_win_r": 1.1611016596720662,
+        "average_loss_r": -1.1089447880237362,
+        "profit_factor": 1.0715357678839426,
+        "profit_factor_r": 1.2564394608766187,
+        "max_drawdown_points": 93.99999999999989,
+        "exit_reasons": {
+          "stop_loss": 72,
+          "recorded_exit": 5
+        }
+      }
+    },
+    {
+      "trial": 6,
+      "pnl_reward_weight": 0.5,
+      "rr_reward_weight": 2.0,
+      "pnl_reward_scale_points": 10.135714285400002,
+      "validation": {
+        "trades_tested": 77,
+        "wins": 39,
+        "losses": 38,
+        "breakeven": 0,
+        "win_rate": 0.5064935064935064,
+        "total_simulated_pnl_points": 19.500000000000227,
+        "average_simulated_pnl_points": 0.2532467532467562,
+        "total_simulated_pnl_r": 7.818181387718451,
+        "average_simulated_pnl_r": 0.10153482321712275,
+        "average_win_r": 1.117412228477178,
+        "average_loss_r": -0.9410761979708284,
+        "profit_factor": 1.0538227987855375,
+        "profit_factor_r": 1.2186237585329438,
+        "max_drawdown_points": 81.29999999999995,
+        "exit_reasons": {
+          "stop_loss": 73,
+          "recorded_exit": 4
+        }
+      }
+    },
+    {
+      "trial": 5,
+      "pnl_reward_weight": 0.5,
+      "rr_reward_weight": 1.0,
+      "pnl_reward_scale_points": 10.135714285400002,
+      "validation": {
+        "trades_tested": 77,
+        "wins": 42,
+        "losses": 35,
+        "breakeven": 0,
+        "win_rate": 0.5454545454545454,
+        "total_simulated_pnl_points": -4.899999999999807,
+        "average_simulated_pnl_points": -0.06363636363636113,
+        "total_simulated_pnl_r": 6.269037394534692,
+        "average_simulated_pnl_r": 0.0814160700588921,
+        "average_win_r": 1.0733834517944156,
+        "average_loss_r": -1.1089447880237362,
+        "profit_factor": 0.9877438719359686,
+        "profit_factor_r": 1.161518730295641,
+        "max_drawdown_points": 93.99999999999989,
+        "exit_reasons": {
+          "stop_loss": 72,
+          "recorded_exit": 5
+        }
+      }
+    }
+  ],
+  "final_holdout": {
+    "trades_tested": 97,
+    "wins": 26,
+    "losses": 71,
+    "breakeven": 0,
+    "win_rate": 0.26804123711340205,
+    "total_simulated_pnl_points": -7.199999999999854,
+    "average_simulated_pnl_points": -0.07422680412370983,
+    "total_simulated_pnl_r": 2.815210586993543,
+    "average_simulated_pnl_r": 0.029022789556634464,
+    "average_win_r": 1.014268747043523,
+    "average_loss_r": -0.33177150473433875,
+    "profit_factor": 0.9632653061224498,
+    "profit_factor_r": 1.1195125342958163,
+    "max_drawdown_points": 44.49999999999994,
+    "exit_reasons": {
+      "stop_loss": 95,
+      "recorded_exit": 2
+    }
+  },
+  "final_holdout_warning": "Final holdout was not used to select reward weights. Historical simulation only; not a future-profit guarantee."
+}

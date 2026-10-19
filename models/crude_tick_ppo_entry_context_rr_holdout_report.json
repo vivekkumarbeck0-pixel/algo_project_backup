@@ -1,0 +1,59 @@
+{
+  "source": "Google Sheet 1: Crude_Algo_Trade_Logs",
+  "model": "algo_project\\models\\crude_tick_ppo_entry_context_rr",
+  "mode": "evaluate",
+  "test_fraction": 0.2,
+  "total_valid_trade_paths": 482,
+  "training_trade_paths": 385,
+  "holdout_trade_paths": 97,
+  "training_period": {
+    "first_entry": "2026-09-17T09:38:41+00:00",
+    "last_entry": "2026-10-12T15:38:34+00:00"
+  },
+  "holdout_period": {
+    "first_entry": "2026-10-12T15:53:01+00:00",
+    "last_entry": "2026-10-16T23:07:01+00:00"
+  },
+  "excluded_rows": {
+    "missing price path": 236
+  },
+  "entry_feature_coverage": {
+    "Entry ATR": 482,
+    "Entry Volume": 482,
+    "Entry OI": 482,
+    "Entry OI_Change": 482,
+    "Entry Momentum Strength": 482,
+    "Entry NYMEX_Trend": 482,
+    "Entry Market Regime": 482,
+    "Action": 482,
+    "Entry Candle Open": 482,
+    "Entry Candle High": 482,
+    "Entry Candle Low": 482,
+    "Entry Candle Close": 482,
+    "Entry Index Value": 482,
+    "Entry Pivot Price": 482
+  },
+  "pnl_unit": "option premium points (not rupees; quantity and costs are not applied)",
+  "reward_unit": "R multiple (one R is 1.1 times Entry ATR by default)",
+  "results": {
+    "trades_tested": 97,
+    "wins": 43,
+    "losses": 54,
+    "breakeven": 0,
+    "win_rate": 0.44329896907216493,
+    "total_simulated_pnl_points": 36.70000000000013,
+    "average_simulated_pnl_points": 0.37835051546391885,
+    "total_simulated_pnl_r": 10.858014509018995,
+    "average_simulated_pnl_r": 0.11193829390741232,
+    "average_win_r": 1.3094562349844474,
+    "average_loss_r": -0.8416408073205971,
+    "profit_factor": 1.0973733085699127,
+    "profit_factor_r": 1.2389075494090416,
+    "max_drawdown_points": 73.30000000000001,
+    "exit_reasons": {
+      "stop_loss": 52,
+      "take_profit": 38,
+      "recorded_exit": 7
+    }
+  }
+}

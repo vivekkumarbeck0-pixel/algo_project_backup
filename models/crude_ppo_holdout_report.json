@@ -1,0 +1,511 @@
+{
+  "data_file": "Google Sheet: Crude_Algo_Trade_Logs / Sheet1",
+  "data_source": "google_sheet1",
+  "total_rows": 718,
+  "training_rows": 574,
+  "holdout_rows": 144,
+  "split": "chronological; oldest 80% train, newest 20% holdout",
+  "model_file": "models\\crude_ppo.zip",
+  "normalization_file": "models\\crude_ppo_vecnormalize.pkl",
+  "training_timesteps": 50000,
+  "holdout": {
+    "metrics": {
+      "trades": 80,
+      "wins": 35,
+      "losses": 45,
+      "win_rate": 0.4375,
+      "total_pnl": -2940.0,
+      "average_pnl": -36.75,
+      "profit_factor": 0.9457564575645756,
+      "max_drawdown": 15710.0
+    },
+    "holdout_rows": 144,
+    "skipped_rows": 0,
+    "unsupported_counterfactual_entries": 63,
+    "invalid_reentries": 1,
+    "executed_trades": [
+      {
+        "row_index": 1,
+        "side": "PE",
+        "pnl": 2700.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 3,
+        "side": "CE",
+        "pnl": -1540.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 6,
+        "side": "PE",
+        "pnl": 670.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 7,
+        "side": "CE",
+        "pnl": 160.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 9,
+        "side": "CE",
+        "pnl": -480.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 11,
+        "side": "CE",
+        "pnl": 1890.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 12,
+        "side": "CE",
+        "pnl": 2250.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 13,
+        "side": "CE",
+        "pnl": -990.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 15,
+        "side": "CE",
+        "pnl": 40.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 17,
+        "side": "PE",
+        "pnl": -1410.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 18,
+        "side": "CE",
+        "pnl": -1050.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 19,
+        "side": "PE",
+        "pnl": -1260.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 20,
+        "side": "PE",
+        "pnl": -1060.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 22,
+        "side": "PE",
+        "pnl": -1750.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 23,
+        "side": "PE",
+        "pnl": -1770.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 24,
+        "side": "CE",
+        "pnl": 1440.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 25,
+        "side": "CE",
+        "pnl": 2280.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 26,
+        "side": "CE",
+        "pnl": -1850.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 27,
+        "side": "PE",
+        "pnl": 60.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 28,
+        "side": "PE",
+        "pnl": -1850.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 29,
+        "side": "CE",
+        "pnl": -1920.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 30,
+        "side": "CE",
+        "pnl": -170.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 31,
+        "side": "CE",
+        "pnl": 2680.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 32,
+        "side": "CE",
+        "pnl": -1630.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 33,
+        "side": "PE",
+        "pnl": -1670.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 35,
+        "side": "PE",
+        "pnl": -1320.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 36,
+        "side": "PE",
+        "pnl": -410.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 38,
+        "side": "PE",
+        "pnl": 960.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 40,
+        "side": "CE",
+        "pnl": 1750.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 42,
+        "side": "CE",
+        "pnl": 2800.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 43,
+        "side": "CE",
+        "pnl": 210.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 44,
+        "side": "CE",
+        "pnl": 1990.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 45,
+        "side": "CE",
+        "pnl": -1390.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 47,
+        "side": "CE",
+        "pnl": -1310.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 48,
+        "side": "CE",
+        "pnl": -940.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 51,
+        "side": "PE",
+        "pnl": -1240.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 54,
+        "side": "CE",
+        "pnl": -1060.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 55,
+        "side": "CE",
+        "pnl": -400.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 56,
+        "side": "PE",
+        "pnl": 190.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 59,
+        "side": "CE",
+        "pnl": -1010.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 63,
+        "side": "CE",
+        "pnl": -1010.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 66,
+        "side": "CE",
+        "pnl": -890.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 69,
+        "side": "CE",
+        "pnl": 1790.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 70,
+        "side": "CE",
+        "pnl": -980.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 72,
+        "side": "CE",
+        "pnl": 630.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 73,
+        "side": "CE",
+        "pnl": 2990.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 77,
+        "side": "PE",
+        "pnl": -1130.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 78,
+        "side": "CE",
+        "pnl": -1150.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 79,
+        "side": "PE",
+        "pnl": 60.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 81,
+        "side": "PE",
+        "pnl": 1170.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 82,
+        "side": "CE",
+        "pnl": -810.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 83,
+        "side": "PE",
+        "pnl": -1030.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 85,
+        "side": "CE",
+        "pnl": -850.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 87,
+        "side": "PE",
+        "pnl": -1170.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 92,
+        "side": "CE",
+        "pnl": 2320.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 94,
+        "side": "CE",
+        "pnl": -1230.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 95,
+        "side": "PE",
+        "pnl": 30.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 103,
+        "side": "CE",
+        "pnl": 1370.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 106,
+        "side": "PE",
+        "pnl": 1630.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 109,
+        "side": "CE",
+        "pnl": -900.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 112,
+        "side": "CE",
+        "pnl": -1580.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 113,
+        "side": "CE",
+        "pnl": -880.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 115,
+        "side": "PE",
+        "pnl": -1030.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 119,
+        "side": "CE",
+        "pnl": 2470.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 121,
+        "side": "CE",
+        "pnl": 120.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 122,
+        "side": "CE",
+        "pnl": 4050.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 123,
+        "side": "CE",
+        "pnl": 520.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 127,
+        "side": "PE",
+        "pnl": 2420.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 128,
+        "side": "PE",
+        "pnl": 1070.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 129,
+        "side": "CE",
+        "pnl": 1340.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 130,
+        "side": "CE",
+        "pnl": -920.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 131,
+        "side": "PE",
+        "pnl": -810.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 132,
+        "side": "PE",
+        "pnl": -930.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 133,
+        "side": "PE",
+        "pnl": 2290.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 134,
+        "side": "PE",
+        "pnl": 80.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 135,
+        "side": "PE",
+        "pnl": -10.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 137,
+        "side": "CE",
+        "pnl": 2840.0,
+        "reward": 4.5
+      },
+      {
+        "row_index": 140,
+        "side": "PE",
+        "pnl": -2250.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 141,
+        "side": "PE",
+        "pnl": -2940.0,
+        "reward": -4.0
+      },
+      {
+        "row_index": 142,
+        "side": "PE",
+        "pnl": -2220.0,
+        "reward": -4.0
+      }
+    ],
+    "interpretation": "PnL and win rate use only trades where the model selected the side recorded in the historical log. Opposite-side outcomes are unknown."
+  },
+  "warning": "Historical replay is not proof of future profitability. This offline environment has no counterfactual prices for the opposite option side."
+}
