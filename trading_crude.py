@@ -1025,6 +1025,12 @@ class CrudeOptionBuyer:
             self._futures_token_cache = override
             return override
 
+        expiry_date = getattr(self, "_futures_expiry_date", None)
+        if self._futures_token_cache and expiry_date and datetime.now().date() > expiry_date:
+            logger.info("Cached futures token %s expired on %s; re-resolving.", self._futures_token_cache, expiry_date)
+            self._futures_token_cache = None
+            self._futures_expiry_date = None
+
         if self._futures_token_cache:
             return self._futures_token_cache
 
@@ -1050,6 +1056,10 @@ class CrudeOptionBuyer:
             return None
 
         self._futures_token_cache = str(contract["token"])
+        try:
+            self._futures_expiry_date = datetime.strptime(str(contract.get("expiry")), "%d%b%Y").date()
+        except ValueError:
+            self._futures_expiry_date = None
         logger.info(
             "Auto-resolved MCX Crude futures token: symbol=%s token=%s expiry=%s",
             contract.get("symbol"),
