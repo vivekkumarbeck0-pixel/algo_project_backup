@@ -14,17 +14,17 @@ PnL and sample counts before using the score to filter entries.
 
 ## Crude tick PPO shadow observer
 
-The crude engine optionally loads `models/crude_tick_ppo_80_20.zip` in a
+The crude engine loads `models/crude_tick_ppo_reward_grid_best.zip` in a
 daemon worker and evaluates fresh option ticks for an existing crude position
 during the configured MCX market hours (default 09:00-23:30 IST, weekdays).
-Its hypothetical SL/TP decisions are appended only to the separate
+Its hypothetical stop and trailing decisions are appended only to the separate
 `PPO_Shadow_Logs` worksheet in `Crude_Algo_Trade_Logs`; the main trade log is not
 used for PPO records. This is a shadow observer, not an independent entry
 strategy: it produces no suggestions when the main engine has no open crude
 position. It does not place orders or modify the live/paper position.
 
 Railway installs the PPO runtime dependencies via the root `requirements.txt`.
-The model at `models/crude_tick_ppo_80_20.zip` must also be included in the
+The model at `models/crude_tick_ppo_reward_grid_best.zip` must also be included in the
 deployment. Startup logs report whether the model loads; observer errors are
 logged without stopping the main trading engine.
 
