@@ -93,6 +93,15 @@ class InstrumentReader:
 
             return self.download()
 
+        # The master drops expired contracts and adds new expiries daily; a stale
+        # copy leaves the bot with no tradable option contract after a rollover.
+        modified = datetime.fromtimestamp(self.MASTER_FILE.stat().st_mtime)
+        if modified.date() < datetime.now().date():
+            try:
+                return self.download()
+            except Exception as exc:
+                print("MASTER REFRESH FAILED, USING LOCAL COPY:", exc)
+
         with open(
             self.MASTER_FILE,
             "r",

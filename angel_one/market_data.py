@@ -122,16 +122,30 @@ class MarketDataFetcher:
         self._instrument_reader = None
         self._instrument_master_mtime = None
         self._tick_store = None
+        self._use_env = use_env
+        self._last_login_attempt = 0.0
         if client is None and use_env:
-            # Prefer connect_from_env (loads client_id/password/totp and creates session)
+            self._login_from_env()
+
+    def _login_from_env(self) -> None:
+        self._last_login_attempt = time.time()
+        # Prefer connect_from_env (loads client_id/password/totp and creates session)
+        try:
+            self.client = AngelOneLogin.connect_from_env()
+        except Exception as exc:
+            log.error("Angel One login failed: %s", exc)
+            # fall back to from_env (may provide unauthenticated api object)
             try:
-                self.client = AngelOneLogin.connect_from_env()
+                self.client = AngelOneLogin.from_env()
             except Exception:
-                # fall back to from_env (may provide unauthenticated api object)
-                try:
-                    self.client = AngelOneLogin.from_env()
-                except Exception:
-                    self.client = None
+                self.client = None
+
+    def _ensure_client(self) -> None:
+        """Retry a failed startup login (at most every 30s) instead of staying client-less."""
+        if self.client or not self._use_env:
+            return
+        if time.time() - self._last_login_attempt >= 30:
+            self._login_from_env()
 
     # ------------------------------------------------------------
     # LIVE WEBSOCKET FEED (removes most REST quote traffic)
@@ -811,6 +825,7 @@ class MarketDataFetcher:
         Raises RuntimeError if no client is configured, or if the API call
         fails and nothing was ever cached for this request.
         """
+        self._ensure_client()
         if not self.client:
             raise RuntimeError("No Angel One API client available. Set credentials in .env or pass a client.")
 
@@ -966,6 +981,7 @@ class MarketDataFetcher:
         falling back to the last close of recent 1-minute candles and finally
         to the last-known cached price (never returns 0.0 on a rate limit).
         """
+        self._ensure_client()
         if not self.client:
             raise RuntimeError("No Angel One API client available. Set credentials in .env or pass a client.")
 
