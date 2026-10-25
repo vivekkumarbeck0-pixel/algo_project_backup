@@ -308,15 +308,19 @@ class DecisionEngine:
         return min(valid) if option_type == "CE" else max(valid)
 
     @staticmethod
-    def _select_banded_target(current_price: float, candidates: list, direction: int, fallback_points: float) -> tuple[float, str]:
-        """Keep index targets inside the configured 40-60 or 90-110 point bands."""
+    def _select_banded_target(current_price: float, candidates: list, direction: int, fallback_points: float = 50.0) -> tuple[float, str]:
+        """Accept OI/pivot targets only inside T1 (47-53) or T2 (90-110) point bands.
+
+        T1 is the primary exit and wins over T2 (extended trailing target).
+        Falls back to a fixed 50-point target when no candidate qualifies.
+        """
         numeric = sorted({
             float(level)
             for level in candidates
-            if isinstance(level, (int, float))
+            if isinstance(level, (int, float)) and not isinstance(level, bool)
         })
 
-        bands = ((40.0, 60.0, "T1"), (90.0, 110.0, "T2"))
+        bands = ((47.0, 53.0, "T1"), (90.0, 110.0, "T2"))
         for minimum, maximum, label in bands:
             eligible = [
                 level for level in numeric
@@ -327,6 +331,12 @@ class DecisionEngine:
                 return nearest, label
 
         return current_price + (direction * fallback_points), "T1_FALLBACK"
+
+    @staticmethod
+    def _banded_target_reason(label: str, side: str, target: float, fallback_points: float) -> str:
+        if label == "T1_FALLBACK":
+            return f"NIFTY fallback target: {side} configured target_points={float(fallback_points)} -> {target}"
+        return f"NIFTY banded target {label}: {side} -> {target}"
 
     @classmethod
     def _ladder_pivot_level(cls, pivot_ladder: dict, strike: float, option_type: str) -> float | None:
@@ -910,7 +920,12 @@ class DecisionEngine:
                             candidate, pivot_ladder, float(current_price), option_type
                         )
                     ]
-                if index_target is None:
+                if underlying == "NIFTY":
+                    index_target, band_label = self._select_banded_target(
+                        float(current_price), [index_target, *candidates], 1
+                    )
+                    reasons.append(self._banded_target_reason(band_label, "CE", index_target, 50.0))
+                elif index_target is None:
                     index_target = float(current_price) + (1.0 * target_points)
                     reasons.append(
                         f"NIFTY fallback target: CE configured target_points={target_points} -> {index_target}"
@@ -967,7 +982,12 @@ class DecisionEngine:
                             candidate, pivot_ladder, float(current_price), option_type
                         )
                     ]
-                if index_target is None:
+                if underlying == "NIFTY":
+                    index_target, band_label = self._select_banded_target(
+                        float(current_price), [index_target, *candidates], -1
+                    )
+                    reasons.append(self._banded_target_reason(band_label, "PE", index_target, 50.0))
+                elif index_target is None:
                     index_target = float(current_price) - (1.0 * target_points)
                     reasons.append(
                         f"NIFTY fallback target: PE configured target_points={target_points} -> {index_target}"

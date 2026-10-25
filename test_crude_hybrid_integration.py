@@ -31,11 +31,12 @@ def test_crude_sheet_appends_score_to_existing_headers():
     worksheet = Mock()
     worksheet.get_all_values.return_value = [["Entry Timestamp", "PnL"], ["older trade", "100"]]
     client = Mock()
-    client.open.return_value.sheet1 = worksheet
+    client.open.return_value.worksheet.return_value = worksheet
 
     with patch("sheets_logger.get_gspread_client", return_value=client):
         assert log_trade({"Entry Timestamp": "new trade", "PnL": -100, "Entry AI Score": 7.4})
 
+    client.open.return_value.worksheet.assert_called_once_with("Sheet1")
     assert "Entry AI Score" in SHEET_COLUMNS
     assert SHEET_COLUMNS[-2:] == ["Entry AI Win Probability", "Entry AI Filter Mode"]
     worksheet.update.assert_called_once_with("A1", [["Entry Timestamp", "PnL"] + [

@@ -1,145 +1,117 @@
 {
-  "date": "2026-10-21",
+  "date": "2026-10-23",
   "positions": [
     {
       "symbol": "NIFTY",
-      "strike": 22700.0,
+      "strike": 22650.0,
       "option_type": "PE",
       "side": "BUY",
       "quantity": 65,
-      "entry_price": 167.55,
-      "trade_number": 1,
-      "index_entry": 22675.35,
-      "index_sl": 22700.35,
-      "index_target": 22625.35,
+      "entry_price": 173.1,
+      "trade_number": 5,
+      "index_entry": 22626.4,
+      "index_sl": 22651.4,
+      "index_target": 22576.4,
       "entry_metadata": {
         "candle": {
-          "open": 22706.0,
-          "high": 22706.0,
-          "low": 22700.0,
-          "close": 22700.0
+          "open": 22632.5,
+          "high": 22632.5,
+          "low": 22628.7,
+          "close": 22629.5
         },
-        "pivot_sr_level": 22664.933333333334,
-        "strike": 22700.0,
+        "pivot_sr_level": 22559.666666666664,
+        "strike": 22650.0,
         "option_type": "PE",
         "ce": {
-          "strike": 22700.0,
-          "oi": 6986395,
-          "oi_change": -8190.0
+          "strike": 22650.0,
+          "oi": 3160560,
+          "oi_change": 347685.0
         },
         "pe": {
-          "strike": 22700.0,
-          "oi": 7709390,
-          "oi_change": 206635.0
+          "strike": 22650.0,
+          "oi": 3571100,
+          "oi_change": -237120.0
         },
         "option_instrument": {
-          "token": "51341",
+          "token": "51339",
           "exch_seg": "NFO",
-          "symbol": "NIFTY27OCT2622700PE",
+          "symbol": "NIFTY27OCT2622650PE",
           "expiry": "27OCT2026"
         },
-        "iv": 14.25,
-        "vix": 15.84,
-        "training_record_id": "7b0b54844d6d424790db8ced7ebcb1c1",
-        "initial_index_sl": 22700.35
+        "iv": 14.765,
+        "vix": 16.34,
+        "training_record_id": "25cb77067cb84e468e4e0c6a86f3208e"
       },
-      "trailing_stop": 22700.35,
-      "opened_at": "2026-10-21T14:57:26.089152",
-      "exit_price": 151.4,
-      "closed_at": "2026-10-21T15:04:18.404722",
-      "close_reason": "SL_HIT",
+      "trailing_stop": 22651.4,
+      "opened_at": "2026-10-22T12:21:12.993555",
+      "exit_price": null,
+      "closed_at": "2026-10-23T10:29:45.959054",
+      "close_reason": "STARTUP_DROPPED",
       "status": "CLOSED",
-      "entry_iv": 14.25,
-      "entry_vix": 15.84,
-      "intratrade_index_prices": [
-        22676.8,
-        22683.45,
-        22678.5,
-        22677.7,
-        22677.35,
-        22682.8,
-        22683.6,
-        22683.2,
-        22678.85,
-        22673.1,
-        22671.65,
-        22671.85,
-        22693.05,
-        22696.75,
-        22700.75
-      ],
-      "intratrade_option_prices": [
-        170.05,
-        165.45,
-        166.6,
-        167.85,
-        166.75,
-        162.9,
-        164.15,
-        164.05,
-        166.2,
-        168.25,
-        168.35,
-        168.0,
-        157.3,
-        154.1,
-        151.4
-      ]
+      "entry_iv": 14.765,
+      "entry_vix": 16.34,
+      "intratrade_index_prices": [],
+      "intratrade_option_prices": []
     },
     {
       "symbol": "NIFTY",
-      "strike": 22700.0,
+      "strike": 22550.0,
       "option_type": "PE",
       "side": "BUY",
       "quantity": 65,
-      "entry_price": 152.45,
-      "trade_number": 2,
-      "index_entry": 22700.25,
-      "index_sl": 22725.25,
-      "index_target": 22650.25,
+      "entry_price": 157.7,
+      "trade_number": 1,
+      "index_entry": 22570.0,
+      "index_sl": 22526.7,
+      "index_target": 22520.0,
       "entry_metadata": {
         "candle": {
-          "open": 22706.0,
-          "high": 22706.0,
-          "low": 22700.0,
-          "close": 22700.0
+          "open": 22554.3,
+          "high": 22554.3,
+          "low": 22546.9,
+          "close": 22551.8
         },
-        "pivot_sr_level": 22664.933333333334,
-        "strike": 22700.0,
+        "pivot_sr_level": 22428.633333333335,
+        "strike": 22550.0,
         "option_type": "PE",
         "ce": {
-          "strike": 22700.0,
-          "oi": 7074535,
-          "oi_change": 0.0
+          "strike": 22550.0,
+          "oi": 4497610,
+          "oi_change": null
         },
         "pe": {
-          "strike": 22700.0,
-          "oi": 7709130,
-          "oi_change": 0.0
+          "strike": 22550.0,
+          "oi": 4656600,
+          "oi_change": null
         },
         "option_instrument": {
-          "token": "51341",
+          "token": "51333",
           "exch_seg": "NFO",
-          "symbol": "NIFTY27OCT2622700PE",
+          "symbol": "NIFTY27OCT2622550PE",
           "expiry": "27OCT2026"
         },
-        "iv": 14.235,
-        "vix": 15.72,
-        "training_record_id": "03cd0695c38142a3954b1df86320b5fd"
+        "iv": 16.33,
+        "vix": 16.85,
+        "training_record_id": "07d9104ab099487abf42bc7d8f4e55cc",
+        "initial_index_sl": 22595.0
       },
-      "trailing_stop": 22725.25,
-      "opened_at": "2026-10-21T15:04:33.281617",
-      "exit_price": null,
-      "closed_at": null,
-      "close_reason": null,
-      "status": "OPEN",
-      "entry_iv": 14.235,
-      "entry_vix": 15.72,
-      "intratrade_index_prices": [],
-      "intratrade_option_prices": []
+      "trailing_stop": 22526.7,
+      "opened_at": "2026-10-23T10:32:18.959405",
+      "exit_price": 161.0,
+      "closed_at": "2026-10-23T10:32:53.941884",
+      "close_reason": "TARGET_HIT",
+      "status": "CLOSED",
+      "entry_iv": 16.33,
+      "entry_vix": 16.85,
+      "intratrade_index_prices": [
+        22501.7
+      ],
+      "intratrade_option_prices": [
+        161.0
+      ]
     }
   ],
-  "trades_today": 2,
-  "consecutive_stop_losses": 1,
-  "daily_realized_pnl": -1049.7500000000005
+  "trades_today": 1,
+  "consecutive_stop_losses": 0,
+  "daily_realized_pnl": 214.50000000000074
 }

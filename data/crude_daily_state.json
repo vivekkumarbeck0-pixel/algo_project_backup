@@ -1,12 +1,13 @@
 {
-  "date": "2026-10-21",
+  "date": "2026-10-23",
   "position": null,
-  "trail_distance": 17.32142857142857,
-  "paper_realized_pnl": -1370.0000000000045,
-  "paper_wins": 0,
-  "paper_losses": 1,
+  "trail_distance": 11.94603254608295,
+  "paper_realized_pnl": 4139.999999999998,
+  "paper_wins": 1,
+  "paper_losses": 2,
   "sl_cooldowns": {
-    "CRUDEOIL17NOV269400CE": 1792575190.827696,
-    "CRUDEOIL": 1792575190.827696
+    "CRUDEOIL17NOV269550PE": 1792733500.0656035,
+    "CRUDEOIL17NOV269600CE": 1792733934.95619,
+    "CRUDEOIL": 1792733934.95619
   }
 }

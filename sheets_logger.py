@@ -11,6 +11,8 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive"
 ]
 
+WORKSHEET_TITLE = "Sheet1"
+
 SHEET_COLUMNS = [
     "Entry Timestamp",
     "Entry Signal ID",
@@ -89,7 +91,7 @@ def log_trade(trade_data: dict):
         try:
             gc = get_gspread_client()
             sh = gc.open("Crude_Algo_Trade_Logs")
-            worksheet = sh.sheet1
+            worksheet = sh.worksheet(WORKSHEET_TITLE)
 
             # Check current rows in worksheet
             all_values = worksheet.get_all_values()

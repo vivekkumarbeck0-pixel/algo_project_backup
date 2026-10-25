@@ -255,8 +255,8 @@ def test_decision_buys_selected_pe_peak_strike_ce_from_support_to_resistance():
     assert decision.option_type == "CE"
     assert decision.strike == 23350.0
     assert decision.support == 23334.0
-    assert decision.index_target == 23430.0
-    assert any("CE same-side OI 100% strike 23400" in reason for reason in decision.reasons)
+    assert decision.index_target == 23391.0
+    assert any("fallback target" in reason.lower() for reason in decision.reasons)
 
 
 def test_decision_buys_selected_ce_peak_strike_pe_from_resistance_to_support():
@@ -290,7 +290,8 @@ def test_decision_buys_selected_ce_peak_strike_pe_from_resistance_to_support():
     assert decision.option_type == "PE"
     assert decision.strike == 23400.0
     assert decision.resistance == 23430.0
-    assert decision.index_target == 23381.0
+    assert decision.index_target == 23372.0
+    assert any("fallback target" in reason.lower() for reason in decision.reasons)
 
 
 def test_same_strike_ce_pe_oi_rows_include_pivot_sr():

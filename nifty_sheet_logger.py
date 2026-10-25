@@ -13,6 +13,8 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 
+WORKSHEET_TITLE = "Sheet2"
+
 NIFTY_COLUMNS = [
     "Timestamp", "Symbol", "Action", "Execution Price (LTP)",
     "Candle Open", "Candle High", "Candle Low", "Candle Close",
@@ -55,7 +57,7 @@ def _event_key(event: dict, headers: list[str] | None = None, row: list[str] | N
 
 def _append_once(event: dict) -> None:
     spreadsheet = _client().open("Crude_Algo_Trade_Logs")
-    worksheet = spreadsheet.worksheets()[1]
+    worksheet = spreadsheet.worksheet(WORKSHEET_TITLE)
     existing = worksheet.get_all_values()
     headers = existing[0] if existing else []
     if not headers:

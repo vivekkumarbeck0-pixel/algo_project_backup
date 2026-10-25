@@ -39,13 +39,14 @@ class FakeWorksheet:
 
 class FakeSpreadsheet:
     def __init__(self, worksheet):
-        self.worksheet = worksheet
+        self.target_worksheet = worksheet
 
     def open(self, _name):
         return self
 
-    def worksheets(self):
-        return [None, self.worksheet]
+    def worksheet(self, title):
+        assert title == "Sheet2"
+        return self.target_worksheet
 
 
 def _event():
