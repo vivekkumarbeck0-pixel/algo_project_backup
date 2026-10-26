@@ -143,3 +143,73 @@ def test_invalid_actions_and_finished_episodes_are_rejected():
     assert terminated
     with pytest.raises(RuntimeError, match="call reset"):
         env.step(_action())
+
+
+def _run_to_end(path, **env_kwargs):
+    env = CrudeTickEnv(pd.DataFrame([_trade(path)]), **env_kwargs)
+    env.reset()
+    terminated = False
+    while not terminated:
+        _, reward, terminated, _, info = env.step(_action(sl_atr=0.5, trail_gap_r=1.0))
+    return reward, info
+
+
+def test_default_reward_is_unchanged_without_target_bonus():
+    reward, info = _run_to_end([100.0, 104.4])
+    assert reward == pytest.approx(2.0)
+    assert info["target_bonus_component"] == 0.0
+
+
+def test_target_bonus_scales_with_realized_r_and_caps_at_target():
+    kwargs = {"target_rr": 2.0, "target_bonus_weight": 0.5}
+    reward_1r, _ = _run_to_end([100.0, 102.2], **kwargs)
+    reward_2r, info_2r = _run_to_end([100.0, 104.4], **kwargs)
+    reward_3r, info_3r = _run_to_end([100.0, 106.6], **kwargs)
+
+    assert reward_1r == pytest.approx(1.0 + 0.25)
+    assert reward_2r == pytest.approx(2.0 + 0.5)
+    assert info_2r["target_bonus_component"] == pytest.approx(0.5)
+    assert reward_3r == pytest.approx(3.0 + 0.5)
+    assert info_3r["target_bonus_component"] == pytest.approx(0.5)
+    assert reward_1r < reward_2r < reward_3r
+
+
+def test_target_bonus_does_not_change_loss_reward():
+    reward, info = _run_to_end(
+        [100.0, 99.0], target_rr=2.0, target_bonus_weight=0.5
+    )
+    assert reward == pytest.approx(-1.0 / 2.2)
+    assert info["target_bonus_component"] == 0.0
+
+
+def test_touching_target_without_exiting_there_gets_no_bonus_for_the_touch():
+    # Reaches 2R, then trails out at 1R: reward follows realized exit only.
+    reward, info = _run_to_end(
+        [100.0, 104.4, 102.2, 103.0],
+        target_rr=2.0,
+        target_bonus_weight=0.5,
+    )
+    assert info["exit_reason"] == "stop_loss"
+    assert info["max_favorable_r"] == pytest.approx(2.0)
+    assert info["rr_reward_component"] == pytest.approx(1.0)
+    assert reward == pytest.approx(1.0 + 0.25)
+
+
+def test_target_bonus_configuration_is_validated():
+    data = pd.DataFrame([_trade([100.0, 101.0])])
+    with pytest.raises(ValueError, match="target_rr is required"):
+        CrudeTickEnv(data, target_bonus_weight=0.5)
+    with pytest.raises(ValueError, match="target_rr must be"):
+        CrudeTickEnv(data, target_rr=0.0)
+    with pytest.raises(ValueError, match="target_bonus_weight"):
+        CrudeTickEnv(data, target_rr=2.0, target_bonus_weight=-1.0)
+    with pytest.raises(ValueError, match="rr_reward_weight"):
+        CrudeTickEnv(
+            data,
+            target_rr=2.0,
+            target_bonus_weight=0.5,
+            rr_reward_weight=0.0,
+            pnl_reward_weight=1.0,
+        )
+
+

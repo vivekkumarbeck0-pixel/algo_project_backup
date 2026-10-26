@@ -79,6 +79,30 @@ def test_evaluation_reports_one_result_for_each_holdout_trade():
     assert results[0]["simulated_pnl_points"] == pytest.approx(-1.0)
     assert results[1]["simulated_pnl_points"] == pytest.approx(4.0)
     assert summary["total_simulated_pnl_r"] == pytest.approx(3.0 / 2.2)
+    assert summary["stop_exit_count"] == 1
+    assert summary["worst_loss_r"] == pytest.approx(-1.0 / 2.2)
+    assert summary["reached_1r"] == 1
+    assert summary["reached_2r"] == 0
+    assert summary["exited_at_or_above_2r"] == 0
+    assert results[1]["max_favorable_r"] == pytest.approx(4.0 / 2.2)
+    assert results[1]["path_peak_r_hypothetical"] == pytest.approx(4.0 / 2.2)
+
+
+def test_main_refuses_to_overwrite_existing_report(tmp_path, monkeypatch):
+    import sys
+
+    import train_and_evaluate_tick_ppo as module
+
+    existing = tmp_path / "model_holdout_report.json"
+    existing.write_text("keep", encoding="utf-8")
+    monkeypatch.setattr(
+        sys, "argv", ["prog", "--model-path", str(tmp_path / "model")]
+    )
+
+    with pytest.raises(SystemExit):
+        module.main()
+
+    assert existing.read_text(encoding="utf-8") == "keep"
 
 
 def test_sheet1_loader_fetches_only_populated_crude_rows(monkeypatch):

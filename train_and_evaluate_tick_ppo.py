@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -64,6 +65,12 @@ def evaluate_model(model: Any, holdout: pd.DataFrame) -> list[dict[str, Any]]:
                 "sl_atr_multiplier": float(info["sl_atr_multiplier"]),
                 "trail_gap_r": float(info["trail_gap_r"]),
                 "sl_buffer_atr": float(info["sl_buffer_atr"]),
+                "max_favorable_r": float(info["max_favorable_r"]),
+                "path_peak_r_hypothetical": (
+                    max(env.data.iloc[row_index]["_price_path"])
+                    - float(env.data.iloc[row_index]["_entry_price"])
+                )
+                / float(info["initial_risk_points"]),
             }
         )
 
@@ -109,6 +116,14 @@ def summarize_results(results: list[dict[str, Any]]) -> dict[str, Any]:
             gains_r / losses_r if losses_r else (999.0 if gains_r else 0.0)
         ),
         "max_drawdown_points": float(drawdown.max()),
+        "stop_exit_count": int(exit_reasons.get("stop_loss", 0)),
+        "worst_loss_r": float(pnls_r.min()) if len(pnls_r) else 0.0,
+        "reached_1r": sum(r.get("max_favorable_r", 0.0) >= 1.0 for r in results),
+        "reached_2r": sum(r.get("max_favorable_r", 0.0) >= 2.0 for r in results),
+        "exited_at_or_above_2r": int((pnls_r >= 2.0).sum()),
+        "path_peak_reached_2r_hypothetical": sum(
+            r.get("path_peak_r_hypothetical", 0.0) >= 2.0 for r in results
+        ),
         "exit_reasons": {str(reason): int(count) for reason, count in exit_reasons.items()},
     }
 
@@ -118,7 +133,7 @@ def _train_model(
     total_timesteps: int,
     seed: int,
     *,
-    env_kwargs: dict[str, float] | None = None,
+    env_kwargs: dict[str, Any] | None = None,
 ) -> Any:
     try:
         from stable_baselines3 import PPO
@@ -209,6 +224,19 @@ def main() -> None:
     parser.add_argument("--total-timesteps", type=int, default=100_000)
     parser.add_argument("--test-fraction", type=float, default=0.20)
     parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--target-rr", type=float, default=None)
+    parser.add_argument("--target-bonus-weight", type=float, default=0.0)
+    parser.add_argument(
+        "--output-prefix",
+        type=Path,
+        default=None,
+        help="report/CSV path prefix (without suffix); defaults to --model-path",
+    )
+    parser.add_argument(
+        "--allow-overwrite",
+        action="store_true",
+        help="allow replacing existing model, report or CSV files",
+    )
     args = parser.parse_args()
 
     if args.total_timesteps <= 0:
@@ -216,18 +244,37 @@ def main() -> None:
     if not 0.0 < args.test_fraction < 1.0:
         parser.error("--test-fraction must be strictly between 0 and 1")
 
+    prefix = args.output_prefix or args.model_path
+    report_path = prefix.with_name(f"{prefix.name}_holdout_report.json")
+    trades_path = prefix.with_name(f"{prefix.name}_holdout_trades.csv")
+    protected = [report_path, trades_path]
+    if args.mode == "train":
+        protected.append(args.model_path.with_name(args.model_path.name + ".zip"))
+    if not args.allow_overwrite and any(path.exists() for path in protected):
+        parser.error("output file already exists; choose a new name or --allow-overwrite")
+
+    dataset_sha256 = None
     if args.sheet1:
         raw_data = load_sheet1_tick_data()
         source = "Google Sheet 1: Crude_Algo_Trade_Logs"
     else:
         raw_data = pd.read_csv(args.data, encoding="utf-8-sig")
         source = str(args.data)
+        dataset_sha256 = hashlib.sha256(args.data.read_bytes()).hexdigest()
     trades = prepare_tick_trades(raw_data)
     skipped_rows = dict(trades.attrs.get("skipped_rows", {}))
     train_data, holdout = chronological_split(trades, args.test_fraction)
 
     if args.mode == "train":
-        model = _train_model(train_data, args.total_timesteps, args.seed)
+        model = _train_model(
+            train_data,
+            args.total_timesteps,
+            args.seed,
+            env_kwargs={
+                "target_rr": args.target_rr,
+                "target_bonus_weight": args.target_bonus_weight,
+            },
+        )
         args.model_path.parent.mkdir(parents=True, exist_ok=True)
         model.save(str(args.model_path))
     else:
@@ -254,15 +301,19 @@ def main() -> None:
         "excluded_rows": skipped_rows,
         "pnl_unit": "option premium points (not rupees; quantity and costs are not applied)",
         "reward_unit": "R multiples; 1R is the initial entry-to-stop risk",
+        "dataset_sha256": dataset_sha256,
+        "reward_config": {
+            "target_rr": args.target_rr,
+            "target_bonus_weight": args.target_bonus_weight,
+        },
+        "holdout_source_rows": [int(v) for v in holdout["_source_row"]],
+        "limitations": (
+            "premium points only; no quantity, brokerage or slippage; rows without "
+            "price path excluded; single seed; reach metrics use observed samples"
+        ),
         "results": summary,
     }
 
-    report_path = args.model_path.with_name(
-        f"{args.model_path.name}_holdout_report.json"
-    )
-    trades_path = args.model_path.with_name(
-        f"{args.model_path.name}_holdout_trades.csv"
-    )
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
     pd.DataFrame(results).to_csv(trades_path, index=False, encoding="utf-8")

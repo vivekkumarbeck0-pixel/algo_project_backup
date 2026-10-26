@@ -246,6 +246,8 @@ class CrudeTickEnv(gym.Env[np.ndarray, np.ndarray]):
         pnl_reward_weight: float = 0.0,
         rr_reward_weight: float = 1.0,
         pnl_reward_scale: float = 1.0,
+        target_rr: float | None = None,
+        target_bonus_weight: float = 0.0,
     ):
         super().__init__()
         for label, bounds in (
@@ -282,6 +284,18 @@ class CrudeTickEnv(gym.Env[np.ndarray, np.ndarray]):
             raise ValueError("reward weights must be finite, non-negative, and not both zero")
         if not math.isfinite(pnl_reward_scale) or pnl_reward_scale <= 0.0:
             raise ValueError("PnL reward scale must be finite and positive")
+        if target_rr is not None and (
+            not math.isfinite(target_rr) or target_rr <= 0.0
+        ):
+            raise ValueError("target_rr must be finite and positive")
+        if not math.isfinite(target_bonus_weight) or target_bonus_weight < 0.0:
+            raise ValueError("target_bonus_weight must be finite and non-negative")
+        if target_bonus_weight > 0.0 and target_rr is None:
+            raise ValueError("target_rr is required when target_bonus_weight > 0")
+        if target_bonus_weight > 0.0 and rr_reward_weight <= 0.0:
+            raise ValueError("target bonus requires rr_reward_weight > 0")
+        self.target_rr = None if target_rr is None else float(target_rr)
+        self.target_bonus_weight = float(target_bonus_weight)
         self.pnl_reward_weight = float(pnl_reward_weight)
         self.rr_reward_weight = float(rr_reward_weight)
         self.pnl_reward_scale = float(pnl_reward_scale)
@@ -420,6 +434,8 @@ class CrudeTickEnv(gym.Env[np.ndarray, np.ndarray]):
                 "pnl_r": pnl_points / self.initial_risk_points,
                 "pnl_reward_component": pnl_points / self.pnl_reward_scale,
                 "rr_reward_component": pnl_points / self.initial_risk_points,
+                "max_favorable_r": (self._max_price - float(row["_entry_price"]))
+                / self.initial_risk_points,
                 "recorded_pnl": (
                     float(row["_recorded_pnl"])
                     if pd.notna(row["_recorded_pnl"])
@@ -431,6 +447,13 @@ class CrudeTickEnv(gym.Env[np.ndarray, np.ndarray]):
             self.pnl_reward_weight * info["pnl_reward_component"]
             + self.rr_reward_weight * info["rr_reward_component"]
         )
+        # Bonus uses realized exit R only (not a 2R touch) and is capped at target_rr.
+        target_bonus = 0.0
+        if self.target_rr is not None and self.target_bonus_weight > 0.0:
+            progress = min(max(info["rr_reward_component"], 0.0) / self.target_rr, 1.0)
+            target_bonus = self.target_bonus_weight * progress
+        info["target_bonus_component"] = target_bonus
+        reward += target_bonus
         info["training_reward"] = reward
         return self._observation(), reward, True, False, info
 
