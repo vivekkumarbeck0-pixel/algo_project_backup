@@ -13,3 +13,5 @@ websocket-client
 Flask
 gspread
 google-auth
+torch
+stable-baselines3
