@@ -41,36 +41,40 @@ def test_shadow_action_maps_to_hypothetical_levels_and_premium_pnl():
     row = observer._predict_snapshot(_snapshot(price=99.0), now=_snapshot().timestamp)
 
     assert row["PPO Suggested SL"] == 99.5
-    assert row["PPO Trail Activation"] == 102.2
+    assert row["PPO Trail Activation"] == 112.0
     assert row["Hypothetical PnL Points"] == -1.0
     assert row["Exit Reason"] == "PPO_STOP_LOSS"
     observer._model.predict.assert_called_once()
 
 
-def test_shadow_trails_after_one_r_instead_of_booking_at_activation():
+def test_shadow_trails_after_fixed_activation_instead_of_booking_at_activation():
     observer = CrudeTickShadowObserver()
     observer._model = Mock()
     observer._model.predict.return_value = (
         np.asarray([0.0, 1.0, 0.0], dtype=np.float32),
         None,
     )
-    first = _snapshot(price=102.2)
+    below = _snapshot(price=105.0, tick_key=0.5)
+    below_row = observer._predict_snapshot(below, now=below.timestamp)
+    assert below_row["PPO Suggested SL"] == 99.5  # still inactive below +12 points
+
+    first = _snapshot(price=112.0)
 
     activation_row = observer._predict_snapshot(first, now=first.timestamp)
     assert activation_row is not None
     assert activation_row["Exit Reason"] == ""
-    assert activation_row["PPO Suggested SL"] == 100.0
+    assert activation_row["PPO Suggested SL"] == 109.8
 
-    second = _snapshot(price=105.0, tick_key=2.0)
+    second = _snapshot(price=115.0, tick_key=2.0)
     trailing_row = observer._predict_snapshot(second, now=second.timestamp)
     assert trailing_row is not None
     assert trailing_row["Exit Reason"] == ""
-    assert trailing_row["PPO Suggested SL"] == 102.8
+    assert trailing_row["PPO Suggested SL"] == 112.8
 
-    third = _snapshot(price=102.7, tick_key=3.0)
+    third = _snapshot(price=112.7, tick_key=3.0)
     exit_row = observer._predict_snapshot(third, now=third.timestamp)
     assert exit_row is not None
-    assert exit_row["Exit Reason"] == "PPO_STOP_LOSS"
+    assert exit_row["Exit Reason"] == "PPO_TRAILING_STOP"
 
 
 def test_shadow_observer_deduplicates_ticks_and_stops_after_hypothetical_exit():

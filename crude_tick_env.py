@@ -13,9 +13,16 @@ import numpy as np
 import pandas as pd
 from gymnasium import spaces
 
+from dataclasses import dataclass
+
 from crude_tick_policy import (
-    MIN_REWARD_RISK_RATIO,
+    OBSERVATION_SIZE as TRADING_OBSERVATION_SIZE,
+    TRAIL_ACTIVATION_POINTS,
+    TRAIL_BREAKEVEN_BUFFER_POINTS,
     TRAILING_GAP_R_BOUNDS,
+    EngineConfig,
+    TickFeatureBuilder,
+    TradeEngine,
 )
 
 
@@ -222,14 +229,45 @@ def prepare_tick_trades(data: pd.DataFrame | str | Path) -> pd.DataFrame:
     return result
 
 
+def load_sheet1_trades(
+    spreadsheet_name: str = "Crude_Algo_Trade_Logs",
+) -> pd.DataFrame:
+    """Read populated Crude trade rows from Google Sheet 1 (read-only)."""
+    from sheets_logger import get_gspread_client
+
+    values = get_gspread_client().open(spreadsheet_name).sheet1.get_all_values()
+    if not values:
+        raise ValueError("Google Sheet 1 is empty")
+    headers = [str(header).strip() for header in values[0]]
+    symbol_index = next(
+        (i for i, header in enumerate(headers) if _normalize_name(header) == "symbol"),
+        None,
+    )
+    if symbol_index is None:
+        raise ValueError("Google Sheet 1 is missing the required Symbol header")
+    width = len(headers)
+    rows = [
+        (list(row) + [""] * width)[:width]
+        for row in values[1:]
+        if symbol_index < len(row)
+        and "CRUDE" in str(row[symbol_index]).upper()
+        and any(str(cell).strip() for cell in row)
+    ]
+    if not rows:
+        raise ValueError("Google Sheet 1 contains no populated Crude trade rows")
+    return pd.DataFrame(rows, columns=headers, dtype=object)
+
+
 class CrudeTickEnv(gym.Env[np.ndarray, np.ndarray]):
     """Replay one recorded option-price path, adjusting risk on each sample.
 
     The policy manages a long option premium. Each action sets the desired SL
     ATR multiplier, trailing-stop gap in initial-risk units, and SL buffer in
-    ATR units. At +1R, a trailing stop follows the best observed price and may
-    only tighten. A sample is an ordered, de-duplicated observed price, not a
-    timestamped exchange tick.
+    ATR units. Once the best price is ``trail_activation_points`` above entry,
+    the stop jumps to entry + ``trail_breakeven_buffer_points`` and then
+    follows the best price minus the trail gap, only ever tightening. A sample
+    is an ordered, de-duplicated observed price, not a timestamped exchange
+    tick.
     """
 
     metadata = {"render_modes": []}
@@ -248,8 +286,18 @@ class CrudeTickEnv(gym.Env[np.ndarray, np.ndarray]):
         pnl_reward_scale: float = 1.0,
         target_rr: float | None = None,
         target_bonus_weight: float = 0.0,
+        trail_activation_points: float = TRAIL_ACTIVATION_POINTS,
+        trail_breakeven_buffer_points: float = TRAIL_BREAKEVEN_BUFFER_POINTS,
     ):
         super().__init__()
+        for label, points in (
+            ("trail activation points", trail_activation_points),
+            ("trail breakeven buffer points", trail_breakeven_buffer_points),
+        ):
+            if not math.isfinite(points) or points < 0.0:
+                raise ValueError(f"{label} must be finite and non-negative")
+        self.trail_activation_points = float(trail_activation_points)
+        self.trail_breakeven_buffer_points = float(trail_breakeven_buffer_points)
         for label, bounds in (
             ("SL ATR", sl_atr_bounds),
             ("trailing gap R", trailing_gap_r_bounds),
@@ -342,11 +390,19 @@ class CrudeTickEnv(gym.Env[np.ndarray, np.ndarray]):
         self._update_trailing_stop()
 
     def _update_trailing_stop(self) -> None:
-        if self._max_price >= self.trail_activation_price:
-            trailing_stop = self._max_price - (
-                self.trail_gap_r * self.initial_risk_points
-            )
-            self.stop_price = max(self.stop_price, trailing_stop)
+        if self._max_price < self.trail_activation_price:
+            return
+        self._trail_active = True
+        breakeven = min(
+            float(self.data.iloc[self._row_index]["_entry_price"])
+            + self.trail_breakeven_buffer_points,
+            self._max_price,
+        )
+        trailing_stop = max(
+            breakeven,
+            self._max_price - self.trail_gap_r * self.initial_risk_points,
+        )
+        self.stop_price = max(self.stop_price, trailing_stop)
 
     def _observation(self) -> np.ndarray:
         row = self.data.iloc[self._row_index]
@@ -404,9 +460,10 @@ class CrudeTickEnv(gym.Env[np.ndarray, np.ndarray]):
         self.stop_price = self._current_price - (
             self.initial_sl_atr + self.initial_sl_buffer_atr
         ) * float(row["_atr"])
-        self.trail_activation_price = self._current_price + (
-            MIN_REWARD_RISK_RATIO * self.initial_risk_points
+        self.trail_activation_price = (
+            self._current_price + self.trail_activation_points
         )
+        self._trail_active = False
         return self._observation(), {
             "row_index": self._row_index,
             "source_row": int(row["_source_row"]),
@@ -457,6 +514,9 @@ class CrudeTickEnv(gym.Env[np.ndarray, np.ndarray]):
         info["training_reward"] = reward
         return self._observation(), reward, True, False, info
 
+    def _stop_reason(self) -> str:
+        return "trailing_stop" if self._trail_active else "stop_loss"
+
     def _step_info(self) -> dict[str, Any]:
         return {
             "row_index": self._row_index,
@@ -465,7 +525,7 @@ class CrudeTickEnv(gym.Env[np.ndarray, np.ndarray]):
             "price": self._current_price,
             "sl_price": self.stop_price,
             "trail_activation_price": self.trail_activation_price,
-            "trail_active": self._max_price >= self.trail_activation_price,
+            "trail_active": self._trail_active,
             "initial_risk_points": self.initial_risk_points,
             "sl_atr_multiplier": self.sl_atr_multiplier,
             "trail_gap_r": self.trail_gap_r,
@@ -486,7 +546,7 @@ class CrudeTickEnv(gym.Env[np.ndarray, np.ndarray]):
 
         # A tightened stop can already be crossed at the current observed quote.
         if self._current_price <= self.stop_price + _PRICE_TOLERANCE:
-            return self._finish(self._current_price, "stop_loss")
+            return self._finish(self._current_price, self._stop_reason())
         if self._tick_index == len(self._price_path) - 1:
             return self._finish(self._current_price, "recorded_exit")
 
@@ -495,8 +555,176 @@ class CrudeTickEnv(gym.Env[np.ndarray, np.ndarray]):
         self._max_price = max(self._max_price, self._current_price)
         self._update_trailing_stop()
         if self._current_price <= self.stop_price + _PRICE_TOLERANCE:
-            return self._finish(self._current_price, "stop_loss")
+            return self._finish(self._current_price, self._stop_reason())
         if self._tick_index == len(self._price_path) - 1:
             return self._finish(self._current_price, "recorded_exit")
 
         return self._observation(), 0.0, False, False, self._step_info()
+
+
+@dataclass(frozen=True)
+class TradingRewardConfig:
+    """Reward shaping in R multiples (net of slippage/costs from the engine)."""
+
+    target_rr: float = 2.0
+    target_bonus: float = 0.5  # extra reward for realized R >= target_rr
+    target_3r_bonus: float = 0.5  # additional bonus for realized R >= 3
+    extra_r_bonus: float = 0.25  # per R beyond target_rr, capped at 2 extra R
+    early_stop_penalty: float = 1.0  # losing stop-out before min_hold_ticks
+    min_hold_ticks: int = 10
+    expectancy_weight: float = 1.0  # end-of-episode bonus on mean R (>= 3 trades)
+    idle_penalty: float = 0.0002  # per flat tick, discourages never trading
+    dead_chase_penalty: float = 0.01  # per sideways in-position tick
+    dead_chase_lookback: int = 20
+    dead_chase_band_atr: float = 0.15  # net move below this over the lookback = dead
+
+    def __post_init__(self) -> None:
+        for name, value in self.__dict__.items():
+            if not math.isfinite(value) or value < 0:
+                raise ValueError(f"{name} must be finite and non-negative")
+        if self.target_rr <= 0:
+            raise ValueError("target_rr must be positive")
+
+
+def shape_trade_reward(event: dict[str, Any], config: TradingRewardConfig) -> float:
+    """Reward for one closed trade: net R, plus >= target RR bonus, minus early stop-out."""
+    pnl_r = float(event["pnl_r"])
+    reward = pnl_r
+    if pnl_r >= config.target_rr:
+        reward += config.target_bonus + config.extra_r_bonus * min(
+            pnl_r - config.target_rr, 2.0
+        )
+        if pnl_r >= 3.0:
+            reward += config.target_3r_bonus
+    if (
+        pnl_r < 0
+        and event["reason"] in ("stop_loss", "trailing_stop")
+        and event["hold_ticks"] < config.min_hold_ticks
+    ):
+        reward -= config.early_stop_penalty
+    return reward
+
+
+class CrudeTradingEnv(gym.Env[np.ndarray, np.ndarray]):
+    """Independent entry/exit/SL/TP environment over tick price series.
+
+    Each episode is one ``(prices, atr)`` series. The 4-value action is
+    [direction, SL ATR multiple, target RR, trailing gap R]; see
+    ``crude_tick_policy.map_action``. Positions can be Flat, Long or Short.
+    Fills use ``EngineConfig`` slippage/costs and any open position is closed
+    at the final tick.
+    """
+
+    metadata = {"render_modes": []}
+
+    def __init__(
+        self,
+        episodes: list[tuple[Any, float]],
+        *,
+        engine_config: EngineConfig | None = None,
+        reward_config: TradingRewardConfig | None = None,
+        warmup_ticks: int = 5,
+    ):
+        super().__init__()
+        self.episodes: list[tuple[np.ndarray, float]] = []
+        for prices, atr in episodes:
+            series = np.asarray(prices, dtype=float)
+            if series.ndim != 1 or len(series) < warmup_ticks + 2:
+                raise ValueError("each episode needs a 1-D price series longer than warmup")
+            if not np.all(np.isfinite(series)) or np.any(series <= 0):
+                raise ValueError("prices must be finite and positive")
+            if not math.isfinite(float(atr)) or float(atr) <= 0:
+                raise ValueError("episode ATR must be finite and positive")
+            self.episodes.append((series, float(atr)))
+        if not self.episodes:
+            raise ValueError("at least one episode is required")
+        self.engine_config = engine_config or EngineConfig()
+        self.reward_config = reward_config or TradingRewardConfig()
+        self.warmup_ticks = int(warmup_ticks)
+        self.action_space = spaces.Box(0.0, 1.0, shape=(4,), dtype=np.float32)
+        self.observation_space = spaces.Box(
+            -1e4, 1e4, shape=(TRADING_OBSERVATION_SIZE,), dtype=np.float32
+        )
+        self._engine = TradeEngine(self.engine_config)
+        self._features = TickFeatureBuilder()
+        self._cursor = 0
+        self._done = True
+
+    @classmethod
+    def from_tick_trades(cls, data: pd.DataFrame | str | Path, **kwargs: Any) -> "CrudeTradingEnv":
+        """Build episodes from logged ``Intratrade Option Prices`` paths.
+
+        Paths are de-duplicated, untimestamped price changes, so this replays
+        observed price order only and is a weak stand-in for raw tick history.
+        """
+        trades = prepare_tick_trades(data).sort_values(
+            "_entry_timestamp", kind="stable"
+        )
+        episodes = [
+            (np.asarray(row["_price_path"], dtype=float), float(row["_atr"]))
+            for _, row in trades.iterrows()
+            if len(row["_price_path"]) >= kwargs.get("warmup_ticks", 5) + 2
+        ]
+        return cls(episodes, **kwargs)
+
+    def reset(
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[np.ndarray, dict[str, Any]]:
+        super().reset(seed=seed)
+        index = (options or {}).get("episode_index")
+        if index is None:
+            index = int(self.np_random.integers(len(self.episodes)))
+        self._episode_index = int(index)
+        self._prices, self._atr = self.episodes[self._episode_index]
+        self._tick = 0
+        self._engine.reset()
+        self._features.reset()
+        self._features.update(self._prices[0])
+        self._episode_trades: list[float] = []
+        self._done = False
+        return self._observe(), {"episode_index": self._episode_index}
+
+    def _observe(self) -> np.ndarray:
+        return self._features.observation(self._atr, self._engine)
+
+    def step(
+        self, action: np.ndarray
+    ) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
+        if self._done:
+            raise RuntimeError("episode is finished; call reset() before step()")
+        action_array = np.asarray(action, dtype=np.float32)
+        if not self.action_space.contains(action_array):
+            raise ValueError("action must contain four finite values in [0, 1]")
+        self._tick += 1
+        price = float(self._prices[self._tick])
+        self._features.update(price)
+        was_flat = self._engine.side == 0
+        events = self._engine.step(
+            price,
+            self._atr,
+            action_array,
+            allow_entry=self._tick >= self.warmup_ticks,
+            momentum=self._features.momentum_atr(self._atr),
+        )
+        last_tick = self._tick == len(self._prices) - 1
+        if last_tick:
+            events += self._engine.force_close(price, "episode_end")
+
+        reward = 0.0
+        for event in events:
+            if event["type"] == "exit":
+                reward += shape_trade_reward(event, self.reward_config)
+                self._episode_trades.append(float(event["pnl_r"]))
+        if was_flat and not events:
+            reward -= self.reward_config.idle_penalty
+        cfg = self.reward_config
+        lookback = int(cfg.dead_chase_lookback)
+        if self._engine.side != 0 and not events and self._tick >= lookback:
+            net_move = abs(price - float(self._prices[self._tick - lookback]))
+            if net_move < cfg.dead_chase_band_atr * self._atr:
+                reward -= cfg.dead_chase_penalty
+        if last_tick and len(self._episode_trades) >= 3:
+            mean_r = float(np.clip(np.mean(self._episode_trades), -1.0, 1.0))
+            reward += self.reward_config.expectancy_weight * mean_r
+        self._done = last_tick
+        return self._observe(), reward, last_tick, False, {"events": events}

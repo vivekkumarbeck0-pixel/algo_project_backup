@@ -14,7 +14,11 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 
-from crude_tick_policy import MIN_REWARD_RISK_RATIO, TRAILING_GAP_R_BOUNDS
+from crude_tick_policy import (
+    TRAIL_ACTIVATION_POINTS,
+    TRAIL_BREAKEVEN_BUFFER_POINTS,
+    TRAILING_GAP_R_BOUNDS,
+)
 
 IST = ZoneInfo("Asia/Kolkata")
 MODEL_PATH = (
@@ -206,7 +210,7 @@ class CrudeTickShadowObserver:
                 "sl_price": snapshot.entry_price - 1.1 * snapshot.atr,
                 "initial_risk_points": 1.1 * snapshot.atr,
                 "trail_activation_price": snapshot.entry_price
-                + MIN_REWARD_RISK_RATIO * 1.1 * snapshot.atr,
+                + TRAIL_ACTIVATION_POINTS,
                 "trail_gap_r": TRAILING_GAP_R_BOUNDS[1],
                 "max_price": snapshot.entry_price,
                 "samples_elapsed": 0,
@@ -256,8 +260,14 @@ class CrudeTickShadowObserver:
             snapshot.entry_price - (sl_multiplier + sl_buffer) * snapshot.atr,
         )
         if state["max_price"] >= state["trail_activation_price"]:
+            state["trail_active"] = True
+            breakeven = min(
+                snapshot.entry_price + TRAIL_BREAKEVEN_BUFFER_POINTS,
+                state["max_price"],
+            )
             state["sl_price"] = max(
                 state["sl_price"],
+                breakeven,
                 state["max_price"] - trail_gap_r * state["initial_risk_points"],
             )
         state["sl_atr_multiplier"] = sl_multiplier
@@ -268,7 +278,9 @@ class CrudeTickShadowObserver:
 
         exit_reason = ""
         if snapshot.live_price <= state["sl_price"]:
-            exit_reason = "PPO_STOP_LOSS"
+            exit_reason = (
+                "PPO_TRAILING_STOP" if state.get("trail_active") else "PPO_STOP_LOSS"
+            )
         if exit_reason:
             state["finished"] = True
 

@@ -117,6 +117,7 @@ def summarize_results(results: list[dict[str, Any]]) -> dict[str, Any]:
         ),
         "max_drawdown_points": float(drawdown.max()),
         "stop_exit_count": int(exit_reasons.get("stop_loss", 0)),
+        "trailing_stop_exit_count": int(exit_reasons.get("trailing_stop", 0)),
         "worst_loss_r": float(pnls_r.min()) if len(pnls_r) else 0.0,
         "reached_1r": sum(r.get("max_favorable_r", 0.0) >= 1.0 for r in results),
         "reached_2r": sum(r.get("max_favorable_r", 0.0) >= 2.0 for r in results),

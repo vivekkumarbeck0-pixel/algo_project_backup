@@ -51,8 +51,12 @@ def test_replays_price_samples_and_stops_when_stop_is_hit_first():
     assert reward == pytest.approx(-1.0 / 2.2)
 
 
-def test_one_r_activates_trailing_stop_and_later_pullback_locks_profit():
-    env = CrudeTickEnv(pd.DataFrame([_trade([100.0, 102.2, 105.0, 102.7])]))
+def test_fixed_points_activate_trailing_stop_with_breakeven_jump_and_ratchet():
+    env = CrudeTickEnv(
+        pd.DataFrame([_trade([100.0, 102.2, 105.0, 102.7])]),
+        trail_activation_points=2.2,
+        trail_breakeven_buffer_points=1.0,
+    )
     env.reset()
     _, first_reward, terminated, _, first_info = env.step(
         _action(sl_atr=0.25, trail_gap_r=1.0)
@@ -60,7 +64,7 @@ def test_one_r_activates_trailing_stop_and_later_pullback_locks_profit():
     assert not terminated
     assert first_info["trail_active"]
     assert first_info["trail_activation_price"] == pytest.approx(102.2)
-    assert first_info["sl_price"] == pytest.approx(100.0)
+    assert first_info["sl_price"] == pytest.approx(101.0)  # entry + buffer
     assert first_reward == 0.0
 
     _, second_reward, terminated, _, second_info = env.step(
@@ -74,18 +78,36 @@ def test_one_r_activates_trailing_stop_and_later_pullback_locks_profit():
         _action(sl_atr=0.25, trail_gap_r=1.0)
     )
     assert terminated
-    assert info["exit_reason"] == "stop_loss"
+    assert info["exit_reason"] == "trailing_stop"
     assert info["exit_price"] == pytest.approx(102.7)
     assert info["pnl_points"] == pytest.approx(2.7)
     assert first_reward + second_reward + final_reward == pytest.approx(2.7 / 2.2)
 
 
-def test_initial_risk_defines_one_r_trail_activation():
+def test_trail_stays_inactive_before_fixed_activation_points():
+    env = CrudeTickEnv(pd.DataFrame([_trade([100.0, 104.4, 99.0])]))
+    env.reset()
+    _, _, terminated, _, info = env.step(_action(sl_atr=0.25))
+    assert not terminated
+    assert not info["trail_active"]  # +4.4 points is past 2R but below +12
+    assert info["sl_price"] == pytest.approx(99.5)
+    _, _, terminated, _, info = env.step(_action(sl_atr=0.25))
+    assert terminated and info["exit_reason"] == "stop_loss"
+
+
+def test_fixed_activation_price_is_independent_of_risk():
     env = CrudeTickEnv(pd.DataFrame([_trade([100.0, 100.2, 100.4])]))
     _, reset_info = env.reset()
     assert reset_info["path_timestamps_available"] is False
     assert env.initial_risk_points == pytest.approx(2.2)
-    assert env.trail_activation_price == pytest.approx(102.2)
+    assert env.trail_activation_price == pytest.approx(112.0)
+    env = CrudeTickEnv(
+        pd.DataFrame([_trade([100.0, 100.2, 100.4])]), trail_activation_points=5.0
+    )
+    env.reset()
+    assert env.trail_activation_price == pytest.approx(105.0)
+    with pytest.raises(ValueError, match="trail activation"):
+        CrudeTickEnv(pd.DataFrame([_trade([100.0, 101.0])]), trail_activation_points=-1.0)
 
 
 def test_stop_can_tighten_but_never_widen():
@@ -188,8 +210,9 @@ def test_touching_target_without_exiting_there_gets_no_bonus_for_the_touch():
         [100.0, 104.4, 102.2, 103.0],
         target_rr=2.0,
         target_bonus_weight=0.5,
+        trail_activation_points=2.2,
     )
-    assert info["exit_reason"] == "stop_loss"
+    assert info["exit_reason"] == "trailing_stop"
     assert info["max_favorable_r"] == pytest.approx(2.0)
     assert info["rr_reward_component"] == pytest.approx(1.0)
     assert reward == pytest.approx(1.0 + 0.25)

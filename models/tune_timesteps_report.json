@@ -1,0 +1,178 @@
+{
+  "results": [
+    {
+      "timesteps": 100000,
+      "trades": 176,
+      "total_r": -10.18877306869995,
+      "expectancy_r": -0.05789075607215881,
+      "path": "models\\crude_trading_ppo_100k.zip",
+      "exit_breakdown": {
+        "episode_end": {
+          "count": 66,
+          "total_r": 27.948338171207595,
+          "avg_r": 0.42345966926072115,
+          "trail_armed": 29
+        },
+        "stop_loss": {
+          "count": 75,
+          "total_r": -45.74725842289255,
+          "avg_r": -0.6099634456385673,
+          "trail_armed": 0
+        },
+        "policy_exit": {
+          "count": 28,
+          "total_r": 6.838912768329919,
+          "avg_r": 0.2442468845832114,
+          "trail_armed": 3
+        },
+        "trailing_stop": {
+          "count": 7,
+          "total_r": 0.771234414655116,
+          "avg_r": 0.11017634495073085,
+          "trail_armed": 7
+        }
+      }
+    },
+    {
+      "timesteps": 200000,
+      "trades": 163,
+      "total_r": -15.747711009068668,
+      "expectancy_r": -0.09661172398201637,
+      "path": "models\\crude_trading_ppo_200k.zip",
+      "exit_breakdown": {
+        "episode_end": {
+          "count": 26,
+          "total_r": 7.646702874291309,
+          "avg_r": 0.29410395670351186,
+          "trail_armed": 6
+        },
+        "stop_loss": {
+          "count": 40,
+          "total_r": -19.10474608523501,
+          "avg_r": -0.4776186521308753,
+          "trail_armed": 0
+        },
+        "policy_exit": {
+          "count": 94,
+          "total_r": -4.302418576758647,
+          "avg_r": -0.04577041039104944,
+          "trail_armed": 0
+        },
+        "trailing_stop": {
+          "count": 3,
+          "total_r": 0.012750778633684661,
+          "avg_r": 0.004250259544561554,
+          "trail_armed": 3
+        }
+      }
+    },
+    {
+      "timesteps": 300000,
+      "trades": 208,
+      "total_r": -13.429567779384623,
+      "expectancy_r": -0.06456522970857992,
+      "path": "models\\crude_trading_ppo_300k.zip",
+      "exit_breakdown": {
+        "policy_exit": {
+          "count": 206,
+          "total_r": -13.043589175242936,
+          "avg_r": -0.06331839405457736,
+          "trail_armed": 0
+        },
+        "episode_end": {
+          "count": 2,
+          "total_r": -0.3859786041416876,
+          "avg_r": -0.1929893020708438,
+          "trail_armed": 0
+        }
+      }
+    },
+    {
+      "timesteps": 500000,
+      "trades": 165,
+      "total_r": -15.870154792283394,
+      "expectancy_r": -0.09618275631686905,
+      "path": "models\\crude_trading_ppo_500k.zip",
+      "exit_breakdown": {
+        "episode_end": {
+          "count": 20,
+          "total_r": 3.765888558525565,
+          "avg_r": 0.18829442792627823,
+          "trail_armed": 4
+        },
+        "stop_loss": {
+          "count": 26,
+          "total_r": -14.663074411430912,
+          "avg_r": -0.5639644004396505,
+          "trail_armed": 0
+        },
+        "policy_exit": {
+          "count": 119,
+          "total_r": -4.972968939378035,
+          "avg_r": -0.04178965495275659,
+          "trail_armed": 1
+        }
+      }
+    },
+    {
+      "timesteps": 1000000,
+      "trades": 197,
+      "total_r": -16.424744656446162,
+      "expectancy_r": -0.08337433835759472,
+      "path": "models\\crude_trading_ppo_1000k.zip",
+      "exit_breakdown": {
+        "policy_exit": {
+          "count": 188,
+          "total_r": -12.27661213432245,
+          "avg_r": -0.06530112837405559,
+          "trail_armed": 0
+        },
+        "stop_loss": {
+          "count": 6,
+          "total_r": -4.173997518186473,
+          "avg_r": -0.6956662530310789,
+          "trail_armed": 0
+        },
+        "episode_end": {
+          "count": 3,
+          "total_r": 0.025864996062761464,
+          "avg_r": 0.008621665354253821,
+          "trail_armed": 0
+        }
+      }
+    }
+  ],
+  "best": {
+    "timesteps": 100000,
+    "trades": 176,
+    "total_r": -10.18877306869995,
+    "expectancy_r": -0.05789075607215881,
+    "path": "models\\crude_trading_ppo_100k.zip",
+    "exit_breakdown": {
+      "episode_end": {
+        "count": 66,
+        "total_r": 27.948338171207595,
+        "avg_r": 0.42345966926072115,
+        "trail_armed": 29
+      },
+      "stop_loss": {
+        "count": 75,
+        "total_r": -45.74725842289255,
+        "avg_r": -0.6099634456385673,
+        "trail_armed": 0
+      },
+      "policy_exit": {
+        "count": 28,
+        "total_r": 6.838912768329919,
+        "avg_r": 0.2442468845832114,
+        "trail_armed": 3
+      },
+      "trailing_stop": {
+        "count": 7,
+        "total_r": 0.771234414655116,
+        "avg_r": 0.11017634495073085,
+        "trail_armed": 7
+      }
+    }
+  }
+}

@@ -83,6 +83,50 @@ def get_gspread_client():
     creds = Credentials.from_service_account_info(info, scopes=SCOPES)
     return gspread.authorize(creds)
 
+PPO_WORKSHEET_TITLE = "PPO_Paper_Trades"
+
+PPO_SHEET_COLUMNS = [
+    "Entry Timestamp",
+    "Exit Timestamp",
+    "Symbol",
+    "Action",
+    "Entry Price",
+    "Exit Price",
+    "Exit Reason",
+    "Gross PnL",
+    "Charges",
+    "Net PnL",
+    "Gross PnL Points",
+    "Stop Loss",
+    "Take Profit",
+    "Trail Active",
+    "Hold Ticks",
+]
+
+
+def log_ppo_trade(trade_data: dict, retries: int = 3) -> bool:
+    """Append one PPO paper trade to its own worksheet, separate from Sheet1."""
+    for attempt in range(1, retries + 1):
+        try:
+            sh = get_gspread_client().open("Crude_Algo_Trade_Logs")
+            try:
+                worksheet = sh.worksheet(PPO_WORKSHEET_TITLE)
+            except gspread.exceptions.WorksheetNotFound:
+                worksheet = sh.add_worksheet(
+                    title=PPO_WORKSHEET_TITLE, rows=1000, cols=len(PPO_SHEET_COLUMNS)
+                )
+            headers = worksheet.row_values(1)
+            if not headers:
+                headers = PPO_SHEET_COLUMNS.copy()
+                worksheet.append_row(headers)
+            worksheet.append_row([trade_data.get(h, "") for h in headers])
+            return True
+        except Exception as exc:
+            print(f"PPO sheet log attempt {attempt}/{retries} failed: {exc}")
+            time.sleep(2 * attempt)
+    return False
+
+
 def log_trade(trade_data: dict):
     max_attempts = 3
     base_delay_seconds = 2
