@@ -64,6 +64,9 @@ class AngelOneLogin:
 
         return cls(api_key)
 
+    LOGIN_COOLDOWN_SECONDS = 180.0
+    _login_blocked_until = 0.0
+
     @classmethod
     def connect_from_env(cls):
         cls._load_dotenv()
@@ -79,6 +82,12 @@ class AngelOneLogin:
             if reused is not None:
                 return reused
 
+            # After a failed login, don't hit Angel One again until the cooldown ends;
+            # repeated attempts from several threads trigger "exceeding access rate".
+            remaining = cls._login_blocked_until - time.time()
+            if remaining > 0:
+                raise RuntimeError(f"Angel One login cooling down for {remaining:.0f}s after a failure")
+
             totp = cls._current_totp(totp)
 
             if not client_id or not password or not totp:
@@ -86,8 +95,12 @@ class AngelOneLogin:
                     f"{cls.ENV_CLIENT_ID}, {cls.ENV_PASSWORD}, and {cls.ENV_TOTP} must be set in the environment or {cls.ENV_FILENAME}"
                 )
 
-            client = cls.from_env()
-            client.connect(client_id, password, totp)
+            try:
+                client = cls.from_env()
+                client.connect(client_id, password, totp)
+            except Exception:
+                cls._login_blocked_until = time.time() + cls.LOGIN_COOLDOWN_SECONDS
+                raise
             client._save_session_cache(client_id)
             return client
 
