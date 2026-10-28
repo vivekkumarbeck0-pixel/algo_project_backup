@@ -479,3 +479,40 @@ class LiveTickStore:
         self._reconnect_wakeup.set()
         if self._stream is not None:
             self._stream.close()
+
+
+_shared_store: Optional[LiveTickStore] = None
+_shared_store_lock = threading.Lock()
+
+
+def get_shared_tick_store(client: Any = None) -> Optional[LiveTickStore]:
+    """Process-wide LiveTickStore so every consumer shares one websocket and login.
+
+    Angel One allows one feed session per account; a second socket or login
+    invalidates the first. Callers must not stop() the returned store.
+    """
+    global _shared_store
+    with _shared_store_lock:
+        if _shared_store is not None and _shared_store._stream is not None:
+            return _shared_store
+
+        if client is None:
+            from .login import AngelOneLogin
+
+            client = AngelOneLogin.connect_from_env()
+
+        store = LiveTickStore(client)
+        store.start()
+        if store._stream is None:
+            return None  # broker tokens unavailable; a later call may retry
+        _shared_store = store
+        return store
+
+
+def reset_shared_tick_store() -> None:
+    """Stop and forget the shared store (shutdown and tests)."""
+    global _shared_store
+    with _shared_store_lock:
+        store, _shared_store = _shared_store, None
+    if store is not None:
+        store.stop()

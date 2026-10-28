@@ -319,12 +319,12 @@ def csv_ticks(path: Path) -> Iterator[tuple[datetime, float]]:
 
 def angel_ticks(token: str, exchange: str, poll_seconds: float) -> Iterator[tuple[datetime, float]]:
     """Live LTP via the Angel One websocket, independent of the rule engine."""
-    from angel_one.login import AngelOneLogin
-    from angel_one.smart_stream import LiveTickStore
+    from angel_one.smart_stream import get_shared_tick_store
 
-    store = LiveTickStore(AngelOneLogin.connect_from_env(), correlation_id="ppo_paper")
-    if not store.start():
-        raise SystemExit("Angel One websocket could not start; paper runner needs live ticks.")
+    # Shared with the main bot: reuses its websocket and cached login session.
+    store = get_shared_tick_store()
+    if store is None:
+        raise RuntimeError("Angel One websocket unavailable; paper runner needs live ticks.")
     last_seen = None
     while True:
         store.ensure_subscribed(token, exchange)

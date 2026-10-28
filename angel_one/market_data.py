@@ -166,10 +166,11 @@ class MarketDataFetcher:
         if not settings.use_websocket_feed or not self.client:
             return None
         if self._tick_store is None:
-            from .smart_stream import LiveTickStore
+            from .smart_stream import get_shared_tick_store
 
-            store = LiveTickStore(self.client)
-            store.start()
+            store = get_shared_tick_store(self.client)
+            if store is None:
+                return None
             self._tick_store = store
         return self._tick_store if self._tick_store.connected else None
 
