@@ -21,6 +21,7 @@ import shutil
 import sys
 import threading
 import time
+import warnings
 from collections import deque
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, time as dt_time, timedelta
@@ -30,6 +31,8 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
+
+warnings.filterwarnings("ignore", message=".*inplace keyword in DataFrame.sort_index.*")
 import yfinance as yf
 
 from config import MCX_CRUDE_FUTURE, settings

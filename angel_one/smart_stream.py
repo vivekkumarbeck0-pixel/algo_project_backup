@@ -105,13 +105,21 @@ class AngelSmartWebSocketClient:
             )
             return False
 
+        # Drop the previous socket so stale SDK retry loops cannot race ours.
+        old_ws = self.ws
+        if old_ws is not None:
+            try:
+                old_ws.close_connection()
+            except Exception:
+                pass
+
         try:
-            self.ws = self._SmartWebSocketV2(
-                self.jwt_token,
-                self.api_key,
-                self.client_code,
-                self.feed_token,
-            )
+            args = (self.jwt_token, self.api_key, self.client_code, self.feed_token)
+            try:
+                # Reconnects are owned by LiveTickStore; disable the SDK's own retry.
+                self.ws = self._SmartWebSocketV2(*args, max_retry_attempt=0)
+            except TypeError:
+                self.ws = self._SmartWebSocketV2(*args)
             self.ws.on_open = self._on_open
             self.ws.on_data = self._on_message
             self.ws.on_message = self._on_message
@@ -165,15 +173,24 @@ class AngelSmartWebSocketClient:
 
     def _on_error(self, *args):
         error = args[-1] if args else "unknown"
-        log.error(f"RAW WEBSOCKET ERROR: {error}")
+        self._log_socket_problem(f"RAW WEBSOCKET ERROR: {error}")
         self.connected = False
         self._open_event.clear()
 
     def _on_close(self, *args, **kwargs):
         error = args[-1] if args else "unknown"
-        log.error(f"RAW WEBSOCKET ERROR: {error}")
+        self._log_socket_problem(f"RAW WEBSOCKET ERROR: {error}")
         self.connected = False
         self._open_event.clear()
+
+    def _log_socket_problem(self, message: str):
+        # Suppress identical repeats within 30s so retries don't flood the log.
+        now = time.monotonic()
+        last_msg, last_at = getattr(self, "_last_problem", (None, 0.0))
+        if message == last_msg and now - last_at < 30.0:
+            return
+        self._last_problem = (message, now)
+        log.error(message)
 
     def subscribe(self, token: str, exchange: str) -> bool:
         if self.ws is None or not self.connected:
