@@ -142,10 +142,19 @@ class MarketDataFetcher:
 
     def _ensure_client(self) -> None:
         """Retry a failed startup login (at most every 30s) instead of staying client-less."""
-        if self.client or not self._use_env:
+        if self.client:
             return
-        if time.time() - self._last_login_attempt >= 30:
+        if time.time() - self._last_login_attempt < 30:
+            return
+        if self._use_env:
             self._login_from_env()
+            return
+        # Client was injected as None (startup login failed): retry the shared session.
+        self._last_login_attempt = time.time()
+        try:
+            self.client = AngelOneLogin.connect_from_env()
+        except Exception as exc:
+            log.warning("Angel One login retry failed: %s", exc)
 
     # ------------------------------------------------------------
     # LIVE WEBSOCKET FEED (removes most REST quote traffic)
