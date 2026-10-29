@@ -3,6 +3,7 @@
 import logging
 import os
 import threading
+import time
 
 from trading_crude import CrudeOptionBuyer
 from trading_nifty import NiftyTradingSession
@@ -25,18 +26,43 @@ def start_ppo_paper_thread():
     return thread
 
 
+RETRY_SECONDS = 60
+
+
+def run_with_restart(name, factory, retry_seconds=RETRY_SECONDS):
+    """Build and run a component forever; log, sleep and rebuild after any failure."""
+    while True:
+        try:
+            factory()
+            logger.warning("%s returned; restarting in %ss.", name, retry_seconds)
+        except KeyboardInterrupt:
+            raise
+        except BaseException:
+            logger.exception("%s crashed; retrying in %ss.", name, retry_seconds)
+        time.sleep(retry_seconds)
+
+
 def main():
-    crude = CrudeOptionBuyer()
-    nifty = NiftyTradingSession()
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     start_ppo_paper_thread()
-    crude_thread = threading.Thread(target=crude.start, name="crude-engine")
-    crude_thread.start()
-    nifty.run_forever()
-    crude_thread.join()
+    threading.Thread(
+        target=run_with_restart,
+        args=("crude-engine", lambda: CrudeOptionBuyer().start()),
+        name="crude-engine",
+        daemon=True,
+    ).start()
+    run_with_restart("nifty-session", lambda: NiftyTradingSession().run_forever())
 
 
 if __name__ == "__main__":
-    main()
+    while True:
+        try:
+            main()
+        except KeyboardInterrupt:
+            raise
+        except BaseException:
+            logging.getLogger(__name__).exception("Top-level failure; restarting in %ss.", RETRY_SECONDS)
+            time.sleep(RETRY_SECONDS)
 
 
 

@@ -408,9 +408,24 @@ def main() -> None:
     if args.source == "angel" and not args.token:
         parser.error("--token is required for --source angel")
 
+    if args.source == "angel":
+        # Long-running live mode: restart after any failure instead of exiting.
+        while True:
+            try:
+                run_once(args, args.model)
+                return
+            except KeyboardInterrupt:
+                return
+            except BaseException:
+                logger.exception("Paper runner crashed; retrying in 60s.")
+                time.sleep(60)
+    run_once(args, args.model)
+
+
+def run_once(args, model_path: Path) -> None:
     sink = None if args.no_sheet else PpoSheetSink()
     runner = PaperRunner(
-        load_policy(args.model),
+        load_policy(model_path),
         ShadowLogWriter(args.log_dir, sheet_sink=sink),
         engine_config=EngineConfig(args.slippage_points, args.cost_points),
         atr_source=None if args.atr else BarAtr(args.atr_bar_seconds),

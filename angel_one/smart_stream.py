@@ -283,7 +283,11 @@ class LiveTickStore:
             jwt_token=jwt_token,
             correlation_id=self._correlation_id,
         )
-        connected = self._stream.connect()
+        try:
+            connected = self._stream.connect()
+        except Exception:
+            log.exception("Initial SmartStream connect failed; background reconnect will retry.")
+            connected = False
 
         self._consumer = threading.Thread(target=self._consume_loop, daemon=True)
         self._consumer.start()
@@ -300,6 +304,14 @@ class LiveTickStore:
         return connected
 
     def _reconnect_loop(self):
+        while not self._stop_event.is_set():
+            try:
+                self._reconnect_loop_inner()
+            except Exception:
+                log.exception("SmartStream reconnect loop crashed; restarting in 5s.")
+                self._stop_event.wait(5.0)
+
+    def _reconnect_loop_inner(self):
         retry_delay = 1.0
         failures = 0
         while not self._stop_event.is_set():
@@ -496,13 +508,17 @@ def get_shared_tick_store(client: Any = None) -> Optional[LiveTickStore]:
         if _shared_store is not None and _shared_store._stream is not None:
             return _shared_store
 
-        if client is None:
-            from .login import AngelOneLogin
+        try:
+            if client is None:
+                from .login import AngelOneLogin
 
-            client = AngelOneLogin.connect_from_env()
+                client = AngelOneLogin.connect_from_env()
 
-        store = LiveTickStore(client)
-        store.start()
+            store = LiveTickStore(client)
+            store.start()
+        except Exception:
+            log.exception("Shared tick store unavailable (login/websocket failure); callers may retry.")
+            return None
         if store._stream is None:
             return None  # broker tokens unavailable; a later call may retry
         _shared_store = store
