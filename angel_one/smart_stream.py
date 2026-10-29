@@ -8,6 +8,8 @@ rate limit.
 from __future__ import annotations
 
 import json
+import logging
+import os
 import queue
 import sys
 import threading
@@ -256,6 +258,97 @@ class LiveTickStore:
         self._start_attempted = False
         self._reconnect_wakeup = threading.Event()
         self._last_session_refresh = 0.0
+        self._last_tick_at = time.monotonic()
+        self._watchdog_thread: Optional[threading.Thread] = None
+        self._recovery_lock = threading.Lock()
+
+    WATCHDOG_STALE_SECONDS = 90.0
+    WATCHDOG_INTERVAL_SECONDS = 5.0
+    RECOVERY_ATTEMPTS = 3
+    RECOVERY_RETRY_SECONDS = 10.0
+
+    @staticmethod
+    def _exchange_open(exchange: str, now: Optional[datetime] = None) -> bool:
+        now = now or datetime.now(ZoneInfo("Asia/Kolkata"))
+        if now.weekday() >= 5:
+            return False
+        current = now.time()
+        if str(exchange).upper() == "MCX":
+            return datetime_time(9, 0) <= current <= datetime_time(23, 30)
+        return datetime_time(9, 15) <= current <= datetime_time(15, 30)
+
+    def _market_open_for_subscriptions(self, now: Optional[datetime] = None) -> bool:
+        with self._lock:
+            exchanges = {exchange for _, exchange in self._subscribed}
+        return any(self._exchange_open(exchange, now) for exchange in exchanges)
+
+    def _watchdog_loop(self):
+        while not self._stop_event.wait(self.WATCHDOG_INTERVAL_SECONDS):
+            try:
+                if not self._market_open_for_subscriptions():
+                    self._last_tick_at = time.monotonic()  # no grace debt carried across closed hours
+                    continue
+                silent_for = time.monotonic() - self._last_tick_at
+                if silent_for <= self.WATCHDOG_STALE_SECONDS:
+                    continue
+                log.error("Watchdog: no ticks for %.0fs during market hours; forcing re-login and stream rebuild.", silent_for)
+                if not self._recover_stream():
+                    self._fatal_exit("Watchdog: stream recovery failed; exiting so the platform restarts the process.")
+                    return
+            except Exception:
+                log.exception("Watchdog iteration failed.")
+
+    def _recover_stream(self) -> bool:
+        """Fresh login, brand-new websocket, resubscribe. True once ticks can flow again."""
+        with self._recovery_lock:
+            from .login import AngelOneLogin
+
+            for attempt in range(1, self.RECOVERY_ATTEMPTS + 1):
+                if self._stop_event.is_set():
+                    return True
+                try:
+                    refreshed = AngelOneLogin.connect_from_env()
+                    for name in ("api_key", "user_id", "feed_token", "access_token"):
+                        value = getattr(refreshed, name, None)
+                        if value:
+                            setattr(self._client, name, value)
+
+                    new_stream = AngelSmartWebSocketClient(
+                        api_key=getattr(self._client, "api_key", ""),
+                        client_code=getattr(self._client, "user_id", ""),
+                        feed_token=getattr(self._client, "feed_token", ""),
+                        jwt_token=getattr(self._client, "access_token", ""),
+                        correlation_id=self._correlation_id,
+                    )
+                    if new_stream.connect(timeout=15.0, quiet=True):
+                        old_stream, self._stream = self._stream, new_stream
+                        if old_stream is not None:
+                            try:
+                                old_stream.close()
+                            except Exception:
+                                pass
+                        self._resubscribe_all()
+                        self._last_tick_at = time.monotonic()  # grace window for first tick
+                        log.info("Watchdog: stream rebuilt after fresh login (attempt %d).", attempt)
+                        return True
+                    new_stream.close()
+                    log.warning("Watchdog: rebuilt websocket did not open (attempt %d).", attempt)
+                except Exception:
+                    log.exception("Watchdog: recovery attempt %d failed.", attempt)
+                self._stop_event.wait(self.RECOVERY_RETRY_SECONDS)
+            return False
+
+    @staticmethod
+    def _fatal_exit(message: str) -> None:
+        # sys.exit() in a non-main thread only ends that thread, so exit the process
+        # with status 1 directly; Railway's ON_FAILURE policy then restarts it.
+        log.critical(message)
+        for handler in logging.getLogger().handlers:
+            try:
+                handler.flush()
+            except Exception:
+                pass
+        os._exit(1)
 
     @property
     def connected(self) -> bool:
@@ -297,6 +390,13 @@ class LiveTickStore:
             daemon=True,
         )
         self._reconnect_thread.start()
+        self._last_tick_at = time.monotonic()
+        self._watchdog_thread = threading.Thread(
+            target=self._watchdog_loop,
+            name="angel-smartstream-watchdog",
+            daemon=True,
+        )
+        self._watchdog_thread.start()
         if connected:
             log.info("SmartStream live tick feed active; REST quote polling is now a fallback.")
         else:
@@ -424,7 +524,8 @@ class LiveTickStore:
             self._store(payload)
 
     def _store(self, payload: Dict[str, Any]) -> None:
-        token = payload.get("token") or payload.get("symbolToken")
+        self._last_tick_at = time.monotonic()
+        token =  payload.get("token") or payload.get("symbolToken")
         if not token:
             return
 
