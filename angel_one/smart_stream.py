@@ -86,6 +86,24 @@ class AngelSmartWebSocketClient:
         except Exception:
             return None
 
+    @staticmethod
+    def _patch_on_close(cls) -> None:
+        """Make SmartWebSocketV2._on_close accept websocket-client's 3 args.
+
+        smartapi-python defines _on_close(self, wsapp) but websocket-client >= 1.0
+        calls on_close(ws, status_code, message), so the SDK raised TypeError on
+        every close and our on_close handler never ran.
+        """
+        original = getattr(cls, "_on_close", None)
+        if original is None or getattr(original, "_algo_patched", False):
+            return
+
+        def _on_close(self, wsapp, *args):
+            return original(self, wsapp)
+
+        _on_close._algo_patched = True  # type: ignore[attr-defined]
+        cls._on_close = _on_close
+
     def connect(self, timeout: float = 10.0, quiet: bool = False) -> bool:
         with self._connect_lock:
             return self._connect_locked(timeout, quiet)
@@ -100,6 +118,9 @@ class AngelSmartWebSocketClient:
 
         if self._SmartWebSocketV2 is None:
             self._SmartWebSocketV2 = self._import_smart_websocket_v2()
+
+        if self._SmartWebSocketV2 is not None:
+            self._patch_on_close(self._SmartWebSocketV2)
 
         if self._SmartWebSocketV2 is None:
             log.error(
