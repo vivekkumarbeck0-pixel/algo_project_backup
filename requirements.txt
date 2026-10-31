@@ -1,4 +1,4 @@
-smartapi-python
+smartapi-python==1.5.5
 pyotp
 logzero
 pycryptodome
@@ -9,7 +9,7 @@ numpy>=1.20.0
 requests
 python-dotenv
 yfinance
-websocket-client
+websocket-client==1.8.0
 Flask
 gspread
 google-auth
