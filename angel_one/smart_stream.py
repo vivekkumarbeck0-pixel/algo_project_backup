@@ -443,7 +443,7 @@ class LiveTickStore:
                 "SmartStream reconnect attempt failed; retrying in %.0fs.",
                 retry_delay,
             )
-            retry_delay = min(retry_delay * 2.0, 30.0)
+            retry_delay = min(retry_delay * 2.0, 30.0 if failures < 5 else 90.0)
 
     def _refresh_session_if_needed(self):
         now = time.monotonic()

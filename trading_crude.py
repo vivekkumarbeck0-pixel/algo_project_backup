@@ -134,17 +134,29 @@ from flask import Flask
 
 _flask_app = Flask(__name__)
 
-@_flask_app.route('/')
-@_flask_app.route('/health')
+app = _flask_app
+
+
+@app.route('/')
+def _root():
+    return "Trading Bot Active", 200
+
+
+@app.route('/health')
 def _health():
     return "MCX Crude Algo Engine Alive", 200
 
+
 def _run_health_server():
     port = int(os.environ.get("PORT", 10000))
-    _flask_app.run(host="0.0.0.0", port=port, use_reloader=False)
+    app.run(host="0.0.0.0", port=port, use_reloader=False)
 
-threading.Thread(target=_run_health_server, daemon=True).start()
-logger.info("Render Health Check server started on Port 10000.")
+
+# When imported (e.g. by main.py) the health server runs in the background;
+# when executed directly, the __main__ block runs it on the main thread.
+if __name__ != "__main__":
+    threading.Thread(target=_run_health_server, daemon=True).start()
+    logger.info("Render Health Check server started on Port %s.", os.environ.get("PORT", 10000))
 
 
 @dataclass
@@ -2920,7 +2932,35 @@ class CrudeOptionBuyer:
             logger.info("MCX Crude websocket reconnected; live scanning resumed.")
 
 
+def start_trading_engine() -> None:
+    """Run the crude engine forever, rebuilding it after any crash."""
+    while True:
+        try:
+            logger.info("Initializing MCX Crude Oil option-buying engine.")
+            CrudeOptionBuyer().start()
+            logger.warning("Crude engine returned; restarting in 60s.")
+        except Exception:
+            logger.exception("Crude engine crashed; restarting in 60s.")
+        time.sleep(60)
+
+
+def start_ppo_paper_thread() -> Optional[threading.Thread]:
+    """Run the PPO paper runner in a daemon thread; set ENABLE_PPO_PAPER=0 to disable."""
+    if os.getenv("ENABLE_PPO_PAPER", "1").strip().lower() in {"0", "false", "no"}:
+        logger.info("PPO paper runner disabled via ENABLE_PPO_PAPER.")
+        return None
+    try:
+        from crude_ppo_paper_runner import run_live_forever
+    except Exception:
+        logger.exception("PPO paper runner unavailable; continuing without it.")
+        return None
+    thread = threading.Thread(target=run_live_forever, name="ppo-paper-runner", daemon=True)
+    thread.start()
+    return thread
+
+
 if __name__ == "__main__":
-    logger.info("Initializing MCX Crude Oil option-buying engine.")
-    engine = CrudeOptionBuyer()
-    engine.start()
+    port = int(os.environ.get("PORT", 10000))
+    threading.Thread(target=start_trading_engine, name="crude-engine", daemon=True).start()
+    start_ppo_paper_thread()
+    app.run(host="0.0.0.0", port=port)

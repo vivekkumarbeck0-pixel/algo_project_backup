@@ -298,6 +298,11 @@ class PaperRunner:
 
 
 def load_policy(model_path: Path) -> Callable[[np.ndarray], np.ndarray]:
+    if not model_path.exists():
+        raise FileNotFoundError(
+            f"PPO model not found at {model_path}. Commit it to git (models/ is deployed from the repo) "
+            "or point the runner at an existing model."
+        )
     from stable_baselines3 import PPO
 
     model = PPO.load(str(model_path))
