@@ -303,9 +303,13 @@ def load_policy(model_path: Path) -> Callable[[np.ndarray], np.ndarray]:
             f"PPO model not found at {model_path}. Commit it to git (models/ is deployed from the repo) "
             "or point the runner at an existing model."
         )
-    from stable_baselines3 import PPO
+    from numpy_ppo import load_numpy_policy
 
-    model = PPO.load(str(model_path))
+    model = load_numpy_policy(model_path)
+    if model is None:
+        from stable_baselines3 import PPO
+
+        model = PPO.load(str(model_path))
     shape = tuple(model.observation_space.shape)
     if shape != (OBSERVATION_SIZE,):
         raise SystemExit(

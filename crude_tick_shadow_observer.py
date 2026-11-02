@@ -138,9 +138,13 @@ class CrudeTickShadowObserver:
             )
             return None
         try:
-            from stable_baselines3 import PPO
+            from numpy_ppo import load_numpy_policy
 
-            model = PPO.load(str(MODEL_PATH))
+            model = load_numpy_policy(MODEL_PATH)
+            if model is None:
+                from stable_baselines3 import PPO
+
+                model = PPO.load(str(MODEL_PATH))
         except Exception:
             logger.exception(
                 "Tick PPO shadow observer disabled: could not load model %s.",
