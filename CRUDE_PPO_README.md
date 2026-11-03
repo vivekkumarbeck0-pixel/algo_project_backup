@@ -145,6 +145,25 @@ trained model and a later unseen-period evaluation. Only candidates emitted by
 the strategy setup are collected; rule failures before a signal is created are
 not included.
 
+### Collect paired CE/PE prices for PPO training
+
+The live Crude process also writes paired option observations to the separate
+`PPO_Training_Paired_Options` tab in `Crude_Algo_Trade_Logs`. Sheet1 and
+`PPO_Paper_Trades` are not modified. For each normal strategy candidate, it
+subscribes to the same-strike, same-expiry CE and PE and records both LTPs
+approximately every 15 seconds for up to five minutes, together with the
+candidate's futures price and entry features. A row is written only when both
+option quotes are fresh (at most 20 seconds old). The local copy is also
+appended to `data/crude_entry_opportunities.jsonl` as `paired_option_sample`.
+
+This is shadow-only collection: it does not place orders or change normal-bot
+SL/target behavior. Google Sheets credentials and write access are required;
+the training tab is created when the first paired sample is logged. Rows are
+grouped by `Signal ID`, allowing future CE and PE premium returns to be derived
+from their observed price sequences. Gather sufficient new samples and evaluate
+on a later unseen period before training or using an independent PPO CE/PE
+selector; the existing exit-management model is not automatically retrained.
+
 ## Install the isolated dependencies
 
 From the `algo_project` directory:

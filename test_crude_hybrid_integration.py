@@ -3,7 +3,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from sheets_logger import SHEET_COLUMNS, log_trade
+from sheets_logger import (
+    PPO_TRAINING_SHEET_COLUMNS,
+    SHEET_COLUMNS,
+    log_ppo_training_sample,
+    log_trade,
+)
 from trading_crude import Bar, CrudeOptionBuyer
 
 
@@ -44,6 +49,25 @@ def test_crude_sheet_appends_score_to_existing_headers():
     ]])
     row = worksheet.append_row.call_args.args[0]
     assert row[SHEET_COLUMNS.index("Entry AI Score")] == 7.4
+
+
+def test_paired_option_sample_goes_to_separate_training_worksheet():
+    worksheet = Mock()
+    worksheet.row_values.return_value = []
+    client = Mock()
+    client.open.return_value.worksheet.return_value = worksheet
+    sample = {"Signal ID": "signal-1", "CE LTP": 120.0, "PE LTP": 90.0}
+
+    with patch("sheets_logger.get_gspread_client", return_value=client):
+        assert log_ppo_training_sample(sample, retries=1)
+
+    client.open.return_value.worksheet.assert_called_once_with(
+        "PPO_Training_Paired_Options"
+    )
+    worksheet.append_row.assert_any_call(PPO_TRAINING_SHEET_COLUMNS)
+    sample_row = worksheet.append_row.call_args_list[-1].args[0]
+    assert sample_row[PPO_TRAINING_SHEET_COLUMNS.index("Signal ID")] == "signal-1"
+    assert sample_row[PPO_TRAINING_SHEET_COLUMNS.index("PE LTP")] == 90.0
 
 
 @pytest.mark.parametrize(
@@ -97,6 +121,36 @@ def test_crude_signal_keeps_valid_rule_signal_when_ai_evaluation_is_unavailable(
     assert signal["side"] == "CE"
     assert signal["ai_evaluation"] is ai_evaluation
     assert 0 <= signal["entry_ai_score"] <= 10
+
+
+def test_ppo_training_pair_subscribes_same_expiry_call_and_put_quotes():
+    engine = CrudeOptionBuyer.__new__(CrudeOptionBuyer)
+    collector = Mock()
+    collector.register_option_pair.return_value = True
+    engine._entry_shadow_collector = collector
+    engine._resolve_option_contract = Mock(
+        side_effect=[
+            {"token": "ce-token", "symbol": "CRUDEOIL7000CE", "expiry": "19NOV2026"},
+            {"token": "pe-token", "symbol": "CRUDEOIL7000PE", "expiry": "19NOV2026"},
+        ]
+    )
+    engine._smart_stream = SimpleNamespace(subscribe_futures=Mock())
+    engine.settings = SimpleNamespace(option_exchange="MCX")
+    signal = {
+        "entry_signal_id": "signal-1",
+        "timestamp": 1,
+        "strike": 7000,
+    }
+
+    engine._subscribe_ppo_training_pair(signal)
+
+    collector.register_option_pair.assert_called_once_with(
+        "signal-1",
+        signal,
+        {"token": "ce-token", "symbol": "CRUDEOIL7000CE", "expiry": "19NOV2026"},
+        {"token": "pe-token", "symbol": "CRUDEOIL7000PE", "expiry": "19NOV2026"},
+    )
+    assert engine._smart_stream.subscribe_futures.call_count == 2
 
 
 def test_crude_short_covering_is_an_enabled_ce_entry_signal():

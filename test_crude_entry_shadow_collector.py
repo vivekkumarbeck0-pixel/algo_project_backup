@@ -1,8 +1,11 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from crude_entry_shadow_collector import CrudeEntryShadowCollector
+from crude_entry_shadow_collector import (
+    CrudeEntryShadowCollector,
+    PpoTrainingSheetSink,
+)
 
 
 IST = ZoneInfo("Asia/Kolkata")
@@ -96,3 +99,88 @@ def test_executed_trade_outcome_is_joinable_with_candidate_signal(tmp_path):
     assert outcome["pnl_amount"] == 1200.0
     assert outcome["quantity"] == 100
     assert outcome["option_price_path"] == [100.0, 104.0, 112.0]
+
+
+def test_paired_option_samples_are_fresh_interval_limited_and_sheet_ready(tmp_path):
+    rows = []
+    sink = PpoTrainingSheetSink(rows.append)
+    collector = CrudeEntryShadowCollector(
+        tmp_path / "entry_opportunities.jsonl", sheet_sink=sink
+    )
+    start = datetime(2026, 10, 19, 10, 0, tzinfo=IST)
+    signal = {
+        "timestamp": start,
+        "side": "CE",
+        "strike": 7000,
+        "futures_price": 7012.0,
+        "atr": 18.0,
+        "scenario": "Long Buildup",
+        "nymex_trend": "GREEN",
+        "candle_open": 7010.0,
+        "candle_high": 7015.0,
+        "candle_low": 7008.0,
+        "candle_close": 7012.0,
+    }
+    assert collector.register_option_pair(
+        "signal-1",
+        signal,
+        {"token": "ce-token", "symbol": "CRUDEOIL7000CE", "expiry": "19NOV2026"},
+        {"token": "pe-token", "symbol": "CRUDEOIL7000PE", "expiry": "19NOV2026"},
+    )
+
+    assert collector.record_option_tick(start, "ce-token", 120.0) == 0
+    assert collector.record_option_tick(start, "pe-token", 90.0) == 1
+    assert collector.record_option_tick(start + timedelta(seconds=10), "ce-token", 121.0) == 0
+    assert collector.record_option_tick(start + timedelta(seconds=15), "pe-token", 92.0) == 1
+    assert collector.record_option_tick(start + timedelta(seconds=36), "ce-token", 123.0) == 0
+    assert collector.record_option_tick(start + timedelta(seconds=40), "pe-token", 95.0) == 1
+
+    sink.close()
+    assert len(rows) == 3
+    assert rows[-1]["Signal ID"] == "signal-1"
+    assert rows[-1]["Seconds From Signal"] == 40
+    assert rows[-1]["CE Symbol"] == "CRUDEOIL7000CE"
+    assert rows[-1]["CE LTP"] == 123.0
+    assert rows[-1]["PE LTP"] == 95.0
+
+    saved = [
+        json.loads(line)
+        for line in (tmp_path / "entry_opportunities.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert sum(record["event"] == "paired_option_sample" for record in saved) == 3
+
+
+def test_paired_option_capture_rejects_different_expiries(tmp_path):
+    collector = CrudeEntryShadowCollector(tmp_path / "entry_opportunities.jsonl")
+    assert not collector.register_option_pair(
+        "signal-1",
+        {"timestamp": datetime(2026, 10, 19, 10, 0, tzinfo=IST)},
+        {"token": "ce-token", "expiry": "19NOV2026"},
+        {"token": "pe-token", "expiry": "26NOV2026"},
+    )
+
+
+def test_paired_option_subscriptions_expire_after_capture_window(tmp_path):
+    collector = CrudeEntryShadowCollector(tmp_path / "entry_opportunities.jsonl")
+    start = datetime(2026, 10, 19, 10, 0, tzinfo=IST)
+    assert collector.register_option_pair(
+        "signal-1",
+        {"timestamp": start},
+        {"token": "ce-token", "expiry": "19NOV2026"},
+        {"token": "pe-token", "expiry": "19NOV2026"},
+    )
+
+    assert collector.expire_option_pairs(start + timedelta(minutes=5)) == set()
+    assert collector.expire_option_pairs(start + timedelta(minutes=5, seconds=1)) == {
+        "ce-token",
+        "pe-token",
+    }
+    assert collector.active_option_tokens() == set()
+
+
+def test_training_sheet_sink_reports_failed_writes():
+    sink = PpoTrainingSheetSink(lambda row: False)
+    sink.submit({"Signal ID": "signal-1"})
+    sink.close()

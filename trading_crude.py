@@ -38,7 +38,10 @@ import yfinance as yf
 from config import MCX_CRUDE_FUTURE, settings
 from engine.adaptive_config import AdaptiveConfigReloader
 from engine.crude_outcome_filter import build_live_outcome_features, predict_win_probability
-from crude_entry_shadow_collector import CrudeEntryShadowCollector
+from crude_entry_shadow_collector import (
+    CrudeEntryShadowCollector,
+    PpoTrainingSheetSink,
+)
 from crude_tick_shadow_observer import CrudeTickShadowObserver
 from sheets_logger import log_trade
 
@@ -409,6 +412,19 @@ class AngelSmartWebSocketClient:
             self._clear_latest_ticks()
             logger.info("MCX Crude websocket subscription closed; reconnect will resume the stream.")
 
+    def unsubscribe_futures(self, token: str, exchange: str = "MCX") -> None:
+        if self.ws is None:
+            return
+        exchange_type = self.EXCHANGE_TYPE_MAP.get(exchange.upper())
+        if exchange_type is None:
+            logger.error("Unknown exchange '%s' for websocket unsubscription.", exchange)
+            return
+        try:
+            token_list = [{"exchangeType": exchange_type, "tokens": [str(token)]}]
+            self.ws.unsubscribe("crude1", self.SNAP_QUOTE_MODE, token_list)
+        except Exception:
+            logger.exception("Could not unsubscribe option quote token %s.", token)
+
     def close(self):
         if self.ws is not None:
             try:
@@ -592,7 +608,10 @@ class CrudeOptionBuyer:
         except Exception:
             # Shadow initialization is optional and must not affect bot startup.
             logger.exception("Could not start the Crude PPO shadow observer.")
-        self._entry_shadow_collector = CrudeEntryShadowCollector()
+        self._ppo_training_sheet_sink = PpoTrainingSheetSink()
+        self._entry_shadow_collector = CrudeEntryShadowCollector(
+            sheet_sink=self._ppo_training_sheet_sink
+        )
 
     def _refresh_adaptive_config(self) -> None:
         try:
@@ -879,6 +898,47 @@ class CrudeOptionBuyer:
             self._smart_stream.subscribe_futures(
                 self._position.option_token, exchange=self.settings.option_exchange
             )
+        collector = getattr(self, "_entry_shadow_collector", None)
+        if collector is not None:
+            for option_token in collector.active_option_tokens():
+                self._smart_stream.subscribe_futures(
+                    option_token, exchange=self.settings.option_exchange
+                )
+
+    def _subscribe_ppo_training_pair(self, signal: Dict[str, Any]) -> None:
+        """Capture same-strike, same-expiry CE/PE quotes for the PPO dataset."""
+        collector = getattr(self, "_entry_shadow_collector", None)
+        signal_id = str(signal.get("entry_signal_id") or "")
+        try:
+            if collector is None or not signal_id:
+                return
+            strike = int(signal["strike"])
+            call_contract = self._resolve_option_contract(strike, "CE")
+            put_contract = self._resolve_option_contract(strike, "PE")
+            if not call_contract or not put_contract:
+                logger.warning(
+                    "Skipping PPO paired-price capture: both CE and PE contracts "
+                    "were not found for strike %s.",
+                    strike,
+                )
+                return
+            if not collector.register_option_pair(
+                signal_id, signal, call_contract, put_contract
+            ):
+                logger.warning(
+                    "Skipping PPO paired-price capture: CE/PE contracts for strike %s "
+                    "do not have matching expiries or tokens.",
+                    strike,
+                )
+                return
+            for contract in (call_contract, put_contract):
+                self._smart_stream.subscribe_futures(
+                    str(contract["token"]), exchange=self.settings.option_exchange
+                )
+        except Exception:
+            logger.exception(
+                "Could not subscribe to paired option quotes for PPO training."
+            )
 
     def _bootstrap_futures_bars(self, token: str) -> None:
         """Load completed MCX one-minute candles so startup has no live warm-up wait."""
@@ -1133,7 +1193,24 @@ class CrudeOptionBuyer:
             token = str(raw_data.get("token") or raw_data.get("symbolToken") or "").strip()
             futures_token = self._resolve_futures_token()
             if not token or not futures_token or token != str(futures_token):
+                collector = getattr(self, "_entry_shadow_collector", None)
+                if collector is not None and token:
+                    was_tracking = collector.is_tracking_option_token(token)
+                    try:
+                        collector.record_option_tick(_now_ist(), token, ltp)
+                    except Exception:
+                        logger.exception("Could not save paired Crude option prices.")
                 position = self._position
+                if (
+                    collector is not None
+                    and token
+                    and was_tracking
+                    and not collector.is_tracking_option_token(token)
+                    and (position is None or token != position.option_token)
+                ):
+                    self._smart_stream.unsubscribe_futures(
+                        token, exchange=self.settings.option_exchange
+                    )
                 if position is not None and token and token == position.option_token:
                     if not self._option_quote_is_fresh(raw_data):
                         logger.warning(
@@ -1176,6 +1253,13 @@ class CrudeOptionBuyer:
             if collector is not None:
                 try:
                     collector.record_futures_tick(_now_ist(), ltp)
+                    expired_tokens = collector.expire_option_pairs(_now_ist())
+                    position = self._position
+                    for expired_token in expired_tokens:
+                        if position is None or expired_token != position.option_token:
+                            self._smart_stream.unsubscribe_futures(
+                                expired_token, exchange=self.settings.option_exchange
+                            )
                 except Exception:
                     logger.exception("Could not update Crude entry shadow price paths.")
             signal = self._evaluate_strategy()
@@ -2772,6 +2856,7 @@ class CrudeOptionBuyer:
         while not self._live_signal_queue.empty():
             signal = self._live_signal_queue.get()
             signal_id = str(signal.get("entry_signal_id") or "")
+            self._subscribe_ppo_training_pair(signal)
             # One position at a time: remaining signals are discarded, not queued.
             if self._position is None:
                 self._place_entry_order(signal)

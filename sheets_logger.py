@@ -103,6 +103,35 @@ PPO_SHEET_COLUMNS = [
     "Hold Ticks",
 ]
 
+PPO_TRAINING_WORKSHEET_TITLE = "PPO_Training_Paired_Options"
+PPO_TRAINING_SHEET_COLUMNS = [
+    "Signal ID",
+    "Sample Timestamp",
+    "Seconds From Signal",
+    "Scenario",
+    "Normal Bot Side",
+    "Strike",
+    "Expiry",
+    "Futures Price",
+    "ATR",
+    "OI",
+    "OI Change",
+    "Volume",
+    "NYMEX Trend",
+    "Market Regime",
+    "Market Reversal",
+    "Entry AI Score",
+    "Candle Open",
+    "Candle High",
+    "Candle Low",
+    "Candle Close",
+    "Entry Pivot Price",
+    "CE Symbol",
+    "CE LTP",
+    "PE Symbol",
+    "PE LTP",
+]
+
 
 def log_ppo_trade(trade_data: dict, retries: int = 3) -> bool:
     """Append one PPO paper trade to its own worksheet, separate from Sheet1."""
@@ -124,6 +153,34 @@ def log_ppo_trade(trade_data: dict, retries: int = 3) -> bool:
         except Exception as exc:
             print(f"PPO sheet log attempt {attempt}/{retries} failed: {exc}")
             time.sleep(2 * attempt)
+    return False
+
+
+def log_ppo_training_sample(sample: dict, retries: int = 3) -> bool:
+    """Append one paired CE/PE quote sample to a separate PPO training worksheet."""
+    for attempt in range(1, retries + 1):
+        try:
+            sh = get_gspread_client().open("Crude_Algo_Trade_Logs")
+            try:
+                worksheet = sh.worksheet(PPO_TRAINING_WORKSHEET_TITLE)
+            except gspread.exceptions.WorksheetNotFound:
+                worksheet = sh.add_worksheet(
+                    title=PPO_TRAINING_WORKSHEET_TITLE,
+                    rows=10000,
+                    cols=len(PPO_TRAINING_SHEET_COLUMNS),
+                )
+            headers = worksheet.row_values(1)
+            if not headers:
+                headers = PPO_TRAINING_SHEET_COLUMNS.copy()
+                worksheet.append_row(headers)
+            worksheet.append_row([sample.get(header, "") for header in headers])
+            return True
+        except Exception as exc:
+            print(
+                f"PPO training sheet attempt {attempt}/{retries} failed: {exc}"
+            )
+            if attempt < retries:
+                time.sleep(2 * attempt)
     return False
 
 
