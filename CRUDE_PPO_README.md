@@ -4,6 +4,13 @@ This experiment is separate from `trading_crude.py`: it does not import, edit,
 or connect to the live order-execution bot. Model files and reports are written
 under `models/` by default.
 
+## PPO paper-runner logging
+
+Completed PPO paper trades continue to be sent to the `PPO_Paper_Trades` Google
+Sheet tab. Local event and summary files in `ppo_shadow_logs/` are disabled by
+default; use `--local-logs` with `crude_ppo_paper_runner.py` when local
+diagnostic files are needed. This does not remove any existing log files.
+
 ## Data contract and limits
 
 Use one completed trade per row in a CSV or JSONL file. Rows need an option side

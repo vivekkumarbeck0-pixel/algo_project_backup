@@ -102,8 +102,9 @@ def test_env_trades_and_closes_at_episode_end():
     assert exits and exits[-1]["pnl_r"] > 0
 
 
-def test_runner_logs_only_to_ppo_shadow_dir_and_respects_daily_limit(tmp_path):
-    writer = ShadowLogWriter(tmp_path / "ppo_shadow_logs")
+def test_runner_disables_local_logs_by_default_and_respects_daily_limit(tmp_path):
+    log_dir = tmp_path / "ppo_shadow_logs"
+    writer = ShadowLogWriter(log_dir)
     runner = PaperRunner(
         lambda obs: np.asarray(LONG_ACT),
         writer,
@@ -114,10 +115,24 @@ def test_runner_logs_only_to_ppo_shadow_dir_and_respects_daily_limit(tmp_path):
     prices = [100.0, 101.0, 99.0, 102.0, 103.0, 104.0]
     for i, price in enumerate(prices):
         runner.on_tick(start + timedelta(seconds=i), price)
-    files = list((tmp_path / "ppo_shadow_logs").iterdir())
-    assert {f.name for f in files} == {"ppo_paper_events_2026-10-26.jsonl", "ppo_paper_summary.json"}
+    assert not log_dir.exists()
     assert writer.trades == 1 and writer.pnl_points < 0
     assert runner.engine.side == 0  # max_trades_per_day blocked re-entry
+
+
+def test_runner_can_opt_in_to_local_logs(tmp_path):
+    log_dir = tmp_path / "ppo_shadow_logs"
+    writer = ShadowLogWriter(log_dir, local_logging=True)
+    runner = PaperRunner(
+        lambda obs: np.asarray(LONG_ACT),
+        writer,
+        fixed_atr=2.0,
+    )
+    start = datetime(2026, 10, 26, 10, 0, tzinfo=timezone(timedelta(hours=5, minutes=30)))
+    for i, price in enumerate([100.0, 101.0, 99.0, 102.0, 103.0, 104.0]):
+        runner.on_tick(start + timedelta(seconds=i), price)
+    files = list(log_dir.iterdir())
+    assert {f.name for f in files} == {"ppo_paper_events_2026-10-26.jsonl", "ppo_paper_summary.json"}
 
 
 def test_runner_flattens_before_close_and_ignores_closed_market(tmp_path):

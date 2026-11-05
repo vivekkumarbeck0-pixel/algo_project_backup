@@ -1,9 +1,10 @@
 """Independent PPO paper-trading runner for crude oil.
 
 Runs beside the rule-based engine but shares no state with it: it never imports
-the order manager or Sheet 1 loggers, never places broker orders, and writes
-to the local ``ppo_shadow_logs`` directory plus the separate ``PPO_Paper_Trades``
-Google Sheet tab. Each trade is charged a fixed Rs 50 (0.5 point) friction.
+the order manager or Sheet 1 loggers and never places broker orders. Completed
+trades go to the separate ``PPO_Paper_Trades`` Google Sheet tab. Local event
+files are disabled by default and can be enabled with ``--local-logs``. Each
+trade is charged a fixed Rs 50 (0.5 point) friction.
 
     python crude_ppo_paper_runner.py --source csv --ticks ticks.csv
     python crude_ppo_paper_runner.py --source angel --token <MCX token>
@@ -75,12 +76,20 @@ class PpoSheetSink:
 
 
 class ShadowLogWriter:
-    """Append-only JSONL trade log plus a rolling PnL summary, all in ppo_shadow_logs."""
+    """Track paper-trade results and optionally persist local event logs."""
 
-    def __init__(self, directory: Path = LOG_DIR, sheet_sink: PpoSheetSink | None = None):
+    def __init__(
+        self,
+        directory: Path = LOG_DIR,
+        sheet_sink: PpoSheetSink | None = None,
+        *,
+        local_logging: bool = False,
+    ):
         self.sheet_sink = sheet_sink
         self.directory = Path(directory)
-        self.directory.mkdir(parents=True, exist_ok=True)
+        self.local_logging = local_logging
+        if self.local_logging:
+            self.directory.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
         self.trades = 0
         self.wins = 0
@@ -92,12 +101,13 @@ class ShadowLogWriter:
         self.max_drawdown = 0.0
 
     def log(self, event: dict[str, Any]) -> None:
-        stamp = event.get("timestamp") or datetime.now(IST).isoformat()
-        record = {"timestamp": stamp, "mode": "PPO_PAPER", **event}
-        path = self.directory / f"ppo_paper_events_{stamp[:10]}.jsonl"
         with self._lock:
-            with path.open("a", encoding="utf-8") as handle:
-                handle.write(json.dumps(record, default=float) + "\n")
+            if self.local_logging:
+                stamp = event.get("timestamp") or datetime.now(IST).isoformat()
+                record = {"timestamp": stamp, "mode": "PPO_PAPER", **event}
+                path = self.directory / f"ppo_paper_events_{stamp[:10]}.jsonl"
+                with path.open("a", encoding="utf-8") as handle:
+                    handle.write(json.dumps(record, default=float) + "\n")
             if event.get("type") == "exit":
                 self._record_exit(event)
                 if self.sheet_sink is not None:
@@ -133,19 +143,20 @@ class ShadowLogWriter:
         self.gross_loss += max(-pnl, 0.0)
         self.peak = max(self.peak, self.pnl_points)
         self.max_drawdown = max(self.max_drawdown, self.peak - self.pnl_points)
-        summary = {
-            "trades": self.trades,
-            "win_rate": self.wins / self.trades,
-            "total_pnl_points": self.pnl_points,
-            "total_pnl_r": self.pnl_r,
-            "expectancy_r": self.pnl_r / self.trades,
-            "profit_factor": (self.gross_win / self.gross_loss) if self.gross_loss else None,
-            "max_drawdown_points": self.max_drawdown,
-            "updated": datetime.now(IST).isoformat(),
-        }
-        (self.directory / "ppo_paper_summary.json").write_text(
-            json.dumps(summary, indent=2), encoding="utf-8"
-        )
+        if self.local_logging:
+            summary = {
+                "trades": self.trades,
+                "win_rate": self.wins / self.trades,
+                "total_pnl_points": self.pnl_points,
+                "total_pnl_r": self.pnl_r,
+                "expectancy_r": self.pnl_r / self.trades,
+                "profit_factor": (self.gross_win / self.gross_loss) if self.gross_loss else None,
+                "max_drawdown_points": self.max_drawdown,
+                "updated": datetime.now(IST).isoformat(),
+            }
+            (self.directory / "ppo_paper_summary.json").write_text(
+                json.dumps(summary, indent=2), encoding="utf-8"
+            )
 
 
 class BarAtr:
@@ -404,11 +415,12 @@ def main() -> None:
     parser.add_argument("--poll-seconds", type=float, default=0.25)
     parser.add_argument("--atr", type=float, help="fixed ATR in price points (default: bar ATR)")
     parser.add_argument("--atr-bar-seconds", type=int, default=300)
-    # The Rs 50 per-trade friction (brokerage + slippage) is charged once in the logs.
+    # The Rs 50 per-trade friction (brokerage + slippage) is charged once in paper-trade records.
     parser.add_argument("--slippage-points", type=float, default=0.0)
     parser.add_argument("--no-sheet", action="store_true", help="skip PPO Google Sheet logging")
     parser.add_argument("--cost-points", type=float, default=0.0)
-    parser.add_argument("--log-dir", type=Path, default=LOG_DIR)
+    parser.add_argument("--local-logs", action="store_true", help="write event and summary files locally")
+    parser.add_argument("--log-dir", type=Path, default=LOG_DIR, help="directory used with --local-logs")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -435,7 +447,7 @@ def run_once(args, model_path: Path) -> None:
     sink = None if args.no_sheet else PpoSheetSink()
     runner = PaperRunner(
         load_policy(model_path),
-        ShadowLogWriter(args.log_dir, sheet_sink=sink),
+        ShadowLogWriter(args.log_dir, sheet_sink=sink, local_logging=args.local_logs),
         engine_config=EngineConfig(args.slippage_points, args.cost_points),
         atr_source=None if args.atr else BarAtr(args.atr_bar_seconds),
         fixed_atr=args.atr,
