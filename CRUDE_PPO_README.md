@@ -10,6 +10,11 @@ Completed PPO paper trades continue to be sent to the `PPO_Paper_Trades` Google
 Sheet tab. Local event and summary files in `ppo_shadow_logs/` are disabled by
 default; use `--local-logs` with `crude_ppo_paper_runner.py` when local
 diagnostic files are needed. This does not remove any existing log files.
+In paper mode, the initial hard stop stays fixed and trailing/adaptive stop
+tightening is disabled, giving an open trade room to reach its target. The
+PPO can still extend a target or close on an opposite signal, and the original
+hard stop can still exit first. This paper-runner setting does not change
+training or historical simulation behavior.
 
 ## Data contract and limits
 

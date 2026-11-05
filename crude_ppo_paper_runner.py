@@ -390,7 +390,7 @@ def run_live_forever(
             runner = PaperRunner(
                 load_policy(model_path),
                 ShadowLogWriter(LOG_DIR, sheet_sink=sink),
-                engine_config=EngineConfig(0.0, 0.0),
+                engine_config=EngineConfig(0.0, 0.0, trailing_enabled=False),
                 atr_source=BarAtr(300),
             )
             for timestamp, price in angel_ticks(token, "MCX", 0.25):
@@ -448,7 +448,9 @@ def run_once(args, model_path: Path) -> None:
     runner = PaperRunner(
         load_policy(model_path),
         ShadowLogWriter(args.log_dir, sheet_sink=sink, local_logging=args.local_logs),
-        engine_config=EngineConfig(args.slippage_points, args.cost_points),
+        engine_config=EngineConfig(
+            args.slippage_points, args.cost_points, trailing_enabled=False
+        ),
         atr_source=None if args.atr else BarAtr(args.atr_bar_seconds),
         fixed_atr=args.atr,
     )

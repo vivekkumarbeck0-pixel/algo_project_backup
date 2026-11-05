@@ -51,6 +51,28 @@ def test_trail_stays_inactive_below_fixed_activation_points():
     assert not engine.trail_active and engine.sl == pytest.approx(99.0)
 
 
+@pytest.mark.parametrize(
+    ("side", "action", "prices"),
+    [
+        ("LONG", LONG_ACT, [100.0, 115.0, 104.0, 140.0]),
+        ("SHORT", SHORT_ACT, [100.0, 85.0, 96.0, 60.0]),
+    ],
+)
+def test_paper_mode_without_trailing_keeps_initial_stop_and_can_reach_target(
+    side, action, prices
+):
+    engine = TradeEngine(EngineConfig(trailing_enabled=False))
+    entry = engine.step(prices[0], 10.0, action)[0]
+    initial_stop = entry["stop_loss"]
+    assert entry["side"] == side
+    assert engine.step(prices[1], 10.0, HOLD_ACT) == []
+    assert engine.step(prices[2], 10.0, HOLD_ACT) == []
+    assert not engine.trail_active
+    assert engine.sl == pytest.approx(initial_stop)
+    target_exit = engine.step(prices[3], 10.0, HOLD_ACT)[0]
+    assert target_exit["reason"] == "take_profit"
+
+
 def test_trail_jumps_to_breakeven_on_activation_then_ratchets_long():
     engine = TradeEngine(EngineConfig(trail_activation_points=2.0, trail_breakeven_buffer_points=1.0))
     engine.step(100.0, 1.0, [1.0, 0.0, 1.0, 1.0])  # risk 1.0, 1R trail gap

@@ -92,6 +92,7 @@ class EngineConfig:
     min_entry_momentum_atr: tuple[float, ...] = MIN_ENTRY_MOMENTUM_ATR
     trail_activation_points: float = TRAIL_ACTIVATION_POINTS
     trail_breakeven_buffer_points: float = TRAIL_BREAKEVEN_BUFFER_POINTS
+    trailing_enabled: bool = True
 
     def __post_init__(self) -> None:
         for name in (
@@ -243,8 +244,9 @@ class TradeEngine:
                 return [self._close(price, "take_profit")]
             if intent == -self.side:
                 return [self._close(price, "policy_exit")]
-            candidate_sl = self.entry - self.side * sl_mult * atr
-            self.sl = max(self.sl, candidate_sl) if self.side == LONG else min(self.sl, candidate_sl)
+            if cfg.trailing_enabled:
+                candidate_sl = self.entry - self.side * sl_mult * atr
+                self.sl = max(self.sl, candidate_sl) if self.side == LONG else min(self.sl, candidate_sl)
             if tp_rr > self.tp_rr:
                 self.tp_rr = tp_rr
                 self.tp = self.entry + self.side * tp_rr * self.risk
@@ -269,7 +271,11 @@ class TradeEngine:
 
     def _tighten_trailing(self) -> None:
         cfg = self.config
-        if self.side == FLAT or self.side * (self.best - self.entry) < cfg.trail_activation_points:
+        if (
+            not cfg.trailing_enabled
+            or self.side == FLAT
+            or self.side * (self.best - self.entry) < cfg.trail_activation_points
+        ):
             return
         self.trail_active = True
         # Breakeven floor (never beyond the best price) plus the gap-based trail;
