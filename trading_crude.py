@@ -215,227 +215,54 @@ class Position:
 
 
 class AngelSmartWebSocketClient:
-    """Thin wrapper around Angel One SmartWebSocketV2 for live MCX Crude stream."""
+    """Crude engine's view of the process-wide SmartStream websocket.
 
-    EXCHANGE_TYPE_MAP = {
-        "NSE": 1,
-        "NFO": 2,
-        "BSE": 3,
-        "BFO": 4,
-        "MCX": 5,
-        "NCX": 7,
-        "CDS": 13,
-    }
-    SNAP_QUOTE_MODE = 3
+    It never opens its own socket: Angel One allows one websocket per client
+    code, so ticks, subscriptions and reconnects all go through the shared
+    LiveTickStore in angel_one.smart_stream.
+    """
 
     def __init__(self, api_key: str, client_code: str, feed_token: str, jwt_token: str = ""):
         self.api_key = api_key
         self.client_code = client_code
         self.feed_token = feed_token
         self.jwt_token = jwt_token
-        self.ws = None
-        self.connected = False
+        self.client: Any = None
+        self._store: Any = None
         self._latest_ticks: dict[str, Dict[str, Any]] = {}
         self._lock = threading.Lock()
-        self._open_event = threading.Event()
-        self._connect_thread: Optional[threading.Thread] = None
-        self._connect_lock = threading.Lock()
-        self._last_error_log = 0.0
 
-        self._SmartWebSocketV2 = None
-
-    @staticmethod
-    def _import_smart_websocket_v2():
-        """Import SmartWebSocketV2 across SDK naming variants."""
-        try:
-            from SmartApi.smartWebSocketV2 import SmartWebSocketV2
-
-            return SmartWebSocketV2
-        except Exception:
-            pass
-
-        try:
-            from smartapi.smartWebSocketV2 import SmartWebSocketV2
-
-            return SmartWebSocketV2
-        except Exception:
-            pass
-
-        try:
-            import SmartAPI  # type: ignore
-
-            # Mirror package name variants used by different SDK releases.
-            sys.modules.setdefault("smartapi", SmartAPI)
-            sys.modules.setdefault("SmartApi", SmartAPI)
-            from SmartAPI.smartWebSocketV2 import SmartWebSocketV2  # type: ignore
-
-            return SmartWebSocketV2
-        except Exception:
-            return None
+    @property
+    def connected(self) -> bool:
+        return bool(self._store is not None and self._store.connected)
 
     def connect(self, timeout: float = 10.0) -> bool:
-        remaining = getattr(self, "_limited_until", 0.0) - time.monotonic()
-        if remaining > 0:
-            logger.warning(
-                "Angel One websocket connection limit hit; not reconnecting for %.0fs. "
-                "Stop any other process or deploy using this client code.",
-                remaining,
-            )
-            return False
+        from angel_one.smart_stream import get_shared_tick_store
 
-        with self._connect_lock:
-            if self._connect_thread is not None and self._connect_thread.is_alive():
-                return self.connected
-
-            if self._SmartWebSocketV2 is None:
-                self._SmartWebSocketV2 = self._import_smart_websocket_v2()
-
-            if self._SmartWebSocketV2 is None:
-                logger.error(
-                    "Angel One SmartWebSocketV2 is not importable. Install smartapi-python in this Python environment."
-                )
+        if self._store is None:
+            self._store = get_shared_tick_store(self.client)
+            if self._store is None:
+                logger.error("Shared Angel One SmartStream is unavailable.")
                 return False
+            self._store.add_listener(self._on_tick)
+            logger.info("MCX Crude engine attached to the shared Angel One SmartStream.")
+        return self.connected
 
-            # Close the previous socket; otherwise its SDK retry loop stays alive and
-            # exhausts Angel One's concurrent-connection limit for this client code.
-            old_ws = self.ws
-            if old_ws is not None:
-                try:
-                    old_ws.close_connection()
-                except Exception:
-                    pass
-
-            try:
-                args = (self.jwt_token, self.api_key, self.client_code, self.feed_token)
-                try:
-                    # Reconnects are owned by the engine; disable the SDK's own retry loop.
-                    self.ws = self._SmartWebSocketV2(*args, max_retry_attempt=0)
-                except TypeError:
-                    self.ws = self._SmartWebSocketV2(*args)
-                self._log_sdk_errors(self.ws)
-                self.ws.on_open = self._on_open
-                self.ws.on_data = self._on_message
-                self.ws.on_message = self._on_message
-                self.ws.on_error = self._on_error
-                self.ws.on_close = self._on_close
-            except Exception as exc:  # pragma: no cover
-                logger.exception("Failed to initialize Angel One websocket client: %s", exc)
-                self.connected = False
-                return False
-
-            # SmartWebSocketV2.connect() runs a blocking run_forever() loop, so it
-            # must be driven from a background thread; we only wait here for the
-            # on_open callback (or timeout) before returning control to the caller.
-            self._open_event.clear()
-            self._connect_thread = threading.Thread(target=self._run_forever, daemon=True)
-            self._connect_thread.start()
-
-        opened = self._open_event.wait(timeout)
-        if not opened:
-            logger.error("Angel One websocket did not open within %.0fs.", timeout)
-            return False
-
-        logger.info("Angel One SmartStream websocket connected for MCX Crude stream.")
-        return True
-
-    CONNECTION_LIMIT_COOLDOWN_SECONDS = 60.0
-
-    def _log_sdk_errors(self, ws) -> None:
-        # The SDK replaces the real transport/handshake error with "Connection closed".
-        original_error = getattr(ws, "_on_error", None)
-        if original_error is not None:
-
-            def logged_error(wsapp, error):
-                text = str(error)
-                if "429" in text or "Connection Limit" in text:
-                    self._limited_until = time.monotonic() + self.CONNECTION_LIMIT_COOLDOWN_SECONDS
-                logger.error("Angel One websocket transport/handshake error: %s", text[:300])
-                return original_error(wsapp, error)
-
-            ws._on_error = logged_error
-
-        # websocket-client passes (wsapp, status, msg) but the SDK's _on_close takes only wsapp.
-        original_close = getattr(ws, "_on_close", None)
-        if original_close is not None:
-            ws._on_close = lambda wsapp, *args: original_close(wsapp)
-
-    def _run_forever(self):
-        try:
-            self.ws.connect()
-        except Exception as exc:  # pragma: no cover
-            logger.info("Angel One websocket connection closed; reconnecting in the background.")
-            self.connected = False
-            self._open_event.clear()
-
-    def _on_open(self, *args, **kwargs):
-        self.connected = True
-        self._open_event.set()
-        logger.info("Angel One SmartStream socket opened.")
-
-    def _on_message(self, *args):
-        # SmartWebSocketV2 invokes on_data/on_message with (wsapp, message);
-        # message is always the final positional argument.
-        message = args[-1] if args else None
-        if isinstance(message, str):
-            try:
-                payload = json.loads(message)
-            except json.JSONDecodeError:
-                payload = {"raw": message}
-        else:
-            payload = message
-
-        for tick_record in self._tick_records(payload):
-            token = str(tick_record.get("token") or tick_record.get("symbolToken") or "").strip()
-            if token:
-                with self._lock:
-                    self._latest_ticks[token] = {"data": tick_record}
-
-    @staticmethod
-    def _tick_records(payload: Any) -> list[Dict[str, Any]]:
-        if isinstance(payload, dict):
-            raw_data = payload.get("data") or payload.get("tokenData") or payload.get("tick")
-            if isinstance(raw_data, list):
-                records = raw_data
-            elif isinstance(raw_data, dict):
-                records = [raw_data]
-            elif "last_traded_price" in payload or "last_price" in payload:
-                records = [payload]
-            else:
-                records = []
-        elif isinstance(payload, list):
-            records = payload
-        else:
-            records = []
-        return [record for record in records if isinstance(record, dict)]
+    def _on_tick(self, payload: Dict[str, Any]) -> None:
+        token = str(payload.get("token") or payload.get("symbolToken") or "").strip()
+        if token:
+            with self._lock:
+                self._latest_ticks[token] = {"data": payload}
 
     def drain_latest_ticks(self) -> list[Dict[str, Any]]:
         with self._lock:
+            if not self.connected:
+                self._latest_ticks.clear()
             latest_ticks = list(self._latest_ticks.values())
             self._latest_ticks.clear()
         return latest_ticks
 
-    def _clear_latest_ticks(self) -> None:
-        with self._lock:
-            self._latest_ticks.clear()
-
-    def _on_error(self, *args):
-        error = args[-1] if args else "unknown"
-        logger.error(f"RAW WEBSOCKET ERROR: {error}")
-        self.connected = False
-        self._open_event.clear()
-        self._clear_latest_ticks()
-
-    def _on_close(self, *args, **kwargs):
-        error = args[-1] if args else "unknown"
-        logger.error(f"RAW WEBSOCKET ERROR: {error}")
-        self.connected = False
-        self._open_event.clear()
-        self._clear_latest_ticks()
-
     def subscribe_futures(self, token: str, exchange: str = "MCX") -> bool:
-        if self.ws is None:
-            logger.warning("Websocket not initialized; cannot subscribe to token %s.", token)
-            return False
         if not self.connected:
             logger.warning(
                 "Websocket is disconnected; cannot subscribe to token %s on %s.",
@@ -443,54 +270,27 @@ class AngelSmartWebSocketClient:
                 exchange,
             )
             return False
-
-        exchange_type = self.EXCHANGE_TYPE_MAP.get(exchange.upper())
-        if exchange_type is None:
-            logger.error("Unknown exchange '%s' for websocket subscription.", exchange)
-            return False
-
         try:
-            token_list = [{"exchangeType": exchange_type, "tokens": [str(token)]}]
-            self.ws.subscribe("crude1", self.SNAP_QUOTE_MODE, token_list)
-            logger.info(
-                "Subscribed to market-data token %s on %s (exchangeType=%s).",
-                token,
-                exchange,
-                exchange_type,
-            )
-            return True
-        except Exception:  # pragma: no cover
-            self.connected = False
-            self._open_event.clear()
-            self._clear_latest_ticks()
-            logger.exception(
-                "Websocket subscription failed for token %s on %s; reconnect will resume the stream.",
-                token,
-                exchange,
-            )
+            return bool(self._store.ensure_subscribed(str(token), exchange))
+        except Exception:
+            logger.exception("Shared SmartStream subscription failed for token %s on %s.", token, exchange)
             return False
 
     def unsubscribe_futures(self, token: str, exchange: str = "MCX") -> None:
-        if self.ws is None or not self.connected:
-            return
-        exchange_type = self.EXCHANGE_TYPE_MAP.get(exchange.upper())
-        if exchange_type is None:
-            logger.error("Unknown exchange '%s' for websocket unsubscription.", exchange)
+        if self._store is None:
             return
         try:
-            token_list = [{"exchangeType": exchange_type, "tokens": [str(token)]}]
-            self.ws.unsubscribe("crude1", self.SNAP_QUOTE_MODE, token_list)
+            self._store.unsubscribe(str(token), exchange)
         except Exception:
             logger.exception("Could not unsubscribe option quote token %s.", token)
 
     def close(self):
-        if self.ws is not None:
-            try:
-                self.ws.close_connection()
-            except Exception:  # pragma: no cover
-                pass
-        self.connected = False
-        self._open_event.clear()
+        """Detach from the shared feed; the shared websocket stays open for other consumers."""
+        if self._store is not None:
+            self._store.remove_listener(self._on_tick)
+            self._store = None
+        with self._lock:
+            self._latest_ticks.clear()
 
 
 class YFinanceLeadFilter:
@@ -1104,7 +904,7 @@ class CrudeOptionBuyer:
         self._smart_stream.jwt_token = self.settings.angel_jwt_token
         self._smart_stream.feed_token = self.settings.angel_feed_token
         self._smart_stream.client_code = self.settings.angel_client_code
-
+        self._smart_stream.client = client
         logger.info("Angel One auto-login succeeded; JWT and feed token acquired.")
         return True
 

@@ -77,40 +77,64 @@ def test_closed_websocket_reconnects_and_disables_rest_fallback():
     assert engine._rest_fallback is False
 
 
-def test_websocket_does_not_start_parallel_connect_while_previous_thread_runs():
-    client = AngelSmartWebSocketClient.__new__(AngelSmartWebSocketClient)
-    client._connect_lock = threading.Lock()
-    client._connect_thread = Mock(is_alive=Mock(return_value=True))
-    client.connected = False
+def _shared_client(store):
+    client = AngelSmartWebSocketClient("key", "client", "feed", "jwt")
+    client._store = store
+    return client
 
-    assert client.connect() is False
+
+def test_engine_stream_never_opens_its_own_websocket():
+    from unittest.mock import patch
+
+    store = Mock(connected=True)
+    client = AngelSmartWebSocketClient("key", "client", "feed", "jwt")
+    client.client = object()
+
+    with patch("angel_one.smart_stream.get_shared_tick_store", return_value=store) as shared:
+        assert client.connect() is True
+        assert client.connect() is True
+
+    shared.assert_called_once_with(client.client)
+    store.add_listener.assert_called_once_with(client._on_tick)
+    assert not hasattr(client, "ws")
+
+
+def test_connect_reports_unavailable_shared_stream():
+    from unittest.mock import patch
+
+    client = AngelSmartWebSocketClient("key", "client", "feed", "jwt")
+    with patch("angel_one.smart_stream.get_shared_tick_store", return_value=None):
+        assert client.connect() is False
+    assert client.connected is False
 
 
 def test_websocket_subscription_reports_success():
-    client = AngelSmartWebSocketClient.__new__(AngelSmartWebSocketClient)
-    client.ws = Mock()
-    client.connected = True
+    store = Mock(connected=True)
+    store.ensure_subscribed.return_value = True
+    client = _shared_client(store)
 
     assert client.subscribe_futures("OPTION", exchange="MCX") is True
-    client.ws.subscribe.assert_called_once_with(
-        "crude1",
-        client.SNAP_QUOTE_MODE,
-        [{"exchangeType": client.EXCHANGE_TYPE_MAP["MCX"], "tokens": ["OPTION"]}],
-    )
+    store.ensure_subscribed.assert_called_once_with("OPTION", "MCX")
 
 
 def test_websocket_subscription_failure_is_reported():
-    client = AngelSmartWebSocketClient.__new__(AngelSmartWebSocketClient)
-    client.ws = Mock()
-    client.ws.subscribe.side_effect = RuntimeError("subscription rejected")
-    client.connected = True
-    client._open_event = threading.Event()
-    client._latest_ticks = {}
-    client._lock = threading.Lock()
+    store = Mock(connected=True)
+    store.ensure_subscribed.return_value = False
+    client = _shared_client(store)
 
     assert client.subscribe_futures("OPTION", exchange="MCX") is False
-    assert client.connected is False
-    client.ws.subscribe.assert_called_once()
+    assert _shared_client(Mock(connected=False)).subscribe_futures("OPTION") is False
+
+
+def test_close_detaches_without_stopping_shared_stream():
+    store = Mock(connected=True)
+    client = _shared_client(store)
+
+    client.close()
+
+    store.remove_listener.assert_called_once_with(client._on_tick)
+    store.stop.assert_not_called()
+    store.close.assert_not_called()
 
 
 def test_max_websocket_retries_refresh_session_before_reconnecting():
@@ -134,35 +158,12 @@ def test_max_websocket_retries_refresh_session_before_reconnecting():
     assert engine._websocket_retry_attempts == 1
 
 
-def test_raw_websocket_callback_errors_are_logged():
-    from unittest.mock import patch
-
-    import trading_crude
-
-    client = AngelSmartWebSocketClient.__new__(AngelSmartWebSocketClient)
-    client.connected = True
-    client._open_event = threading.Event()
-    client._lock = threading.Lock()
-    client._latest_ticks = {}
-
-    with patch.object(trading_crude.logger, "error") as log_error:
-        client._on_error(None, "socket failure")
-        client._on_close(None, 1006, "connection reset")
-
-    assert [call.args[0] for call in log_error.call_args_list] == [
-        "RAW WEBSOCKET ERROR: socket failure",
-        "RAW WEBSOCKET ERROR: connection reset",
-    ]
-
-
 def test_websocket_consumer_keeps_latest_tick_per_token_without_backlog():
     engine = CrudeOptionBuyer.__new__(CrudeOptionBuyer)
-    stream = AngelSmartWebSocketClient.__new__(AngelSmartWebSocketClient)
-    stream._lock = threading.Lock()
-    stream._latest_ticks = {}
-    stream._on_message(None, {"data": {"token": "FUT", "ltp": 7000.0}})
-    stream._on_message(None, {"data": {"token": "OPT", "ltp": 100.0}})
-    stream._on_message(None, {"data": {"token": "FUT", "ltp": 7001.0}})
+    stream = _shared_client(Mock(connected=True))
+    stream._on_tick({"token": "FUT", "ltp": 7000.0})
+    stream._on_tick({"token": "OPT", "ltp": 100.0})
+    stream._on_tick({"token": "FUT", "ltp": 7001.0})
     assert len(stream._latest_ticks) == 2
     engine._smart_stream = stream
     engine._handle_tick = Mock()

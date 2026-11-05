@@ -286,6 +286,7 @@ class LiveTickStore:
         self._last_tick_at = time.monotonic()
         self._watchdog_thread: Optional[threading.Thread] = None
         self._recovery_lock = threading.Lock()
+        self._listeners: list = []
 
     WATCHDOG_STALE_SECONDS = 90.0
     WATCHDOG_INTERVAL_SECONDS = 5.0
@@ -547,6 +548,33 @@ class LiveTickStore:
             except Exception:
                 continue
             self._store(payload)
+            with self._lock:
+                listeners = tuple(self._listeners)
+            for listener in listeners:
+                try:
+                    listener(payload)
+                except Exception:
+                    log.exception("SmartStream tick listener failed.")
+
+    def add_listener(self, listener: Any) -> None:
+        """Receive every raw tick payload from the shared websocket."""
+        with self._lock:
+            if listener not in self._listeners:
+                self._listeners.append(listener)
+
+    def remove_listener(self, listener: Any) -> None:
+        with self._lock:
+            if listener in self._listeners:
+                self._listeners.remove(listener)
+
+    def unsubscribe(self, token: str, exchange: str) -> None:
+        key = (str(token).strip(), str(exchange).upper())
+        with self._lock:
+            was_subscribed = key in self._subscribed
+            self._subscribed.discard(key)
+            self._ticks.pop(key[0], None)
+        if was_subscribed and self._stream is not None:
+            self._stream.unsubscribe(key[0], key[1])
 
     def _store(self, payload: Dict[str, Any]) -> None:
         self._last_tick_at = time.monotonic()
@@ -572,17 +600,18 @@ class LiveTickStore:
         with self._lock:
             self._ticks[str(token).strip()] = record
 
-    def ensure_subscribed(self, token: str, exchange: str) -> None:
+    def ensure_subscribed(self, token: str, exchange: str) -> bool:
+        """Subscribe if needed; True when the token is actively subscribed."""
         if not self.connected or not token:
-            return
+            return False
 
         key = (str(token).strip(), str(exchange).upper())
         if self._is_after_equity_close() and key[1] != "MCX":
             self._filter_after_equity_close()
-            return
+            return False
         with self._lock:
             if key in self._subscribed:
-                return
+                return True
             self._subscribed.add(key)
 
         try:
@@ -598,6 +627,7 @@ class LiveTickStore:
             with self._lock:
                 self._subscribed.discard(key)
             self._reconnect_wakeup.set()
+        return subscribed
 
     def get(self, token: str, max_age: float) -> Optional[Dict[str, Any]]:
         with self._lock:
