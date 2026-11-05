@@ -91,6 +91,9 @@ class AngelSmartWebSocketClient:
             return self._connect_locked(timeout, quiet)
 
     def _connect_locked(self, timeout: float, quiet: bool) -> bool:
+        if getattr(self, "_limited_until", 0.0) > time.monotonic():
+            return False
+
         if self._connect_thread is not None and self._connect_thread.is_alive():
             if self.connected:
                 return True
@@ -147,18 +150,26 @@ class AngelSmartWebSocketClient:
 
         return True
 
-    @staticmethod
-    def _log_sdk_errors(ws) -> None:
+    CONNECTION_LIMIT_COOLDOWN_SECONDS = 60.0
+
+    def _log_sdk_errors(self, ws) -> None:
         # The SDK replaces the real transport/handshake error with "Connection closed".
-        original = getattr(ws, "_on_error", None)
-        if original is None:
-            return
+        original_error = getattr(ws, "_on_error", None)
+        if original_error is not None:
 
-        def logged(wsapp, error):
-            log.error("Angel One websocket transport/handshake error: %r", error)
-            return original(wsapp, error)
+            def logged_error(wsapp, error):
+                text = str(error)
+                if "429" in text or "Connection Limit" in text:
+                    self._limited_until = time.monotonic() + self.CONNECTION_LIMIT_COOLDOWN_SECONDS
+                log.error("Angel One websocket transport/handshake error: %s", text[:300])
+                return original_error(wsapp, error)
 
-        ws._on_error = logged
+            ws._on_error = logged_error
+
+        # websocket-client passes (wsapp, status, msg) but the SDK's _on_close takes only wsapp.
+        original_close = getattr(ws, "_on_close", None)
+        if original_close is not None:
+            ws._on_close = lambda wsapp, *args: original_close(wsapp)
 
     def _run_forever(self):
         try:

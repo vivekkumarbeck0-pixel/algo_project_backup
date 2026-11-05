@@ -274,6 +274,15 @@ class AngelSmartWebSocketClient:
             return None
 
     def connect(self, timeout: float = 10.0) -> bool:
+        remaining = getattr(self, "_limited_until", 0.0) - time.monotonic()
+        if remaining > 0:
+            logger.warning(
+                "Angel One websocket connection limit hit; not reconnecting for %.0fs. "
+                "Stop any other process or deploy using this client code.",
+                remaining,
+            )
+            return False
+
         with self._connect_lock:
             if self._connect_thread is not None and self._connect_thread.is_alive():
                 return self.connected
@@ -329,18 +338,26 @@ class AngelSmartWebSocketClient:
         logger.info("Angel One SmartStream websocket connected for MCX Crude stream.")
         return True
 
-    @staticmethod
-    def _log_sdk_errors(ws) -> None:
+    CONNECTION_LIMIT_COOLDOWN_SECONDS = 60.0
+
+    def _log_sdk_errors(self, ws) -> None:
         # The SDK replaces the real transport/handshake error with "Connection closed".
-        original = getattr(ws, "_on_error", None)
-        if original is None:
-            return
+        original_error = getattr(ws, "_on_error", None)
+        if original_error is not None:
 
-        def logged(wsapp, error):
-            logger.error("Angel One websocket transport/handshake error: %r", error)
-            return original(wsapp, error)
+            def logged_error(wsapp, error):
+                text = str(error)
+                if "429" in text or "Connection Limit" in text:
+                    self._limited_until = time.monotonic() + self.CONNECTION_LIMIT_COOLDOWN_SECONDS
+                logger.error("Angel One websocket transport/handshake error: %s", text[:300])
+                return original_error(wsapp, error)
 
-        ws._on_error = logged
+            ws._on_error = logged_error
+
+        # websocket-client passes (wsapp, status, msg) but the SDK's _on_close takes only wsapp.
+        original_close = getattr(ws, "_on_close", None)
+        if original_close is not None:
+            ws._on_close = lambda wsapp, *args: original_close(wsapp)
 
     def _run_forever(self):
         try:
