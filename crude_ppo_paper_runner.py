@@ -20,7 +20,7 @@ import queue
 import threading
 import time
 from dataclasses import dataclass
-from datetime import datetime, time as dt_time
+from datetime import datetime, time as dt_time, timedelta
 from pathlib import Path
 from typing import Any, Callable, Iterator
 from zoneinfo import ZoneInfo
@@ -172,6 +172,17 @@ class BarAtr:
         self._prev_close: float | None = None
         self._ranges: list[float] = []
         self.value: float | None = None
+
+    def seed(self, bars: list[tuple[float, float, float]]) -> None:
+        """Preload completed (high, low, close) bars so ATR is ready without a live warm-up."""
+        for high, low, close in bars:
+            true_range = high - low
+            if self._prev_close is not None:
+                true_range = max(true_range, abs(high - self._prev_close), abs(low - self._prev_close))
+            self._ranges = (self._ranges + [true_range])[-self.period:]
+            self._prev_close = close
+        if len(self._ranges) >= self.period:
+            self.value = float(np.mean(self._ranges))
 
     def update(self, timestamp: datetime, price: float) -> None:
         bucket = int(timestamp.timestamp()) // self.bar_seconds
@@ -374,6 +385,54 @@ def resolve_front_month_token() -> str:
     return str(contract["token"])
 
 
+def historical_atr_bars(
+    client: Any, token: str, exchange: str, bar_seconds: int, count: int, now: datetime | None = None
+) -> list[tuple[float, float, float]]:
+    """Completed (high, low, close) bars aggregated from 1-minute broker candles."""
+    now = (now or datetime.now(IST)).astimezone(IST)
+    lookback = timedelta(seconds=bar_seconds * (count + 2) + 3600)
+    response = client.get_candle_data(
+        token,
+        "ONE_MINUTE",
+        (now - lookback).strftime("%Y-%m-%d %H:%M"),
+        now.strftime("%Y-%m-%d %H:%M"),
+        exchange=exchange,
+    )
+    rows = response.get("data") if isinstance(response, dict) else None
+    current_bucket = int(now.timestamp()) // bar_seconds
+    buckets: dict[int, list[float]] = {}
+    for row in rows or []:
+        try:
+            ts = datetime.fromisoformat(str(row[0]))
+            ts = ts.replace(tzinfo=IST) if ts.tzinfo is None else ts
+            bucket = int(ts.timestamp()) // bar_seconds
+            if bucket >= current_bucket:
+                continue
+            high, low, close = float(row[2]), float(row[3]), float(row[4])
+        except (TypeError, ValueError, IndexError):
+            continue
+        entry = buckets.setdefault(bucket, [high, low, close])
+        entry[0], entry[1], entry[2] = max(entry[0], high), min(entry[1], low), close
+    ordered = [tuple(buckets[key]) for key in sorted(buckets)]
+    return ordered[-count:]
+
+
+def seed_atr_from_history(atr: BarAtr, token: str, exchange: str) -> None:
+    """Best-effort ATR preload using the shared login session (a new login would drop the feed)."""
+    try:
+        from angel_one.smart_stream import get_shared_tick_store
+
+        store = get_shared_tick_store()
+        client = getattr(store, "_client", None)
+        if client is None:
+            return
+        bars = historical_atr_bars(client, token, exchange, atr.bar_seconds, atr.period + 1)
+        atr.seed(bars)
+        logger.info("PPO ATR seeded from %d historical bars; ATR=%s", len(bars), atr.value)
+    except Exception:
+        logger.exception("Could not seed PPO ATR from history; falling back to live warm-up.")
+
+
 def run_live_forever(
     model_path: Path | None = None,
     retry_seconds: float = 60.0,
@@ -387,11 +446,13 @@ def run_live_forever(
         runner = None
         try:
             token = resolve_front_month_token()
+            atr = BarAtr(300)
+            seed_atr_from_history(atr, token, "MCX")
             runner = PaperRunner(
                 load_policy(model_path),
                 ShadowLogWriter(LOG_DIR, sheet_sink=sink),
                 engine_config=EngineConfig(0.0, 0.0, trailing_enabled=False),
-                atr_source=BarAtr(300),
+                atr_source=atr,
             )
             for timestamp, price in angel_ticks(token, "MCX", 0.25):
                 if stop_event.is_set():

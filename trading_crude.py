@@ -457,19 +457,30 @@ class CrudeOptionBuyer:
         self._futures_token_cache: Optional[str] = None
         self._restore_state()
         self._refresh_adaptive_config()
-        try:
-            self._tick_shadow_observer = CrudeTickShadowObserver(
-                market_start=self.settings.market_start_time_ist,
-                market_close=self.settings.market_close_time_ist,
+        self._tick_shadow_observer = None
+        # PPO_Shadow_Logs tick observer is off by default; the PPO paper runner replaces it.
+        if os.getenv("ENABLE_PPO_SHADOW", "0").strip().lower() in {"1", "true", "yes"}:
+            try:
+                self._tick_shadow_observer = CrudeTickShadowObserver(
+                    market_start=self.settings.market_start_time_ist,
+                    market_close=self.settings.market_close_time_ist,
+                )
+                self._tick_shadow_observer.start()
+            except Exception:
+                # Shadow initialization is optional and must not affect bot startup.
+                logger.exception("Could not start the Crude PPO shadow observer.")
+        else:
+            logger.info("PPO shadow observer disabled (set ENABLE_PPO_SHADOW=1 to enable).")
+        # Paired CE/PE training data stays on by default; ENABLE_PPO_TRAINING_PAIRS=0 disables it.
+        self._ppo_training_sheet_sink = None
+        self._entry_shadow_collector = None
+        if os.getenv("ENABLE_PPO_TRAINING_PAIRS", "1").strip().lower() not in {"0", "false", "no"}:
+            self._ppo_training_sheet_sink = PpoTrainingSheetSink()
+            self._entry_shadow_collector = CrudeEntryShadowCollector(
+                sheet_sink=self._ppo_training_sheet_sink
             )
-            self._tick_shadow_observer.start()
-        except Exception:
-            # Shadow initialization is optional and must not affect bot startup.
-            logger.exception("Could not start the Crude PPO shadow observer.")
-        self._ppo_training_sheet_sink = PpoTrainingSheetSink()
-        self._entry_shadow_collector = CrudeEntryShadowCollector(
-            sheet_sink=self._ppo_training_sheet_sink
-        )
+        else:
+            logger.info("PPO training pair collection disabled via ENABLE_PPO_TRAINING_PAIRS.")
 
     def _refresh_adaptive_config(self) -> None:
         try:

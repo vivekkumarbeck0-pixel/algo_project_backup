@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pytest
@@ -175,6 +176,23 @@ def test_bar_atr_needs_full_period():
         atr.update(base + timedelta(minutes=minute), 100.0 + minute)
         atr.update(base + timedelta(minutes=minute, seconds=30), 102.0 + minute)
     assert atr.value is not None and atr.value > 0
+
+
+def test_bar_atr_seeds_from_historical_one_minute_candles():
+    from types import SimpleNamespace
+    from crude_ppo_paper_runner import historical_atr_bars
+
+    now = datetime(2026, 10, 26, 12, 7, tzinfo=timezone.utc).astimezone(ZoneInfo("Asia/Kolkata"))
+    start = now.replace(minute=0, second=0, microsecond=0) - timedelta(hours=2)
+    rows = [[(start + timedelta(minutes=m)).isoformat(), 100, 101 + (m % 5), 99, 100.5, 1] for m in range(120)]
+    client = SimpleNamespace(get_candle_data=lambda *a, **k: {"data": rows})
+
+    bars = historical_atr_bars(client, "T", "MCX", 300, 15, now=now)
+    atr = BarAtr(300)
+    atr.seed(bars)
+
+    assert len(bars) == 15 and atr.value is not None and atr.value > 0
+
 
 def test_sheet1_rows_become_episodes(monkeypatch):
     import json, sys, types
