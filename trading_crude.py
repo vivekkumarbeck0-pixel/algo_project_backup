@@ -392,25 +392,43 @@ class AngelSmartWebSocketClient:
         self._open_event.clear()
         self._clear_latest_ticks()
 
-    def subscribe_futures(self, token: str, exchange: str = "MCX") -> None:
+    def subscribe_futures(self, token: str, exchange: str = "MCX") -> bool:
         if self.ws is None:
-            logger.warning("Websocket not initialized yet; cannot subscribe to futures feed.")
-            return
+            logger.warning("Websocket not initialized; cannot subscribe to token %s.", token)
+            return False
+        if not self.connected:
+            logger.warning(
+                "Websocket is disconnected; cannot subscribe to token %s on %s.",
+                token,
+                exchange,
+            )
+            return False
 
         exchange_type = self.EXCHANGE_TYPE_MAP.get(exchange.upper())
         if exchange_type is None:
             logger.error("Unknown exchange '%s' for websocket subscription.", exchange)
-            return
+            return False
 
         try:
             token_list = [{"exchangeType": exchange_type, "tokens": [str(token)]}]
             self.ws.subscribe("crude1", self.SNAP_QUOTE_MODE, token_list)
-            logger.info("Subscribed to MCX Crude futures token %s (exchangeType=%s).", token, exchange_type)
-        except Exception as exc:  # pragma: no cover
+            logger.info(
+                "Subscribed to market-data token %s on %s (exchangeType=%s).",
+                token,
+                exchange,
+                exchange_type,
+            )
+            return True
+        except Exception:  # pragma: no cover
             self.connected = False
             self._open_event.clear()
             self._clear_latest_ticks()
-            logger.info("MCX Crude websocket subscription closed; reconnect will resume the stream.")
+            logger.exception(
+                "Websocket subscription failed for token %s on %s; reconnect will resume the stream.",
+                token,
+                exchange,
+            )
+            return False
 
     def unsubscribe_futures(self, token: str, exchange: str = "MCX") -> None:
         if self.ws is None:
@@ -931,10 +949,32 @@ class CrudeOptionBuyer:
                     strike,
                 )
                 return
-            for contract in (call_contract, put_contract):
-                self._smart_stream.subscribe_futures(
-                    str(contract["token"]), exchange=self.settings.option_exchange
-                )
+            for side, contract in (("CE", call_contract), ("PE", put_contract)):
+                token = str(contract["token"])
+                if not self._smart_stream.subscribe_futures(
+                    token, exchange=self.settings.option_exchange
+                ):
+                    unused_tokens = collector.cancel_option_pair(signal_id)
+                    position = getattr(self, "_position", None)
+                    for unused_token in unused_tokens:
+                        if position is None or unused_token != position.option_token:
+                            self._smart_stream.unsubscribe_futures(
+                                unused_token, exchange=self.settings.option_exchange
+                            )
+                    logger.error(
+                        "PPO paired-price capture disabled for signal %s: "
+                        "%s subscription failed for %s.",
+                        signal_id,
+                        side,
+                        contract.get("symbol") or token,
+                    )
+                    return
+            logger.info(
+                "PPO paired-price subscriptions requested for signal %s: CE=%s PE=%s.",
+                signal_id,
+                call_contract.get("symbol") or call_contract["token"],
+                put_contract.get("symbol") or put_contract["token"],
+            )
         except Exception:
             logger.exception(
                 "Could not subscribe to paired option quotes for PPO training."
@@ -1197,7 +1237,15 @@ class CrudeOptionBuyer:
                 if collector is not None and token:
                     was_tracking = collector.is_tracking_option_token(token)
                     try:
-                        collector.record_option_tick(_now_ist(), token, ltp)
+                        sample_count = collector.record_option_tick(
+                            _now_ist(), token, ltp
+                        )
+                        if sample_count:
+                            logger.info(
+                                "Captured %d paired CE/PE PPO sample(s) from token %s.",
+                                sample_count,
+                                token,
+                            )
                     except Exception:
                         logger.exception("Could not save paired Crude option prices.")
                 position = self._position

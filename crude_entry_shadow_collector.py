@@ -386,6 +386,16 @@ class CrudeEntryShadowCollector:
                 if not signal_ids:
                     del self._paired_tokens[token]
 
+    def cancel_option_pair(self, signal_id: str) -> set[str]:
+        """Stop tracking a pair and return tokens no remaining pair needs."""
+        with self._lock:
+            pair = self._paired.get(signal_id)
+            if pair is None:
+                return set()
+            tokens = {pair["call_token"], pair["put_token"]}
+            self._remove_pair(signal_id)
+            return tokens - set(self._paired_tokens)
+
     def active_option_tokens(self) -> set[str]:
         with self._lock:
             return set(self._paired_tokens)
@@ -440,8 +450,15 @@ class PpoTrainingSheetSink:
             try:
                 if row is None:
                     return
-                if self._log_fn(row) is False:
+                result = self._log_fn(row)
+                if result is False:
                     logger.error("PPO training sample was not written to Google Sheets.")
+                elif result is True:
+                    logger.info(
+                        "Wrote paired CE/PE PPO sample for signal %s at %s.",
+                        row.get("Signal ID"),
+                        row.get("Sample Timestamp"),
+                    )
             except Exception:
                 logger.exception("PPO training sheet logging failed.")
             finally:

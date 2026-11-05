@@ -70,6 +70,27 @@ def test_paired_option_sample_goes_to_separate_training_worksheet():
     assert sample_row[PPO_TRAINING_SHEET_COLUMNS.index("PE LTP")] == 90.0
 
 
+def test_paired_option_sample_migrates_legacy_sheet_headers():
+    worksheet = Mock()
+    worksheet.row_values.return_value = ["Signal ID", "CE LTP"]
+    client = Mock()
+    client.open.return_value.worksheet.return_value = worksheet
+    sample = {"Signal ID": "signal-2", "CE LTP": 125.0, "PE LTP": 92.0}
+
+    with patch("sheets_logger.get_gspread_client", return_value=client):
+        assert log_ppo_training_sample(sample, retries=1)
+
+    headers = worksheet.update.call_args.args[1][0]
+    assert headers[:2] == ["Signal ID", "CE LTP"]
+    assert headers[2:] == [
+        header
+        for header in PPO_TRAINING_SHEET_COLUMNS
+        if header not in {"Signal ID", "CE LTP"}
+    ]
+    row = worksheet.append_row.call_args_list[-1].args[0]
+    assert row[headers.index("PE LTP")] == 92.0
+
+
 @pytest.mark.parametrize(
     "ai_evaluation",
     [{"momentum_strength": 0.5}, None],
@@ -151,6 +172,35 @@ def test_ppo_training_pair_subscribes_same_expiry_call_and_put_quotes():
         {"token": "pe-token", "symbol": "CRUDEOIL7000PE", "expiry": "19NOV2026"},
     )
     assert engine._smart_stream.subscribe_futures.call_count == 2
+
+
+def test_ppo_training_pair_cancels_when_one_quote_subscription_fails():
+    engine = CrudeOptionBuyer.__new__(CrudeOptionBuyer)
+    collector = Mock()
+    collector.register_option_pair.return_value = True
+    collector.cancel_option_pair.return_value = {"ce-token"}
+    engine._entry_shadow_collector = collector
+    engine._resolve_option_contract = Mock(
+        side_effect=[
+            {"token": "ce-token", "symbol": "CRUDEOIL7000CE", "expiry": "19NOV2026"},
+            {"token": "pe-token", "symbol": "CRUDEOIL7000PE", "expiry": "19NOV2026"},
+        ]
+    )
+    engine._smart_stream = SimpleNamespace(
+        subscribe_futures=Mock(side_effect=[True, False]),
+        unsubscribe_futures=Mock(),
+    )
+    engine.settings = SimpleNamespace(option_exchange="MCX")
+    engine._position = None
+
+    engine._subscribe_ppo_training_pair(
+        {"entry_signal_id": "signal-1", "timestamp": 1, "strike": 7000}
+    )
+
+    collector.cancel_option_pair.assert_called_once_with("signal-1")
+    engine._smart_stream.unsubscribe_futures.assert_called_once_with(
+        "ce-token", exchange="MCX"
+    )
 
 
 def test_crude_short_covering_is_an_enabled_ce_entry_signal():

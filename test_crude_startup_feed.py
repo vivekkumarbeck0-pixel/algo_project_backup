@@ -86,6 +86,33 @@ def test_websocket_does_not_start_parallel_connect_while_previous_thread_runs():
     assert client.connect() is False
 
 
+def test_websocket_subscription_reports_success():
+    client = AngelSmartWebSocketClient.__new__(AngelSmartWebSocketClient)
+    client.ws = Mock()
+    client.connected = True
+
+    assert client.subscribe_futures("OPTION", exchange="MCX") is True
+    client.ws.subscribe.assert_called_once_with(
+        "crude1",
+        client.SNAP_QUOTE_MODE,
+        [{"exchangeType": client.EXCHANGE_TYPE_MAP["MCX"], "tokens": ["OPTION"]}],
+    )
+
+
+def test_websocket_subscription_failure_is_reported():
+    client = AngelSmartWebSocketClient.__new__(AngelSmartWebSocketClient)
+    client.ws = Mock()
+    client.ws.subscribe.side_effect = RuntimeError("subscription rejected")
+    client.connected = True
+    client._open_event = threading.Event()
+    client._latest_ticks = {}
+    client._lock = threading.Lock()
+
+    assert client.subscribe_futures("OPTION", exchange="MCX") is False
+    assert client.connected is False
+    client.ws.subscribe.assert_called_once()
+
+
 def test_max_websocket_retries_refresh_session_before_reconnecting():
     engine = _engine_for_feed_tests()
     engine.settings.angel_jwt_token = "stale-jwt"

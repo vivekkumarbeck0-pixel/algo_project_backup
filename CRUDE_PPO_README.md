@@ -163,6 +163,10 @@ grouped by `Signal ID`, allowing future CE and PE premium returns to be derived
 from their observed price sequences. Gather sufficient new samples and evaluate
 on a later unseen period before training or using an independent PPO CE/PE
 selector; the existing exit-management model is not automatically retrained.
+The application logs when both contract subscriptions are active and when a
+sample is written to the sheet. Failed subscriptions, queue drops, and failed
+sheet writes are logged explicitly; existing training-sheet headers are extended
+with newly required columns before appending.
 
 ## Install the isolated dependencies
 

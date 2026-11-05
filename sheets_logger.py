@@ -173,6 +173,15 @@ def log_ppo_training_sample(sample: dict, retries: int = 3) -> bool:
             if not headers:
                 headers = PPO_TRAINING_SHEET_COLUMNS.copy()
                 worksheet.append_row(headers)
+            else:
+                missing_headers = [
+                    header
+                    for header in PPO_TRAINING_SHEET_COLUMNS
+                    if header not in headers
+                ]
+                if missing_headers:
+                    headers = headers + missing_headers
+                    worksheet.update("A1", [headers])
             worksheet.append_row([sample.get(header, "") for header in headers])
             return True
         except Exception as exc:

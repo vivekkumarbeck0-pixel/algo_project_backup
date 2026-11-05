@@ -180,6 +180,26 @@ def test_paired_option_subscriptions_expire_after_capture_window(tmp_path):
     assert collector.active_option_tokens() == set()
 
 
+def test_cancel_option_pair_returns_only_unshared_tokens(tmp_path):
+    collector = CrudeEntryShadowCollector(tmp_path / "entry_opportunities.jsonl")
+    start = datetime(2026, 10, 19, 10, 0, tzinfo=IST)
+    contracts = (
+        {"token": "ce-token", "expiry": "19NOV2026"},
+        {"token": "pe-token", "expiry": "19NOV2026"},
+    )
+    assert collector.register_option_pair(
+        "signal-1", {"timestamp": start}, *contracts
+    )
+    assert collector.register_option_pair(
+        "signal-2", {"timestamp": start}, *contracts
+    )
+
+    assert collector.cancel_option_pair("signal-1") == set()
+    assert collector.active_option_tokens() == {"ce-token", "pe-token"}
+    assert collector.cancel_option_pair("signal-2") == {"ce-token", "pe-token"}
+    assert collector.active_option_tokens() == set()
+
+
 def test_training_sheet_sink_reports_failed_writes():
     sink = PpoTrainingSheetSink(lambda row: False)
     sink.submit({"Signal ID": "signal-1"})
