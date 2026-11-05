@@ -303,6 +303,7 @@ class AngelSmartWebSocketClient:
                     self.ws = self._SmartWebSocketV2(*args, max_retry_attempt=0)
                 except TypeError:
                     self.ws = self._SmartWebSocketV2(*args)
+                self._log_sdk_errors(self.ws)
                 self.ws.on_open = self._on_open
                 self.ws.on_data = self._on_message
                 self.ws.on_message = self._on_message
@@ -327,6 +328,19 @@ class AngelSmartWebSocketClient:
 
         logger.info("Angel One SmartStream websocket connected for MCX Crude stream.")
         return True
+
+    @staticmethod
+    def _log_sdk_errors(ws) -> None:
+        # The SDK replaces the real transport/handshake error with "Connection closed".
+        original = getattr(ws, "_on_error", None)
+        if original is None:
+            return
+
+        def logged(wsapp, error):
+            logger.error("Angel One websocket transport/handshake error: %r", error)
+            return original(wsapp, error)
+
+        ws._on_error = logged
 
     def _run_forever(self):
         try:
