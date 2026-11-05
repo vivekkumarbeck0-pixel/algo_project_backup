@@ -287,13 +287,22 @@ class AngelSmartWebSocketClient:
                 )
                 return False
 
+            # Close the previous socket; otherwise its SDK retry loop stays alive and
+            # exhausts Angel One's concurrent-connection limit for this client code.
+            old_ws = self.ws
+            if old_ws is not None:
+                try:
+                    old_ws.close_connection()
+                except Exception:
+                    pass
+
             try:
-                self.ws = self._SmartWebSocketV2(
-                    self.jwt_token,
-                    self.api_key,
-                    self.client_code,
-                    self.feed_token,
-                )
+                args = (self.jwt_token, self.api_key, self.client_code, self.feed_token)
+                try:
+                    # Reconnects are owned by the engine; disable the SDK's own retry loop.
+                    self.ws = self._SmartWebSocketV2(*args, max_retry_attempt=0)
+                except TypeError:
+                    self.ws = self._SmartWebSocketV2(*args)
                 self.ws.on_open = self._on_open
                 self.ws.on_data = self._on_message
                 self.ws.on_message = self._on_message
@@ -431,7 +440,7 @@ class AngelSmartWebSocketClient:
             return False
 
     def unsubscribe_futures(self, token: str, exchange: str = "MCX") -> None:
-        if self.ws is None:
+        if self.ws is None or not self.connected:
             return
         exchange_type = self.EXCHANGE_TYPE_MAP.get(exchange.upper())
         if exchange_type is None:
