@@ -172,12 +172,18 @@ class BarAtr:
         self.bar_seconds, self.period = bar_seconds, period
         self._bucket: int | None = None
         self._high = self._low = 0.0
+        self._bar_close: float | None = None
         self._prev_close: float | None = None
         self._ranges: list[float] = []
         self.value: float | None = None
 
     def seed(self, bars: list[tuple[float, float, float]]) -> None:
         """Preload completed (high, low, close) bars so ATR is ready without a live warm-up."""
+        self._bucket = None
+        self._bar_close = None
+        self._prev_close = None
+        self._ranges.clear()
+        self.value = None
         for high, low, close in bars:
             true_range = high - low
             if self._prev_close is not None:
@@ -191,6 +197,7 @@ class BarAtr:
         bucket = int(timestamp.timestamp()) // self.bar_seconds
         if self._bucket is None:
             self._bucket, self._high, self._low = bucket, price, price
+            self._bar_close = price
         elif bucket != self._bucket:
             true_range = self._high - self._low
             if self._prev_close is not None:
@@ -198,11 +205,12 @@ class BarAtr:
             self._ranges = (self._ranges + [true_range])[-self.period:]
             if len(self._ranges) >= self.period:
                 self.value = float(np.mean(self._ranges))
-            self._prev_close = price
+            self._prev_close = self._bar_close
             self._bucket, self._high, self._low = bucket, price, price
+            self._bar_close = price
         else:
             self._high, self._low = max(self._high, price), min(self._low, price)
-            self._prev_close = self._prev_close if self._prev_close is not None else price
+            self._bar_close = price
 
 
 @dataclass(frozen=True)
@@ -311,10 +319,12 @@ class PaperRunner:
 
         observation = self.features.observation(atr, self.engine)
         action = np.clip(np.asarray(self.policy(observation), dtype=np.float32).reshape(-1), 0.0, 1.0)
-        halted = (
-            self._day_trades >= self.limits.max_trades_per_day
-            or self._day_r <= -self.limits.daily_loss_limit_r
-        )
+        halt_reasons = []
+        if self._day_trades >= self.limits.max_trades_per_day:
+            halt_reasons.append("max_trades_per_day")
+        if self._day_r <= -self.limits.daily_loss_limit_r:
+            halt_reasons.append("daily_loss_limit")
+        halted = bool(halt_reasons)
         momentum = self.features.momentum_atr(atr)
         intent = map_action(action)[0]
         gate = (
@@ -322,10 +332,23 @@ class PaperRunner:
             else "pass" if self.engine._momentum_supports(intent, momentum)
             else "blocked"
         )
+        if self.engine.side != FLAT:
+            entry_block = "position_open"
+        elif halted:
+            entry_block = ",".join(halt_reasons)
+        elif intent == FLAT:
+            entry_block = "policy_hold"
+        elif gate == "blocked":
+            entry_block = "momentum_mismatch"
+        else:
+            entry_block = "none"
         diagnostic(
             f"action={action.tolist()} intent={SIDE_NAMES[intent]} momentum_gate={gate} "
-            f"momentum_atr={momentum} thresholds={self.engine.config.min_entry_momentum_atr} "
-            f"position={SIDE_NAMES[self.engine.side]} daily_halt={halted}"
+            f"momentum_atr={momentum} thresholds={self.engine.config.min_entry_momentum_atr} atr={atr} "
+            f"position={SIDE_NAMES[self.engine.side]} daily_halt={halted} "
+            f"daily_halt_reason={','.join(halt_reasons) or 'none'} "
+            f"daily_trades={self._day_trades}/{self.limits.max_trades_per_day} "
+            f"daily_pnl_r={self._day_r:.3f} entry_block={entry_block}"
         )
         events = self.engine.step(
             price, atr, action, allow_entry=not halted,
@@ -412,7 +435,8 @@ def historical_atr_bars(
     client: Any, token: str, exchange: str, bar_seconds: int, count: int, now: datetime | None = None
 ) -> list[tuple[float, float, float]]:
     """Completed (high, low, close) bars aggregated from 1-minute broker candles."""
-    now = (now or datetime.now(IST)).astimezone(IST)
+    now = now or datetime.now(IST)
+    now = now.replace(tzinfo=IST) if now.tzinfo is None else now.astimezone(IST)
     lookback = timedelta(seconds=bar_seconds * (count + 2) + 3600)
     response = client.get_candle_data(
         token,
@@ -423,7 +447,7 @@ def historical_atr_bars(
     )
     rows = response.get("data") if isinstance(response, dict) else None
     current_bucket = int(now.timestamp()) // bar_seconds
-    buckets: dict[int, list[float]] = {}
+    buckets: dict[int, tuple[datetime, float, float, float]] = {}
     for row in rows or []:
         try:
             ts = datetime.fromisoformat(str(row[0]))
@@ -434,13 +458,25 @@ def historical_atr_bars(
             high, low, close = float(row[2]), float(row[3]), float(row[4])
         except (TypeError, ValueError, IndexError):
             continue
-        entry = buckets.setdefault(bucket, [high, low, close])
-        entry[0], entry[1], entry[2] = max(entry[0], high), min(entry[1], low), close
-    ordered = [tuple(buckets[key]) for key in sorted(buckets)]
+        entry = buckets.get(bucket)
+        if entry is None:
+            buckets[bucket] = (ts, high, low, close)
+        else:
+            last_ts, old_high, old_low, old_close = entry
+            buckets[bucket] = (
+                max(ts, last_ts),
+                max(old_high, high),
+                min(old_low, low),
+                close if ts >= last_ts else old_close,
+            )
+    ordered = [
+        (buckets[key][1], buckets[key][2], buckets[key][3])
+        for key in sorted(buckets)
+    ]
     return ordered[-count:]
 
 
-def seed_atr_from_history(atr: BarAtr, token: str, exchange: str) -> None:
+def seed_atr_from_history(atr: BarAtr, token: str, exchange: str) -> bool:
     """Best-effort ATR preload using the shared login session (a new login would drop the feed)."""
     try:
         from angel_one.smart_stream import get_shared_tick_store
@@ -448,12 +484,22 @@ def seed_atr_from_history(atr: BarAtr, token: str, exchange: str) -> None:
         store = get_shared_tick_store()
         client = getattr(store, "_client", None)
         if client is None:
-            return
+            logger.warning("PPO ATR history unavailable; live bar warm-up will continue.")
+            return False
         bars = historical_atr_bars(client, token, exchange, atr.bar_seconds, atr.period + 1)
         atr.seed(bars)
+        if atr.value is None:
+            logger.warning(
+                "PPO ATR history returned %d completed bars; %d required. Retrying while live warm-up continues.",
+                len(bars),
+                atr.period,
+            )
+            return False
         logger.info("PPO ATR seeded from %d historical bars; ATR=%s", len(bars), atr.value)
+        return True
     except Exception:
         logger.exception("Could not seed PPO ATR from history; falling back to live warm-up.")
+        return False
 
 
 def run_live_forever(
@@ -477,9 +523,13 @@ def run_live_forever(
                 engine_config=EngineConfig(0.0, 0.0, trailing_enabled=False),
                 atr_source=atr,
             )
+            last_atr_seed_attempt = time.monotonic()
             for timestamp, price in angel_ticks(token, "MCX", 0.25):
                 if stop_event.is_set():
                     break
+                if atr.value is None and time.monotonic() - last_atr_seed_attempt >= retry_seconds:
+                    seed_atr_from_history(atr, token, "MCX")
+                    last_atr_seed_attempt = time.monotonic()
                 runner.on_tick(timestamp, price)
         except BaseException:  # SystemExit from load_policy must not kill the host process
             logger.exception("PPO paper runner failed; retrying in %.0fs", retry_seconds)

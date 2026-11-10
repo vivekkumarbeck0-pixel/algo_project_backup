@@ -205,10 +205,16 @@ class AngelSmartWebSocketClient:
         self._open_event.clear()
 
     def _on_close(self, *args, **kwargs):
-        error = args[-1] if args else "unknown"
-        self._log_socket_problem(f"RAW WEBSOCKET ERROR: {error}")
         self.connected = False
         self._open_event.clear()
+        if len(args) >= 3:
+            log.warning(
+                "Angel One SmartStream socket closed (status=%s, reason=%s).",
+                args[-2],
+                args[-1],
+            )
+        else:
+            log.info("Angel One SmartStream socket closed.")
 
     def _log_socket_problem(self, message: str):
         # Suppress identical repeats within 30s so retries don't flood the log.
@@ -339,6 +345,13 @@ class LiveTickStore:
                         if value:
                             setattr(self._client, name, value)
 
+                    old_stream = self._stream
+                    if old_stream is not None:
+                        try:
+                            old_stream.close()
+                        except Exception:
+                            log.exception("Could not close the stale Angel One websocket before recovery.")
+
                     new_stream = AngelSmartWebSocketClient(
                         api_key=getattr(self._client, "api_key", ""),
                         client_code=getattr(self._client, "user_id", ""),
@@ -347,12 +360,7 @@ class LiveTickStore:
                         correlation_id=self._correlation_id,
                     )
                     if new_stream.connect(timeout=15.0, quiet=True):
-                        old_stream, self._stream = self._stream, new_stream
-                        if old_stream is not None:
-                            try:
-                                old_stream.close()
-                            except Exception:
-                                pass
+                        self._stream = new_stream
                         self._resubscribe_all()
                         self._last_tick_at = time.monotonic()  # grace window for first tick
                         log.info("Watchdog: stream rebuilt after fresh login (attempt %d).", attempt)

@@ -884,8 +884,8 @@ class CrudeOptionBuyer:
             except (TypeError, ValueError, OverflowError):
                 continue
 
-        if len(bars) < 22:
-            logger.warning("Only %d startup MCX Crude candles available; live warm-up will continue.", len(bars))
+        if not bars:
+            logger.warning("No completed startup MCX Crude candles available; live warm-up will continue.")
             return
 
         with self._bar_lock:
@@ -893,7 +893,10 @@ class CrudeOptionBuyer:
             self.futures_bars.extend(bars[-30:])
             self._last_close = self.futures_bars[-1].close
         self._historical_bars_loaded = True
-        logger.info("Loaded %d completed MCX Crude 1-minute candles; scanning is ready on the first live tick.", len(self.futures_bars))
+        logger.info(
+            "Loaded %d completed MCX Crude 1-minute candles; scanning starts after 22 completed bars.",
+            len(self.futures_bars),
+        )
 
     def _auto_login(self) -> bool:
         """Log in to Angel One via SmartConnect (client id/password/TOTP) and
@@ -2816,6 +2819,12 @@ class CrudeOptionBuyer:
             price_text = "--"
         else:
             price_text = f"{self.current_price:.2f}"
+            last_tick_time = getattr(self, "_last_tick_time", None)
+            feed_age = (
+                (datetime.now() - last_tick_time).total_seconds()
+                if last_tick_time is not None
+                else 0.0
+            )
             completed = max(len(self.futures_bars) - 1, 0)
             if completed < 22:
                 state = f"warming up {completed}/22 bars"
@@ -2838,6 +2847,9 @@ class CrudeOptionBuyer:
                 state = "scanning for CE/PE setup"
                 if last_reason:
                     state += f" | last block: {last_reason}"
+            stale_after = float(getattr(self.settings, "futures_tick_timeout_seconds", 15.0))
+            if feed_age > stale_after:
+                state += f" | FEED STALE {feed_age:.0f}s; recovery active"
 
         line = (
             f"[{datetime.now(IST).strftime('%H:%M:%S')}] {self.instrument.symbol} {price_text} | "
