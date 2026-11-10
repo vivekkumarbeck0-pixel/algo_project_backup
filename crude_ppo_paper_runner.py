@@ -28,10 +28,13 @@ from zoneinfo import ZoneInfo
 import numpy as np
 
 from crude_tick_policy import (
+    FLAT,
     OBSERVATION_SIZE,
+    SIDE_NAMES,
     EngineConfig,
     TickFeatureBuilder,
     TradeEngine,
+    map_action,
 )
 
 IST = ZoneInfo("Asia/Kolkata")
@@ -277,13 +280,19 @@ class PaperRunner:
         """Process one tick; returns the entry/exit events it produced."""
         ts = timestamp.astimezone(IST) if timestamp.tzinfo else timestamp.replace(tzinfo=IST)
         price = float(price)
+
+        def diagnostic(details: str) -> None:
+            print(f"PPO tick time={ts.isoformat()} futures_price={price} {details}", flush=True)
+
         if not np.isfinite(price) or price <= 0:
+            diagnostic("action=not_evaluated intent=not_evaluated momentum_gate=not_evaluated reason=invalid_price")
             return []
         day = ts.date().isoformat()
         if day != self._day:
             self._day, self._day_trades, self._day_r = day, 0, 0.0
             self.features.reset()
         if not self._market_open(ts):
+            diagnostic("action=not_evaluated intent=not_evaluated momentum_gate=not_evaluated reason=market_closed")
             return []
         self._last_price = price
         if self.atr_source is not None:
@@ -291,9 +300,11 @@ class PaperRunner:
         atr = self.fixed_atr if self.fixed_atr is not None else self.atr_source.value
         self.features.update(price)
         if atr is None or atr <= 0:
+            diagnostic("action=not_evaluated intent=not_evaluated momentum_gate=not_evaluated reason=atr_not_ready")
             return []
 
         if self._must_flatten(ts):
+            diagnostic("action=not_evaluated intent=not_evaluated momentum_gate=not_evaluated reason=session_flatten")
             events = self.engine.force_close(price, "session_end")
             self._emit(ts, events)
             return events
@@ -304,9 +315,21 @@ class PaperRunner:
             self._day_trades >= self.limits.max_trades_per_day
             or self._day_r <= -self.limits.daily_loss_limit_r
         )
+        momentum = self.features.momentum_atr(atr)
+        intent = map_action(action)[0]
+        gate = (
+            "not_applicable" if intent == FLAT
+            else "pass" if self.engine._momentum_supports(intent, momentum)
+            else "blocked"
+        )
+        diagnostic(
+            f"action={action.tolist()} intent={SIDE_NAMES[intent]} momentum_gate={gate} "
+            f"momentum_atr={momentum} thresholds={self.engine.config.min_entry_momentum_atr} "
+            f"position={SIDE_NAMES[self.engine.side]} daily_halt={halted}"
+        )
         events = self.engine.step(
             price, atr, action, allow_entry=not halted,
-            momentum=self.features.momentum_atr(atr),
+            momentum=momentum,
         )
         self._emit(ts, events)
         return events
