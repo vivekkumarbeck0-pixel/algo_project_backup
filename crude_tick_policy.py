@@ -23,7 +23,7 @@ SL_ATR_BOUNDS = (1.0, 3.0)  # >= 1 ATR so slippage/noise cannot instantly stop a
 MIN_ENTRY_TARGET_RR = 1.5  # every new trade must aim for at least this RR
 TP_RR_BOUNDS = (MIN_ENTRY_TARGET_RR, 4.0)
 # Minimum signed momentum (ATR units) for 5- and 20-tick entry confirmation.
-MIN_ENTRY_MOMENTUM_ATR = (0.1, 0.2)
+MIN_ENTRY_MOMENTUM_ATR = (0.05, 0.1)
 # Mirrors trading_crude.py: the trail arms after a fixed premium gain and the
 # stop jumps to entry + buffer the moment it does.
 TRAIL_ACTIVATION_POINTS = 12.0

@@ -1,8 +1,10 @@
 # Isolated crude-options PPO experiment
 
-This experiment is separate from `trading_crude.py`: it does not import, edit,
-or connect to the live order-execution bot. Model files and reports are written
-under `models/` by default.
+The PPO strategy keeps independent policy and position state and never places
+broker orders. When `trading_crude.py` runs, it starts this paper runner in a
+background thread by default; both use the shared Angel One market-data feed.
+Set `ENABLE_PPO_PAPER=0` to disable the PPO thread. Model files and reports are
+written under `models/` by default.
 
 ## PPO paper-runner logging
 
@@ -10,11 +12,83 @@ Completed PPO paper trades continue to be sent to the `PPO_Paper_Trades` Google
 Sheet tab. Local event and summary files in `ppo_shadow_logs/` are disabled by
 default; use `--local-logs` with `crude_ppo_paper_runner.py` when local
 diagnostic files are needed. This does not remove any existing log files.
+Each received tick also prints its futures price, model action and intent,
+momentum gate result, ATR-normalized momentum and thresholds, ATR, current
+position, daily trade count/PnL, and daily halt status. The `entry_block` field
+identifies why a new entry was not eligible (`policy_hold`, `momentum_mismatch`,
+`max_trades_per_day`, `daily_loss_limit`, or `position_open`); `none` means
+the entry gates passed. When the model is not evaluated (for example during
+ATR warm-up or outside market hours), the tick instead prints the reason.
+The host also logs when the PPO paper-runner background thread starts; a
+`PPO tick` line confirms that the runner is receiving ticks.
 In paper mode, the initial hard stop stays fixed and trailing/adaptive stop
 tightening is disabled, giving an open trade room to reach its target. The
 PPO can still extend a target or close on an opposite signal, and the original
 hard stop can still exit first. This paper-runner setting does not change
 training or historical simulation behavior.
+
+The shared tick engine requires signed momentum of at least 0.05 ATR over
+5 ticks and 0.1 ATR over 20 ticks in the policy's direction. These thresholds
+apply symmetrically to LONG and SHORT and are used by both the paper runner
+and tick trading environment. This relaxation changes entry behavior, not the
+saved model's action probabilities; retrain and evaluate separately before
+replacing a model, and compare trade counts and net results by direction.
+
+The paper runner loads `crude_trading_ppo_best.zip`, a continuous-action tick
+policy. Its trainer (`train_crude_trading_ppo.py` or `tune_timesteps.py`)
+currently builds episodes from recorded option-premium price paths, whereas
+the runner observes crude futures ticks and a futures bar ATR. Those inputs
+are not interchangeable: a profitable put premium path is not a short
+futures path, and the sampling cadence and ATR can differ. The action mapping
+and realized-R reward are direction-neutral, but a model trained on those
+episodes can still learn a directional bias. Balanced, timestamped futures
+training data and chronological holdout evaluation are needed to assess it;
+relaxing the gate does not guarantee both directions or profitability.
+`CrudePPOEnv` is a separate discrete CE/PE replay experiment and is not the
+environment used by the paper runner. Its trade-level training pipeline uses
+saved observation normalization, which must accompany its own models.
+
+The background paper runner samples received futures ticks at most once every
+10 seconds and batches them to the separate `PPO_Futures_Samples` worksheet
+in `Crude_Algo_Trade_Logs`. Each row includes the IST timestamp, futures
+price, current bar ATR (blank before ATR is ready), instrument token and
+runner-session ID. Only new observations are collected, not historical data.
+On the first batch each day, rows older than the current day and previous 59
+calendar days are deleted from this tab only. Cleanup does not run without
+new batches. Set `ENABLE_PPO_FUTURES_RECORDING=0` to disable collection.
+Failures are logged and batches are retried; the in-memory queue is not durable
+across Render restarts, so buffered samples can be lost. Ambiguous failed
+appends may be duplicated. A full queue is logged and additional samples are
+not recorded. Monitor the logs and Google Sheets cell and API limits.
+
+### Experimental futures-sample training
+
+After collecting at least 20 usable trading days, run on a machine with the
+PPO dependencies installed (not in the running Render web process):
+
+```powershell
+python train_futures_ppo.py --sheet --model-path .\models\futures_candidate_01
+```
+
+Alternatively export the `PPO_Futures_Samples` worksheet as CSV and use
+`--csv <path>` instead of `--sheet`. The script requires a new output path and
+never overwrites the active model. It splits by whole chronological trading
+days (oldest 80% training, newest 20% holdout), rejects conflicting timestamps,
+and splits at recording gaps, instrument changes, session restarts and
+day boundaries. It skips samples without a usable ATR and short segments.
+It saves a candidate ZIP and a holdout JSON report with action counts, trade
+count, wins, net points/R by direction, and max drawdown in points. The
+simulation uses each sample's ATR, a 0.5-point round-trip cost, and no
+trailing stop. At least 20 days is an operational starting point, not proof
+that a model is reliable; 30-45 trading days provide more varied regimes.
+
+This is an experimental replay, not an automatic model replacement. Episodes
+reset after up to 360 samples, do not apply the runner's daily trade/loss
+limits, and cannot see stops crossed between 10-second samples. The runner
+currently processes every received tick rather than every 10 seconds. Align
+the paper runner and training cadence and validate realistic execution,
+costs, daily limits and an untouched later period before considering use.
+Do not use the report as a profitability or live-trading guarantee.
 
 ## Data contract and limits
 
@@ -188,10 +262,11 @@ From the `algo_project` directory:
 python -m pip install -r requirements-crude-ppo.txt
 ```
 
-Railway builds from the repository root using the root `requirements.txt`,
-which includes both this app's `requirements.txt` and the PPO requirements.
-The root `Procfile` starts the combined `main.py` orchestrator from this
-directory.
+The root `Procfile` currently starts `algo_project/main.py`, the combined
+Crude, NIFTY, and PPO orchestrator. To run only Crude on Render, set the service
+start command to `python algo_project/trading_crude.py`; that starts the normal
+Crude trader and its PPO paper runner, without starting NIFTY. Confirm the
+Render service's configured start command because it can override the Procfile.
 
 ## Train and evaluate
 

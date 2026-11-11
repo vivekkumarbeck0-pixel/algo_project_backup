@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import queue
 import threading
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from zoneinfo import ZoneInfo
 
 from trading_crude import AngelSmartWebSocketClient, Bar, CrudeOptionBuyer
@@ -43,6 +43,47 @@ def test_startup_bootstrap_loads_30_completed_crude_candles():
     assert engine._historical_bars_loaded is True
     assert engine.futures_bars[-1].close == 7005.0
     engine._rest_client.get_candle_data.assert_called_once()
+
+
+def test_startup_bootstrap_keeps_partial_history_for_shorter_warmup():
+    engine = _engine_for_feed_tests()
+    now = datetime.now(IST).replace(second=0, microsecond=0, tzinfo=None)
+    engine._rest_client.get_candle_data.return_value = {
+        "data": [
+            [(now - timedelta(minutes=minute)).strftime("%Y-%m-%dT%H:%M:00+05:30"), 7000, 7010, 6990, 7005, 100]
+            for minute in range(6, 0, -1)
+        ]
+    }
+
+    engine._bootstrap_futures_bars("999")
+
+    assert len(engine.futures_bars) == 6
+    assert engine._historical_bars_loaded is True
+    assert engine.futures_bars[-1].close == 7005.0
+
+
+def test_status_reports_stale_futures_feed(capsys):
+    engine = CrudeOptionBuyer.__new__(CrudeOptionBuyer)
+    engine.settings = SimpleNamespace(futures_tick_timeout_seconds=15.0)
+    engine.instrument = SimpleNamespace(symbol="CRUDEOIL")
+    engine.current_price = 8229.0
+    engine._last_tick_time = datetime.now() - timedelta(seconds=30)
+    engine.futures_bars = deque()
+    engine._position = None
+    engine.paper_realized_pnl = 0.0
+    engine.current_oi = 9_336
+    engine.current_volume = 72_193
+    engine.nymex_filter = SimpleNamespace(trend="RED")
+    engine._last_status_print = 0.0
+    engine._status_interval = 0.0
+
+    with patch(
+        "trading_crude.shutil.get_terminal_size",
+        return_value=SimpleNamespace(columns=160, lines=24),
+    ):
+        engine._print_status()
+
+    assert "FEED STALE 30s; recovery active" in capsys.readouterr().out
 
 
 def test_startup_bootstrap_runs_before_a_failed_websocket_connection():

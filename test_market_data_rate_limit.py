@@ -6,7 +6,7 @@ from datetime import datetime
 
 from angel_one.login import AngelOneLogin
 from angel_one.market_data import MarketDataFetcher
-from angel_one.smart_stream import LiveTickStore
+from angel_one.smart_stream import AngelSmartWebSocketClient, LiveTickStore
 from zoneinfo import ZoneInfo
 
 from logger import _SuppressMissingGreekData, _redact_sensitive_text
@@ -251,3 +251,61 @@ def test_failed_nifty_spot_resubscription_is_retryable():
     assert ("26000", "NSE") not in store._subscribed
     store._stream.subscribe.assert_called_once_with("26000", "NSE")
     store._reconnect_wakeup.set.assert_called_once()
+
+
+def test_stream_recovery_closes_stale_socket_before_opening_replacement():
+    from types import SimpleNamespace
+    import angel_one.smart_stream as smart_stream
+
+    events = []
+
+    class FakeStream:
+        def __init__(self, *args, **kwargs):
+            self.connected = False
+
+        def connect(self, **kwargs):
+            events.append("connect")
+            self.connected = True
+            return True
+
+        def close(self):
+            events.append("close")
+            self.connected = False
+
+    store = LiveTickStore.__new__(LiveTickStore)
+    store._recovery_lock = Lock()
+    store._stop_event = Mock()
+    store._stop_event.is_set.return_value = False
+    store._client = SimpleNamespace()
+    store._stream = FakeStream()
+    store._correlation_id = "test"
+    store._lock = Lock()
+    store._subscribed = set()
+    store._ticks = {}
+    store._reconnect_wakeup = Mock()
+    store._last_tick_at = time.monotonic()
+    refreshed = SimpleNamespace(
+        api_key="key",
+        user_id="client",
+        feed_token="feed",
+        access_token="jwt",
+    )
+
+    with (
+        patch.object(AngelOneLogin, "connect_from_env", return_value=refreshed),
+        patch.object(smart_stream, "AngelSmartWebSocketClient", FakeStream),
+    ):
+        assert store._recover_stream()
+
+    assert events == ["close", "connect"]
+    assert store._stream.connected
+
+
+def test_normal_websocket_close_is_not_logged_as_transport_error(caplog):
+    client = AngelSmartWebSocketClient("key", "client", "feed", "jwt")
+
+    with caplog.at_level(logging.INFO, logger="angel_one.smart_stream"):
+        client._on_close(object())
+
+    assert "socket closed" in caplog.text
+    assert "RAW WEBSOCKET ERROR" not in caplog.text

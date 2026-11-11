@@ -23,6 +23,7 @@ def start_ppo_paper_thread():
         return None
     thread = threading.Thread(target=run_live_forever, name="ppo-paper-runner", daemon=True)
     thread.start()
+    logger.info("PPO paper runner background thread started.")
     return thread
 
 
@@ -63,7 +64,6 @@ if __name__ == "__main__":
         except BaseException:
             logging.getLogger(__name__).exception("Top-level failure; restarting in %ss.", RETRY_SECONDS)
             time.sleep(RETRY_SECONDS)
-
 
 
 

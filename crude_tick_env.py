@@ -619,23 +619,27 @@ class CrudeTradingEnv(gym.Env[np.ndarray, np.ndarray]):
 
     def __init__(
         self,
-        episodes: list[tuple[Any, float]],
+        episodes: list[tuple[Any, Any]],
         *,
         engine_config: EngineConfig | None = None,
         reward_config: TradingRewardConfig | None = None,
         warmup_ticks: int = 5,
     ):
         super().__init__()
-        self.episodes: list[tuple[np.ndarray, float]] = []
+        self.episodes: list[tuple[np.ndarray, float | np.ndarray]] = []
         for prices, atr in episodes:
             series = np.asarray(prices, dtype=float)
             if series.ndim != 1 or len(series) < warmup_ticks + 2:
                 raise ValueError("each episode needs a 1-D price series longer than warmup")
             if not np.all(np.isfinite(series)) or np.any(series <= 0):
                 raise ValueError("prices must be finite and positive")
-            if not math.isfinite(float(atr)) or float(atr) <= 0:
+            atr_values = np.asarray(atr, dtype=float)
+            if atr_values.ndim > 1 or (atr_values.ndim == 1 and len(atr_values) != len(series)):
+                raise ValueError("episode ATR must be a scalar or one value per price")
+            if not np.all(np.isfinite(atr_values)) or np.any(atr_values <= 0):
                 raise ValueError("episode ATR must be finite and positive")
-            self.episodes.append((series, float(atr)))
+            episode_atr = float(atr_values) if atr_values.ndim == 0 else atr_values.copy()
+            self.episodes.append((series, episode_atr))
         if not self.episodes:
             raise ValueError("at least one episode is required")
         self.engine_config = engine_config or EngineConfig()
@@ -675,7 +679,8 @@ class CrudeTradingEnv(gym.Env[np.ndarray, np.ndarray]):
         if index is None:
             index = int(self.np_random.integers(len(self.episodes)))
         self._episode_index = int(index)
-        self._prices, self._atr = self.episodes[self._episode_index]
+        self._prices, self._episode_atr = self.episodes[self._episode_index]
+        self._atr = self._atr_at(0)
         self._tick = 0
         self._engine.reset()
         self._features.reset()
@@ -687,6 +692,11 @@ class CrudeTradingEnv(gym.Env[np.ndarray, np.ndarray]):
     def _observe(self) -> np.ndarray:
         return self._features.observation(self._atr, self._engine)
 
+    def _atr_at(self, index: int) -> float:
+        if isinstance(self._episode_atr, np.ndarray):
+            return float(self._episode_atr[index])
+        return self._episode_atr
+
     def step(
         self, action: np.ndarray
     ) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
@@ -696,6 +706,7 @@ class CrudeTradingEnv(gym.Env[np.ndarray, np.ndarray]):
         if not self.action_space.contains(action_array):
             raise ValueError("action must contain four finite values in [0, 1]")
         self._tick += 1
+        self._atr = self._atr_at(self._tick)
         price = float(self._prices[self._tick])
         self._features.update(price)
         was_flat = self._engine.side == 0

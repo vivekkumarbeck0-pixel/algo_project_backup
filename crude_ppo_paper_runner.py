@@ -16,6 +16,7 @@ import argparse
 import csv
 import json
 import logging
+import os
 import queue
 import threading
 import time
@@ -26,6 +27,7 @@ from typing import Any, Callable, Iterator
 from zoneinfo import ZoneInfo
 
 import numpy as np
+from ppo_futures_sheet import FuturesTickRecorder
 
 from crude_tick_policy import (
     FLAT,
@@ -239,6 +241,7 @@ class PaperRunner:
         limits: RunnerLimits | None = None,
         atr_source: BarAtr | None = None,
         fixed_atr: float | None = None,
+        tick_recorder: FuturesTickRecorder | None = None,
     ):
         if fixed_atr is None and atr_source is None:
             raise ValueError("provide a BarAtr source or a fixed ATR")
@@ -247,6 +250,8 @@ class PaperRunner:
         self.engine = TradeEngine(engine_config)
         self.features = TickFeatureBuilder()
         self.atr_source, self.fixed_atr = atr_source, fixed_atr
+        self.tick_recorder = tick_recorder
+        self._recording_failed = False
         self._day: str | None = None
         self._day_trades = 0
         self._day_r = 0.0
@@ -306,6 +311,17 @@ class PaperRunner:
         if self.atr_source is not None:
             self.atr_source.update(ts, price)
         atr = self.fixed_atr if self.fixed_atr is not None else self.atr_source.value
+        if self.tick_recorder is not None:
+            try:
+                self.tick_recorder.record(ts, price, atr)
+            except (OSError, ValueError):
+                if not self._recording_failed:
+                    logger.exception("PPO futures tick recording failed; retrying on the next tick")
+                self._recording_failed = True
+            else:
+                if self._recording_failed:
+                    logger.info("PPO futures tick recording recovered")
+                self._recording_failed = False
         self.features.update(price)
         if atr is None or atr <= 0:
             diagnostic("action=not_evaluated intent=not_evaluated momentum_gate=not_evaluated reason=atr_not_ready")
@@ -522,7 +538,17 @@ def run_live_forever(
                 ShadowLogWriter(LOG_DIR, sheet_sink=sink),
                 engine_config=EngineConfig(0.0, 0.0, trailing_enabled=False),
                 atr_source=atr,
+                tick_recorder=(
+                    FuturesTickRecorder(token)
+                    if os.getenv("ENABLE_PPO_FUTURES_RECORDING", "1").strip().lower()
+                    not in {"0", "false", "no"}
+                    else None
+                ),
             )
+            if runner.tick_recorder is not None:
+                logger.info("PPO futures recording enabled: Google Sheet PPO_Futures_Samples, 10-second sampling, 60-day retention")
+            else:
+                logger.info("PPO futures tick recording disabled via ENABLE_PPO_FUTURES_RECORDING")
             last_atr_seed_attempt = time.monotonic()
             for timestamp, price in angel_ticks(token, "MCX", 0.25):
                 if stop_event.is_set():
@@ -536,6 +562,8 @@ def run_live_forever(
         finally:
             if runner is not None:
                 runner.close_open_position()
+                if runner.tick_recorder is not None:
+                    runner.tick_recorder.close()
         stop_event.wait(retry_seconds)
 
 

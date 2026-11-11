@@ -149,6 +149,26 @@ def test_environment_enters_then_exits_with_logged_reward_and_pnl():
     assert info["pnl"] == 500.0
 
 
+@pytest.mark.parametrize("outcome,pnl", [("Target Hit", 100), ("Valid Stop Loss", -100)])
+def test_recorded_ce_and_pe_with_same_outcome_receive_equal_rewards(outcome, pnl):
+    frame = pd.DataFrame(
+        [
+            {"Option Side": side, "Outcome": outcome, "PnL": pnl}
+            for side in ("CE", "PE")
+        ]
+    )
+    env = CrudePPOEnv(frame)
+    results = []
+    for index, action in enumerate((ACTION_ENTER_CE, ACTION_ENTER_PE)):
+        env.reset(options={"row_index": index})
+        _, entry_reward, terminated, _, _ = env.step(action)
+        assert not terminated
+        _, exit_reward, terminated, _, _ = env.step(ACTION_EXIT)
+        assert terminated
+        results.append((entry_reward, exit_reward))
+    assert results[0] == results[1]
+
+
 def test_atr_normalized_pivot_distances_are_not_scaled_twice():
     frame = _trades().iloc[[0]].copy()
     frame["Support Distance ATR"] = 1.25
