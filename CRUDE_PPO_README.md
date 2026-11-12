@@ -6,6 +6,11 @@ background thread by default; both use the shared Angel One market-data feed.
 Set `ENABLE_PPO_PAPER=0` to disable the PPO thread. Model files and reports are
 written under `models/` by default.
 
+Normal Crude and PPO maintain separate entry and exit decisions. Normal Crude
+defaults to the legacy futures S&R target, with an ATR option target when no
+S&R target is available; `CRUDE_TARGET_MODE=OPTION_RR` opts into the newer
+option risk/reward target. PPO paper behavior is unchanged by that setting.
+
 ## PPO paper-runner logging
 
 Completed PPO paper trades continue to be sent to the `PPO_Paper_Trades` Google

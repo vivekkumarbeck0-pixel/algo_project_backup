@@ -111,6 +111,7 @@ class Settings:
     # Confirmation cushion so wicks that only graze a pivot cannot trigger an entry.
     buffer_points: float = 1.0
     crude_risk_reward_ratio: float = float(_getenv("CRUDE_RISK_REWARD_RATIO", "2.0"))
+    crude_target_mode: str = _getenv("CRUDE_TARGET_MODE", "LEGACY").upper()
     # Skip entries whose stop would eat more than this share of the premium.
     max_stop_premium_fraction: float = 0.5
     atr_stop_mult: float = 1.5

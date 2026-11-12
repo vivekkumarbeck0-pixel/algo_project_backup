@@ -21,10 +21,10 @@ The optimizer changes the existing Crude rules; it does not place orders and it 
 
 - Entry gates: minimum entry volume, minimum absolute OI change, ATR range, and allowed market regimes.
 - Risk rules: dynamic ATR multiplier, ATR buffer, risk-reward ratio, and trailing activation.
-- Live option-premium TP is calculated as `entry premium + RR × (entry premium - SL)`. This keeps TP and SL in the same price units; a nearby futures pivot is logged as a reference and cannot prematurely close the option trade. Set `CRUDE_RISK_REWARD_RATIO=1.0`, `2.0`, or `3.0` in `.env` to select 1:1, 1:2, or 1:3 (default 1:2), then restart the bot. Approved adaptive settings can override this value when the position is flat.
+- Normal Crude defaults to `CRUDE_TARGET_MODE=LEGACY`: a reachable futures S&R level is the target; otherwise the option target is `entry premium + RR × ATR multiplier × ATR`, excluding the stop buffer. `CRUDE_TARGET_MODE=OPTION_RR` opts into the newer option-premium target `entry premium + RR × (entry premium - SL)`; futures S&R is then only a reference. Set `CRUDE_RISK_REWARD_RATIO` to a value from 1.0 to 4.0 (default 2.0). Approved adaptive settings can override the ratio when flat. Existing open positions retain their recorded target mode.
 - Risk candidates are replayed after at least 40 development trades contain `Intratrade Option Prices`, valid entry prices, and ATR. Otherwise those four risk values remain at the current configured defaults. ATR/regime gates also stay disabled until at least 40 usable values exist. This prevents fabricated counterfactual results while retaining legacy rows for volume/OI optimization.
 
-New trades now log `Intratrade Option Prices` and `Entry Momentum Strength`. These fields let replay use the same dynamic ATR and trailing formulas as live execution. Historical rows remain usable for entry-filter optimization.
+New trades log `Intratrade Option Prices` and `Entry Momentum Strength`. Risk replay uses the option-premium target formula, not the legacy futures S&R exit; its results therefore do not reproduce the default legacy target behavior. Historical rows remain usable for entry-filter optimization.
 
 ## Validation policy
 

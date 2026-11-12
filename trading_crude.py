@@ -204,7 +204,7 @@ class Position:
     entry_candle_low: Optional[float] = None
     entry_candle_close: Optional[float] = None
     futures_target: Optional[float] = None
-    target_source: str = "OPTION_RR"
+    target_source: str = "ATR"
     entry_market_regime: Optional[str] = None
     entry_momentum_strength: float = 0.0
     intratrade_option_prices: list[float] = field(default_factory=list)
@@ -2033,7 +2033,16 @@ class CrudeOptionBuyer:
                 risk_reward_ratio,
             )
             return None
-        target_distance = risk_reward_ratio * stop_distance
+        target_mode = str(getattr(self.settings, "crude_target_mode", "LEGACY")).upper()
+        if target_mode not in {"LEGACY", "OPTION_RR"}:
+            logger.error("Entry skipped: invalid crude_target_mode %r.", target_mode)
+            return None
+        atr_target_distance = risk_reward_ratio * atr_multiplier * atr
+        target_distance = (
+            risk_reward_ratio * stop_distance
+            if target_mode == "OPTION_RR"
+            else atr_target_distance
+        )
 
         return {
             "stop_distance": stop_distance,
@@ -2042,7 +2051,7 @@ class CrudeOptionBuyer:
             "target_price": entry_price + target_distance,
             "risk_reward_ratio": risk_reward_ratio,
             "minimum_target_distance": 1.5 * atr_multiplier * atr,
-            "maximum_target_distance": risk_reward_ratio * atr_multiplier * atr,
+            "maximum_target_distance": atr_target_distance,
         }
 
     def _place_entry_order(self, signal: Dict[str, Any]):
@@ -2141,7 +2150,12 @@ class CrudeOptionBuyer:
             if minimum_target_distance is not None and maximum_target_distance is not None
             else None
         )
-        target_source = "OPTION_RR"
+        target_mode = str(getattr(self.settings, "crude_target_mode", "LEGACY")).upper()
+        target_source = (
+            "OPTION_RR" if target_mode == "OPTION_RR"
+            else "S&R" if futures_target is not None
+            else "ATR"
+        )
         entry_nearest_pivot, entry_pivot_number, entry_pivot_price = self._nearest_pivot_info(
             entry_index_value,
             entry_pivots,
@@ -2220,7 +2234,8 @@ class CrudeOptionBuyer:
                 ("Entry premium", f"{entry_option_price:.2f}"),
                 ("Premium source", "broker LTP"),
                 ("Stop loss", f"{stop_loss:.2f}"),
-                ("Target", f"{target_price:.2f} option premium ({risk_reward_ratio:.1f}R)"),
+                ("Target", f"{futures_target:.2f} futures S&R" if target_source == "S&R" else
+                 f"{target_price:.2f} option premium ({target_source})"),
                 ("Futures S&R reference", f"{futures_target:.2f}" if futures_target is not None else "-"),
                 ("Quantity", quantity),
                 ("Order id", order_id or "-"),
@@ -2237,7 +2252,7 @@ class CrudeOptionBuyer:
             ],
         )
         logger.info(
-            "%s ENTRY %s %s @ %.2f | scenario=%s futures=%.2f stop=%.2f target=%.2f option premium (%.1fR) S&R reference=%s",
+            "%s ENTRY %s %s @ %.2f | scenario=%s futures=%.2f stop=%.2f target=%s",
             mode,
             option_type,
             strike,
@@ -2245,9 +2260,8 @@ class CrudeOptionBuyer:
             signal["scenario"],
             price,
             stop_loss,
-            target_price,
-            risk_reward_ratio,
-            f"{futures_target:.2f}" if futures_target is not None else "-",
+            f"{futures_target:.2f} futures S&R" if target_source == "S&R"
+            else f"{target_price:.2f} option premium ({target_source}, RR={risk_reward_ratio:.1f})",
         )
         self._write_paper_trade_log(
             {
@@ -2716,10 +2730,23 @@ class CrudeOptionBuyer:
 
         trailing_active = position.trailing_stop > position.stop_loss
 
+        futures_target = position.futures_target
+        current_timestamp = getattr(self, "current_timestamp", None)
+        future_tick_is_fresh = (
+            current_timestamp is not None
+            and (_now_ist() - _as_ist(current_timestamp)).total_seconds()
+            <= float(getattr(self.settings, "futures_tick_timeout_seconds", 5.0))
+        )
         exit_reason = None
         exit_price = option_price
         exit_tick_key = getattr(self, "_option_ltp_time", None)
-        if option_price >= position.target_price:
+        if position.target_source != "OPTION_RR" and futures_target is not None and future_tick_is_fresh and (
+            (position.side == "CE" and self.current_price >= futures_target)
+            or (position.side == "PE" and self.current_price <= futures_target)
+        ):
+            exit_reason = "S&R TARGET HIT"
+            exit_tick_key = current_timestamp
+        elif (position.target_source == "OPTION_RR" or futures_target is None) and option_price >= position.target_price:
             exit_reason = "TARGET HIT"
         elif option_price <= position.stop_loss:
             exit_reason = "STOP LOSS"
@@ -2955,8 +2982,12 @@ def start_ppo_paper_thread() -> Optional[threading.Thread]:
     return thread
 
 
-if __name__ == "__main__":
+def main() -> None:
     port = int(os.environ.get("PORT", 10000))
     threading.Thread(target=start_trading_engine, name="crude-engine", daemon=True).start()
     start_ppo_paper_thread()
     app.run(host="0.0.0.0", port=port)
+
+
+if __name__ == "__main__":
+    main()
