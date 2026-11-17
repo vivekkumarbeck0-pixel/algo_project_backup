@@ -625,13 +625,21 @@ class MarketDataFetcher:
         try:
             master_path = InstrumentReader.MASTER_FILE
             master_mtime = master_path.stat().st_mtime_ns if master_path.exists() else None
-            if self._instrument_reader is None or master_mtime != self._instrument_master_mtime:
-                reader = InstrumentReader()
+            crude_only = underlying == "CRUDEOIL"
+            if (
+                self._instrument_reader is None
+                or master_mtime != self._instrument_master_mtime
+                or getattr(self._instrument_reader, "crude_only", False) != crude_only
+            ):
+                reader = InstrumentReader(crude_only=True) if crude_only else InstrumentReader()
                 reader.load()
                 self._instrument_reader = reader
                 self._instrument_master_mtime = (
                     master_path.stat().st_mtime_ns if master_path.exists() else None
                 )
+            elif crude_only:
+                self._instrument_reader.load()
+                self._instrument_master_mtime = master_path.stat().st_mtime_ns
             instruments = self._instrument_reader.instruments
         except Exception as exc:
             log.warning("Cannot validate %s expiry against the instrument master: %s", underlying, exc)
@@ -677,7 +685,11 @@ class MarketDataFetcher:
             from config import SYMBOL_REGISTRY
 
             cfg = SYMBOL_REGISTRY[str(underlying).upper()]
-            reader = InstrumentReader()
+            reader = (
+                InstrumentReader(crude_only=True)
+                if str(underlying).upper() == "CRUDEOIL"
+                else InstrumentReader()
+            )
             reader.load()
             items = [
                 item for item in reader.instruments

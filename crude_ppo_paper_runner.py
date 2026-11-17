@@ -791,7 +791,7 @@ def make_live_option_quote_source() -> AngelOptionQuoteSource:
         raise RuntimeError("Angel One websocket unavailable; PPO option paper mode needs live quotes.")
     return AngelOptionQuoteSource(
         store,
-        InstrumentReader(),
+        InstrumentReader(crude_only=True),
         underlying=MCX_CRUDE_OPTION.symbol,
         exchange=MCX_CRUDE_OPTION.exchange,
         instrument_type=MCX_CRUDE_OPTION.option_instrument_type,
@@ -810,7 +810,7 @@ def resolve_front_month_token() -> str:
     override = os.getenv("MCX_CRUDE_FUTURE_TOKEN", "").strip()
     if override:
         return override
-    contract = InstrumentReader().find_nearest_future(
+    contract = InstrumentReader(crude_only=True).find_nearest_future(
         MCX_CRUDE_FUTURE.symbol,
         instrument_type=MCX_CRUDE_FUTURE.future_instrument_type,
         exchange=MCX_CRUDE_FUTURE.exchange,

@@ -1006,7 +1006,7 @@ class CrudeOptionBuyer:
         try:
             from angel_one.instrument_reader import InstrumentReader
 
-            reader = InstrumentReader()
+            reader = InstrumentReader(crude_only=True)
             contract = reader.find_nearest_future(
                 self.instrument.symbol,
                 instrument_type=self.instrument.future_instrument_type,
@@ -1737,7 +1737,7 @@ class CrudeOptionBuyer:
         try:
             from angel_one.instrument_reader import InstrumentReader
 
-            reader = InstrumentReader()
+            reader = InstrumentReader(crude_only=True)
             reader.load()
             today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
             strikes: set[int] = set()
@@ -1952,7 +1952,7 @@ class CrudeOptionBuyer:
         try:
             from angel_one.instrument_reader import InstrumentReader
 
-            reader = InstrumentReader()
+            reader = InstrumentReader(crude_only=True)
             return reader.find_option_token(
                 self.instrument.symbol,
                 strike,

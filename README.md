@@ -2,6 +2,13 @@
 
 See [ADAPTIVE_OPTIMIZATION.md](ADAPTIVE_OPTIMIZATION.md) for the Crude walk-forward optimizer, guarded JSON deployment, data contract, and daily/weekly scheduling instructions.
 
+## Crude instrument master memory
+
+Crude and its PPO runner stream the Angel One instrument master and share only
+MCX CRUDEOIL futures and option contracts in memory. The complete master remains
+on disk for other strategies; NSE/NIFTY lookups are unchanged. The master is
+refreshed daily, and a failed refresh falls back to the existing file and retries.
+
 ## Crude entry score
 
 New Crude trades receive an `Entry AI Score` from 0 to 10 in the last column of Sheet 1.

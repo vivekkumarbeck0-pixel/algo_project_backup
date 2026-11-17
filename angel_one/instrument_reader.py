@@ -4,8 +4,13 @@
 
 import json
 import requests
+import tempfile
+import threading
+import time
 from datetime import datetime
 from pathlib import Path
+
+import ijson
 
 
 class InstrumentReader:
@@ -23,19 +28,105 @@ class InstrumentReader:
         "data/angel_one_instruments.json"
     )
 
+    _crude_lock = threading.Lock()
+    _crude_cache_key = None
+    _crude_cache = None
+    _crude_refresh_retry_at = 0.0
+
     # ========================================================
     # INIT
     # ========================================================
 
-    def __init__(self):
+    def __init__(self, *, crude_only=False):
 
         self.instruments = []
+        self.crude_only = crude_only
+
+    @staticmethod
+    def _read_crude_instruments(path):
+        with path.open("rb") as file:
+            events = ijson.parse(file, use_float=True)
+            if next(events, None) != ("", "start_array", None):
+                raise ValueError("Instrument master must be a JSON array")
+            instruments = [
+                item for item in ijson.items(events, "item")
+                if isinstance(item, dict)
+                and str(item.get("exch_seg", "")).upper() == "MCX"
+                and str(item.get("name", "")).upper() == "CRUDEOIL"
+                and str(item.get("instrumenttype", "")).upper() in {"FUTCOM", "OPTFUT"}
+            ]
+        if not instruments:
+            raise ValueError("Instrument master contains no MCX CRUDEOIL contracts")
+        return instruments
+
+    def _download_crude(self):
+        self.MASTER_FILE.parent.mkdir(parents=True, exist_ok=True)
+        temporary_path = None
+        try:
+            with requests.get(self.MASTER_URL, timeout=30, stream=True) as response:
+                response.raise_for_status()
+                with tempfile.NamedTemporaryFile(
+                    mode="wb", dir=self.MASTER_FILE.parent, suffix=".tmp", delete=False
+                ) as file:
+                    temporary_path = Path(file.name)
+                    for chunk in response.iter_content(chunk_size=65536):
+                        if chunk:
+                            file.write(chunk)
+            instruments = self._read_crude_instruments(temporary_path)
+            temporary_path.replace(self.MASTER_FILE)
+            return instruments
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
+
+    def _load_crude(self):
+        with InstrumentReader._crude_lock:
+            path = self.MASTER_FILE
+            now = datetime.now()
+            exists = path.exists()
+            stale = exists and datetime.fromtimestamp(path.stat().st_mtime).date() < now.date()
+            should_refresh = not exists or (
+                stale and time.monotonic() >= InstrumentReader._crude_refresh_retry_at
+            )
+            instruments = None
+            if should_refresh:
+                try:
+                    instruments = self._download_crude()
+                    InstrumentReader._crude_refresh_retry_at = 0.0
+                except (OSError, ValueError, ijson.JSONError, requests.RequestException) as exc:
+                    if not exists:
+                        raise
+                    print("MASTER REFRESH FAILED, USING LOCAL COPY:", exc)
+                    InstrumentReader._crude_refresh_retry_at = time.monotonic() + 60
+
+            stat = path.stat()
+            key = (path.resolve(), stat.st_mtime_ns, stat.st_size)
+            if instruments is None:
+                if key == InstrumentReader._crude_cache_key:
+                    instruments = InstrumentReader._crude_cache
+                else:
+                    instruments = self._read_crude_instruments(path)
+            InstrumentReader._crude_cache_key = key
+            InstrumentReader._crude_cache = instruments
+            self.instruments = instruments
+            return self.instruments
 
     # ========================================================
     # DOWNLOAD INSTRUMENT MASTER
     # ========================================================
 
     def download(self):
+
+        if self.crude_only:
+            with InstrumentReader._crude_lock:
+                self.instruments = self._download_crude()
+                stat = self.MASTER_FILE.stat()
+                InstrumentReader._crude_cache_key = (
+                    self.MASTER_FILE.resolve(), stat.st_mtime_ns, stat.st_size
+                )
+                InstrumentReader._crude_cache = self.instruments
+                InstrumentReader._crude_refresh_retry_at = 0.0
+                return self.instruments
 
         print()
         print("=" * 70)
@@ -85,6 +176,9 @@ class InstrumentReader:
 
     def load(self):
 
+        if self.crude_only:
+            return self._load_crude()
+
         if not self.MASTER_FILE.exists():
 
             print()
@@ -122,7 +216,7 @@ class InstrumentReader:
 
     def find_symbol(self, symbol):
 
-        if not self.instruments:
+        if self.crude_only or not self.instruments:
             self.load()
 
         symbol = symbol.upper()
@@ -147,7 +241,7 @@ class InstrumentReader:
 
     def search(self, text):
 
-        if not self.instruments:
+        if self.crude_only or not self.instruments:
             self.load()
 
         text = text.upper()
@@ -214,7 +308,7 @@ class InstrumentReader:
         exchange="MCX" for commodity options on futures (e.g. CRUDEOIL).
         """
 
-        if not self.instruments:
+        if self.crude_only or not self.instruments:
             self.load()
 
         underlying = str(underlying or "").upper()
@@ -316,7 +410,7 @@ class InstrumentReader:
         For commodities (e.g. CRUDEOIL/MCX) there is no separate index -
         this same lookup resolves the tradable underlying itself.
         """
-        if not self.instruments:
+        if self.crude_only or not self.instruments:
             self.load()
 
         underlying = str(underlying or "").upper()

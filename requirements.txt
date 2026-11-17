@@ -7,6 +7,7 @@ scikit-learn>=1.0.0
 joblib
 numpy>=1.20.0
 requests
+ijson>=3.2
 python-dotenv
 yfinance
 websocket-client==1.8.0
