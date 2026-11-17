@@ -21,9 +21,10 @@ Each received tick also prints its futures price, model action and intent,
 momentum gate result, ATR-normalized momentum and thresholds, ATR, current
 position, daily trade count/PnL, and daily halt status. The `entry_block` field
 identifies why a new entry was not eligible (`policy_hold`, `momentum_mismatch`,
-`max_trades_per_day`, `daily_loss_limit`, or `position_open`); `none` means
-the entry gates passed. When the model is not evaluated (for example during
-ATR warm-up or outside market hours), the tick instead prints the reason.
+`max_trades_per_day`, `daily_loss_limit`, `daily_loss_limit_inr`, or
+`position_open`); `none` means the entry gates passed. When the model is not
+evaluated (for example during ATR warm-up or outside market hours), the tick
+instead prints the reason.
 The host also logs when the PPO paper-runner background thread starts; a
 `PPO tick` line confirms that the runner is receiving ticks.
 In paper mode, the initial hard stop stays fixed and trailing/adaptive stop
@@ -40,15 +41,27 @@ saved model's action probabilities; retrain and evaluate separately before
 replacing a model, and compare trade counts and net results by direction.
 
 The paper runner loads `crude_trading_ppo_best.zip`, a continuous-action tick
-policy. Its trainer (`train_crude_trading_ppo.py` or `tune_timesteps.py`)
-currently builds episodes from recorded option-premium price paths, whereas
-the runner observes crude futures ticks and a futures bar ATR. Those inputs
-are not interchangeable: a profitable put premium path is not a short
-futures path, and the sampling cadence and ATR can differ. The action mapping
-and realized-R reward are direction-neutral, but a model trained on those
-episodes can still learn a directional bias. Balanced, timestamped futures
-training data and chronological holdout evaluation are needed to assess it;
-relaxing the gate does not guarantee both directions or profitability.
+policy. In the live paper runner, PPO still observes crude futures ticks and a
+futures bar ATR. A LONG signal selects a buy-only ATM CE and a SHORT signal
+selects a buy-only ATM PE, using the nearest available expiry. Entries require
+a fresh option quote; paper entry and exit prices and PnL are taken from the
+option premium, with one configured lot and the fixed Rs 50 charge. PPO stop,
+target, trailing, and opposite-signal exits are still triggered by the
+underlying futures price and ATR; the sheet records those underlying levels
+separately from the option premium fills. The option paper runner also halts
+new entries at a Rs 5,000 net daily loss. If a fresh option quote is unavailable
+at session flatten, the position is marked unpriced and excluded from PnL
+statistics rather than inventing an exit fill. No broker order is placed.
+
+The trainer (`train_crude_trading_ppo.py` or `tune_timesteps.py`) builds
+episodes from recorded option-premium price paths, whereas the live runner
+observes crude futures ticks. Those inputs are not interchangeable: a
+profitable put premium path is not a short futures path, and the sampling
+cadence and ATR can differ. This is a paper execution change, not a retrained
+or validated option-specific policy. Balanced, timestamped futures training
+data, an options-aware risk model, and chronological holdout evaluation are
+needed before interpreting its results; paper profits do not guarantee future
+profitability.
 `CrudePPOEnv` is a separate discrete CE/PE replay experiment and is not the
 environment used by the paper runner. Its trade-level training pipeline uses
 saved observation normalization, which must accompany its own models.
@@ -68,7 +81,7 @@ not recorded. Monitor the logs and Google Sheets cell and API limits.
 
 ### Experimental futures-sample training
 
-After collecting at least 20 usable trading days, run on a machine with the
+After collecting at least 10 usable trading days, run on a machine with the
 PPO dependencies installed (not in the running Render web process):
 
 ```powershell
@@ -84,8 +97,11 @@ day boundaries. It skips samples without a usable ATR and short segments.
 It saves a candidate ZIP and a holdout JSON report with action counts, trade
 count, wins, net points/R by direction, and max drawdown in points. The
 simulation uses each sample's ATR, a 0.5-point round-trip cost, and no
-trailing stop. At least 20 days is an operational starting point, not proof
-that a model is reliable; 30-45 trading days provide more varied regimes.
+trailing stop. At least 10 days is only an operational minimum, not proof
+that a model is reliable. The default 80/20 split means 10 days yields only 8
+training days and 2 holdout days. Treat the candidate as experimental and test
+it on a separate, later 20-day period before considering live use; 30-45
+training days provide more varied regimes.
 
 This is an experimental replay, not an automatic model replacement. Episodes
 reset after up to 360 samples, do not apply the runner's daily trade/loss

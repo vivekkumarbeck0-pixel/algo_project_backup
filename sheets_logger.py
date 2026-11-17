@@ -101,6 +101,18 @@ PPO_SHEET_COLUMNS = [
     "Take Profit",
     "Trail Active",
     "Hold Ticks",
+    "Option Side",
+    "Strike",
+    "Expiry",
+    "Lot Size",
+    "Lots",
+    "Underlying Direction",
+    "Underlying Entry Price",
+    "Underlying Exit Price",
+    "Underlying Stop Loss",
+    "Underlying Take Profit",
+    "Underlying PnL Points",
+    "Underlying PnL R",
 ]
 
 PPO_TRAINING_WORKSHEET_TITLE = "PPO_Training_Paired_Options"
@@ -148,6 +160,17 @@ def log_ppo_trade(trade_data: dict, retries: int = 3) -> bool:
             if not headers:
                 headers = PPO_SHEET_COLUMNS.copy()
                 worksheet.append_row(headers)
+            else:
+                missing_headers = [
+                    header for header in PPO_SHEET_COLUMNS if header not in headers
+                ]
+                if missing_headers:
+                    required_columns = len(headers) + len(missing_headers)
+                    current_columns = int(getattr(worksheet, "col_count", len(headers)))
+                    if required_columns > current_columns:
+                        worksheet.add_cols(required_columns - current_columns)
+                    headers = headers + missing_headers
+                    worksheet.update("A1", [headers])
             worksheet.append_row([trade_data.get(h, "") for h in headers])
             return True
         except Exception as exc:

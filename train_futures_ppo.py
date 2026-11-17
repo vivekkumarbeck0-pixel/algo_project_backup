@@ -19,7 +19,7 @@ from crude_tick_policy import EngineConfig, SIDE_NAMES, map_action
 from ppo_futures_sheet import HEADERS, WORKSHEET_TITLE
 
 IST = ZoneInfo("Asia/Kolkata")
-MIN_DAYS = 20
+MIN_DAYS = 10
 MIN_EPISODE_SAMPLES = 121
 MAX_EPISODE_SAMPLES = 360
 MAX_GAP_SECONDS = 30

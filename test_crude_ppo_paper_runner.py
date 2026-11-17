@@ -4,7 +4,14 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pytest
 
-from crude_ppo_paper_runner import BarAtr, FuturesTickRecorder, PaperRunner, RunnerLimits, ShadowLogWriter
+from crude_ppo_paper_runner import (
+    AngelOptionQuoteSource,
+    BarAtr,
+    FuturesTickRecorder,
+    PaperRunner,
+    RunnerLimits,
+    ShadowLogWriter,
+)
 from crude_tick_env import CrudeTradingEnv, TradingRewardConfig, shape_trade_reward
 from crude_tick_policy import EngineConfig, OBSERVATION_SIZE, TickFeatureBuilder, TradeEngine, map_action
 
@@ -236,6 +243,7 @@ def test_background_runner_wires_optional_futures_recording(monkeypatch, tmp_pat
     monkeypatch.setattr(module, "PpoSheetSink", lambda: None)
     monkeypatch.setattr(module, "resolve_front_month_token", lambda: "123")
     monkeypatch.setattr(module, "seed_atr_from_history", lambda *args: False)
+    monkeypatch.setattr(module, "make_live_option_quote_source", lambda: object())
     monkeypatch.setattr(module, "load_policy", lambda path: lambda obs: np.asarray(HOLD_ACT))
     monkeypatch.setattr(module, "angel_ticks", ticks)
 
@@ -245,36 +253,218 @@ def test_background_runner_wires_optional_futures_recording(monkeypatch, tmp_pat
     assert bool(rows) is enabled
 
 
-def test_runner_prints_momentum_gate_and_action_for_each_tick(tmp_path, capsys):
+def test_option_quote_source_resolves_atm_leg_and_requires_fresh_quote():
+    class Reader:
+        def find_option_token(self, underlying, strike, right, **kwargs):
+            assert (underlying, strike, right) == ("CRUDEOIL", 8150.0, "PE")
+            assert kwargs == {"instrument_type": "OPTFUT", "exchange": "MCX"}
+            return {"token": "pe-token", "symbol": "CRUDEOIL15NOV268150PE", "expiry": "15NOV2026"}
+
+    class Store:
+        def __init__(self):
+            self.subscriptions = []
+            self.quotes = {}
+
+        def ensure_subscribed(self, token, exchange):
+            self.subscriptions.append((token, exchange))
+            return True
+
+        def get(self, token, max_age):
+            return self.quotes.get(token)
+
+    store = Store()
+    store.quotes["pe-token"] = {"ltp": 42.5}
+    source = AngelOptionQuoteSource(store, Reader())
+
+    contract, price, reason = source.prepare(8126.0, "PE")
+
+    assert contract["strike"] == 8150.0
+    assert contract["right"] == "PE" and contract["lot_size"] == 100
+    assert price == pytest.approx(42.5) and reason is None
+    assert store.subscriptions == [("pe-token", "MCX")]
+    store.quotes.clear()
+    assert source.quote(contract) is None
+
+
+def test_ppo_sheet_adds_option_fields_to_existing_worksheet(monkeypatch):
+    import sheets_logger
+
+    class Worksheet:
+        def __init__(self):
+            self.headers = sheets_logger.PPO_SHEET_COLUMNS[:15]
+            self.col_count = 15
+            self.added_columns = 0
+            self.rows = []
+
+        def row_values(self, row):
+            return self.headers
+
+        def add_cols(self, count):
+            self.added_columns += count
+            self.col_count += count
+
+        def update(self, cell, rows):
+            assert cell == "A1"
+            self.headers = rows[0]
+
+        def append_row(self, row):
+            self.rows.append(row)
+
+    worksheet = Worksheet()
+
+    class Book:
+        def worksheet(self, title):
+            return worksheet
+
+    class Client:
+        def open(self, name):
+            return Book()
+
+    monkeypatch.setattr(sheets_logger, "get_gspread_client", Client)
+
+    assert sheets_logger.log_ppo_trade({"Option Side": "CE", "Strike": 8100})
+    assert worksheet.added_columns == len(sheets_logger.PPO_SHEET_COLUMNS) - 15
+    assert "Option Side" in worksheet.headers and "Underlying PnL R" in worksheet.headers
+    assert worksheet.rows[0][worksheet.headers.index("Option Side")] == "CE"
+
+
+def test_paper_runner_records_actual_option_premium_pnl(tmp_path):
+    class OptionQuoteSource:
+        def __init__(self):
+            self.price = 50.0
+            self.released = []
+
+        def prepare(self, underlying_price, right):
+            return (
+                {
+                    "token": "ce-token",
+                    "symbol": "CRUDEOIL15NOV268100CE",
+                    "right": right,
+                    "strike": 8100.0,
+                    "expiry": "15NOV2026",
+                    "lot_size": 100,
+                },
+                self.price,
+                None,
+            )
+
+        def quote(self, contract):
+            return self.price
+
+        def release(self, contract):
+            self.released.append(contract["token"])
+
+    source = OptionQuoteSource()
+    writer = ShadowLogWriter(tmp_path)
+    actions = iter([HOLD_ACT] * 20 + [[1.0, 0.0, 0.0, 1.0]] * 3)
+    runner = PaperRunner(
+        lambda obs: np.asarray(next(actions)),
+        writer,
+        fixed_atr=2.0,
+        option_quote_source=source,
+    )
+    start = datetime(2026, 10, 26, 10, 0)
+    entry_events = []
+    prices = [100.0] * 15 + [100.5] * 5 + [101.0]
+    for index, price in enumerate(prices):
+        events = runner.on_tick(start + timedelta(seconds=index), price)
+        if events:
+            entry_events = events
+    assert entry_events[0]["type"] == "entry"
+    assert entry_events[0]["side"] == "BUY_CE"
+    assert entry_events[0]["entry_price"] == pytest.approx(50.0)
+    assert entry_events[0]["underlying_entry_price"] == pytest.approx(101.0)
+
+    source.price = 55.0
+    runner.on_tick(start + timedelta(seconds=21), 103.0)
+    exit_events = runner.on_tick(start + timedelta(seconds=22), 104.0)
+
+    assert exit_events[0]["type"] == "exit"
+    assert exit_events[0]["side"] == "BUY_CE"
+    assert exit_events[0]["option_exit_price"] == pytest.approx(55.0)
+    assert exit_events[0]["pnl_points"] == pytest.approx(5.0)
+    assert exit_events[0]["gross_pnl_inr"] == pytest.approx(500.0)
+    assert exit_events[0]["net_pnl_inr"] == pytest.approx(450.0)
+    assert exit_events[0]["underlying_pnl_r"] == pytest.approx(1.5)
+    assert source.released == ["ce-token"]
+    row = ShadowLogWriter._sheet_row(exit_events[0])
+    assert row["Symbol"] == "CRUDEOIL15NOV268100CE"
+    assert row["Action"] == "BUY_CE"
+    assert row["Exit Reason"] == "underlying_take_profit"
+    assert row["Underlying Exit Price"] == pytest.approx(104.0)
+
+
+def test_stale_option_quote_at_session_end_is_not_counted_as_pnl(tmp_path):
+    class OptionQuoteSource:
+        price = 50.0
+
+        def prepare(self, underlying_price, right):
+            return (
+                {
+                    "token": "ce-token",
+                    "symbol": "CRUDEOIL15NOV268100CE",
+                    "right": right,
+                    "strike": 8100.0,
+                    "expiry": "15NOV2026",
+                    "lot_size": 100,
+                },
+                self.price,
+                None,
+            )
+
+        def quote(self, contract):
+            return self.price
+
+        def release(self, contract):
+            pass
+
+    source = OptionQuoteSource()
+    actions = iter([HOLD_ACT] * 20 + [[1.0, 0.0, 0.0, 1.0]])
+    writer = ShadowLogWriter(tmp_path, local_logging=True)
+    runner = PaperRunner(
+        lambda obs: np.asarray(next(actions)),
+        writer,
+        fixed_atr=2.0,
+        option_quote_source=source,
+    )
+    start = datetime(2026, 10, 26, 10, 0)
+    for index, price in enumerate([100.0] * 15 + [100.5] * 5 + [101.0]):
+        events = runner.on_tick(start + timedelta(seconds=index), price)
+    assert events[0]["type"] == "entry"
+
+    source.price = None
+    runner.on_tick(datetime(2026, 10, 26, 23, 25), 102.0)
+
+    assert runner.engine.side == 0
+    assert writer.trades == 0
+    import json
+
+    event_path = tmp_path / "ppo_paper_events_2026-10-26.jsonl"
+    records = [json.loads(line) for line in event_path.read_text().splitlines()]
+    unpriced = [record for record in records if record["type"] == "unpriced_exit"]
+    assert len(unpriced) == 1
+    assert unpriced[0]["option_pnl_unavailable"] is True
+    assert unpriced[0]["option_exit_price"] is None
+
+
+def test_runner_processes_ticks_without_per_tick_output(tmp_path, capsys):
     runner = PaperRunner(lambda obs: np.asarray(LONG_ACT), ShadowLogWriter(tmp_path), fixed_atr=2.0)
     start = datetime(2026, 10, 26, 10, 0, tzinfo=timezone(timedelta(hours=5, minutes=30)))
     assert runner.on_tick(start, 100.0) == []
     events = runner.on_tick(start + timedelta(seconds=1), 101.0)
     assert events[0]["type"] == "entry"
-    lines = capsys.readouterr().out.splitlines()
-    assert len(lines) == 2
-    assert "futures_price=100.0" in lines[0]
-    assert "action=[1.0, 0.0, 1.0, 1.0] intent=LONG momentum_gate=blocked" in lines[0]
-    assert "momentum_atr=(0.0, 0.0, 0.0) thresholds=(0.05, 0.1)" in lines[0]
-    assert "entry_block=momentum_mismatch" in lines[0]
-    assert "futures_price=101.0" in lines[1] and "momentum_gate=pass" in lines[1]
-    assert "position=FLAT daily_halt=False" in lines[1]
-    assert "daily_halt_reason=none" in lines[1] and "entry_block=none" in lines[1]
+    assert capsys.readouterr().out == ""
 
 
-def test_runner_reports_short_gate_and_flat_intent(tmp_path, capsys):
+def test_runner_processes_short_and_flat_intents_without_output(tmp_path, capsys):
     actions = iter([SHORT_ACT, SHORT_ACT, HOLD_ACT])
     runner = PaperRunner(lambda obs: np.asarray(next(actions)), ShadowLogWriter(tmp_path), fixed_atr=2.0)
     start = datetime(2026, 10, 26, 10, 0)
     assert runner.on_tick(start, 100.0) == []
-    assert runner.on_tick(start + timedelta(seconds=1), 99.0)[0]["side"] == "SHORT"
-    runner.on_tick(start + timedelta(seconds=2), 99.0)
-    lines = capsys.readouterr().out.splitlines()
-    assert "intent=SHORT momentum_gate=blocked" in lines[0]
-    assert "intent=SHORT momentum_gate=pass" in lines[1]
-    assert "intent=FLAT momentum_gate=not_applicable" in lines[2]
-    assert "position=SHORT" in lines[2]
-    assert "entry_block=position_open" in lines[2]
+    events = runner.on_tick(start + timedelta(seconds=1), 99.0)
+    assert events[0]["side"] == "SHORT"
+    assert runner.on_tick(start + timedelta(seconds=2), 99.0) == []
+    assert capsys.readouterr().out == ""
 
 
 @pytest.mark.parametrize(
@@ -297,12 +487,10 @@ def test_runner_enters_both_sides_at_relaxed_momentum_thresholds(
 
     assert len(events) == 1
     assert events[0]["type"] == "entry" and events[0]["side"] == side
-    line = capsys.readouterr().out.splitlines()[-1]
-    assert f"intent={side} momentum_gate=pass" in line
-    assert "thresholds=(0.05, 0.1)" in line and "entry_block=none" in line
+    assert capsys.readouterr().out == ""
 
 
-def test_runner_reports_daily_trade_limit_as_entry_block(tmp_path, capsys):
+def test_runner_silently_respects_daily_trade_limit(tmp_path, capsys):
     runner = PaperRunner(
         lambda obs: np.asarray(LONG_ACT),
         ShadowLogWriter(tmp_path),
@@ -311,35 +499,27 @@ def test_runner_reports_daily_trade_limit_as_entry_block(tmp_path, capsys):
     )
     start = datetime(2026, 10, 26, 10, 0, tzinfo=timezone(timedelta(hours=5, minutes=30)))
     assert runner.on_tick(start, 100.0) == []
-    line = capsys.readouterr().out.strip()
-    assert "daily_halt=True" in line
-    assert "daily_halt_reason=max_trades_per_day" in line
-    assert "daily_trades=0/0" in line
-    assert "entry_block=max_trades_per_day" in line
+    assert capsys.readouterr().out == ""
 
 
 @pytest.mark.parametrize(
-    ("timestamp", "price", "fixed_atr", "reason"),
+    ("timestamp", "price", "fixed_atr"),
     [
-        (datetime(2026, 10, 26, 10, 0), 0.0, 2.0, "invalid_price"),
-        (datetime(2026, 10, 24, 10, 0), 100.0, 2.0, "market_closed"),
-        (datetime(2026, 10, 26, 10, 0), 100.0, None, "atr_not_ready"),
-        (datetime(2026, 10, 26, 23, 26), 100.0, 2.0, "session_flatten"),
+        (datetime(2026, 10, 26, 10, 0), 0.0, 2.0),
+        (datetime(2026, 10, 24, 10, 0), 100.0, 2.0),
+        (datetime(2026, 10, 26, 10, 0), 100.0, None),
+        (datetime(2026, 10, 26, 23, 26), 100.0, 2.0),
     ],
 )
-def test_runner_prints_reason_when_policy_is_not_evaluated(
-    tmp_path, capsys, timestamp, price, fixed_atr, reason
+def test_runner_silently_skips_policy_when_not_evaluated(
+    tmp_path, capsys, timestamp, price, fixed_atr
 ):
     def policy(obs):
         pytest.fail("policy must not run")
 
     runner = PaperRunner(policy, ShadowLogWriter(tmp_path), fixed_atr=fixed_atr, atr_source=BarAtr())
     assert runner.on_tick(timestamp, price) == []
-    lines = capsys.readouterr().out.splitlines()
-    assert len(lines) == 1
-    assert f"futures_price={price}" in lines[0]
-    assert "action=not_evaluated intent=not_evaluated momentum_gate=not_evaluated" in lines[0]
-    assert f"reason={reason}" in lines[0]
+    assert capsys.readouterr().out == ""
 
 
 def test_runner_flattens_before_close_and_ignores_closed_market(tmp_path):

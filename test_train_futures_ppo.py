@@ -67,8 +67,15 @@ def test_conflicting_samples_and_insufficient_days_are_rejected():
     with pytest.raises(ValueError, match="Conflicting"):
         build_episodes(rows + [conflict])
     episodes, _ = build_episodes(rows)
-    with pytest.raises(ValueError, match="20 distinct"):
+    with pytest.raises(ValueError, match="10 distinct"):
         split_days(episodes, 0.2)
+
+
+def test_ten_days_meet_minimum_and_keep_chronological_holdout():
+    episodes, _ = build_episodes(samples(days=10))
+    train, holdout, train_days, holdout_days = split_days(episodes, 0.2)
+    assert len(train) == 8 and len(holdout) == 2
+    assert max(train_days) < min(holdout_days)
 
 
 def test_per_sample_atr_drives_observation_and_entry():
