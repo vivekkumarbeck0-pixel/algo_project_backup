@@ -150,7 +150,7 @@ class AngelSmartWebSocketClient:
 
         return True
 
-    CONNECTION_LIMIT_COOLDOWN_SECONDS = 60.0
+    CONNECTION_LIMIT_COOLDOWN_SECONDS = 90.0
 
     def _log_sdk_errors(self, ws) -> None:
         # The SDK replaces the real transport/handshake error with "Connection closed".
@@ -292,12 +292,13 @@ class LiveTickStore:
         self._last_tick_at = time.monotonic()
         self._watchdog_thread: Optional[threading.Thread] = None
         self._recovery_lock = threading.Lock()
+        self._next_connect_attempt = 0.0
         self._listeners: list = []
 
     WATCHDOG_STALE_SECONDS = 90.0
     WATCHDOG_INTERVAL_SECONDS = 5.0
     RECOVERY_ATTEMPTS = 3
-    RECOVERY_RETRY_SECONDS = 10.0
+    RECONNECT_COOLDOWN_SECONDS = 90.0
 
     @staticmethod
     def _exchange_open(exchange: str, now: Optional[datetime] = None) -> bool:
@@ -320,13 +321,14 @@ class LiveTickStore:
                 if not self._market_open_for_subscriptions():
                     self._last_tick_at = time.monotonic()  # no grace debt carried across closed hours
                     continue
+                if not self.connected:
+                    continue
                 silent_for = time.monotonic() - self._last_tick_at
                 if silent_for <= self.WATCHDOG_STALE_SECONDS:
                     continue
                 log.error("Watchdog: no ticks for %.0fs during market hours; forcing re-login and stream rebuild.", silent_for)
                 if not self._recover_stream():
-                    self._fatal_exit("Watchdog: stream recovery failed; exiting so the platform restarts the process.")
-                    return
+                    log.error("Watchdog: stream recovery failed; background reconnect will continue after cooldown.")
             except Exception:
                 log.exception("Watchdog iteration failed.")
 
@@ -337,6 +339,9 @@ class LiveTickStore:
 
             for attempt in range(1, self.RECOVERY_ATTEMPTS + 1):
                 if self._stop_event.is_set():
+                    return True
+                delay = self._next_connect_attempt - time.monotonic()
+                if delay > 0 and self._stop_event.wait(delay):
                     return True
                 try:
                     refreshed = AngelOneLogin.connect_from_env()
@@ -369,7 +374,7 @@ class LiveTickStore:
                     log.warning("Watchdog: rebuilt websocket did not open (attempt %d).", attempt)
                 except Exception:
                     log.exception("Watchdog: recovery attempt %d failed.", attempt)
-                self._stop_event.wait(self.RECOVERY_RETRY_SECONDS)
+                self._next_connect_attempt = time.monotonic() + self.RECONNECT_COOLDOWN_SECONDS
             return False
 
     @staticmethod
@@ -415,6 +420,8 @@ class LiveTickStore:
         except Exception:
             log.exception("Initial SmartStream connect failed; background reconnect will retry.")
             connected = False
+        if not connected:
+            self._next_connect_attempt = time.monotonic() + self.RECONNECT_COOLDOWN_SECONDS
 
         self._consumer = threading.Thread(target=self._consume_loop, daemon=True)
         self._consumer.start()
@@ -446,38 +453,47 @@ class LiveTickStore:
                 self._stop_event.wait(5.0)
 
     def _reconnect_loop_inner(self):
-        retry_delay = 1.0
         failures = 0
+        was_connected = self.connected
         while not self._stop_event.is_set():
             if self.connected:
                 self._filter_after_equity_close()
-                retry_delay = 1.0
                 failures = 0
+                was_connected = True
                 self._reconnect_wakeup.wait(2.0)
                 self._reconnect_wakeup.clear()
                 continue
 
-            self._reconnect_wakeup.wait(retry_delay)
+            if was_connected:
+                self._next_connect_attempt = time.monotonic() + self.RECONNECT_COOLDOWN_SECONDS
+                was_connected = False
+
+            delay = max(0.0, self._next_connect_attempt - time.monotonic())
+            self._reconnect_wakeup.wait(delay)
             self._reconnect_wakeup.clear()
             if self._stop_event.is_set() or self.connected:
                 continue
-
-            if failures >= 3:
-                self._refresh_session_if_needed()
-
-            if self._stream.connect(timeout=10.0, quiet=True):
-                failures = 0
-                retry_delay = 1.0
-                self._resubscribe_all()
-                log.info("SmartStream reconnected; active tokens resubscribed.")
-                continue
-
-            failures += 1
-            log.warning(
-                "SmartStream reconnect attempt failed; retrying in %.0fs.",
-                retry_delay,
-            )
-            retry_delay = min(retry_delay * 2.0, 30.0 if failures < 5 else 90.0)
+            with self._recovery_lock:
+                if self.connected or time.monotonic() < self._next_connect_attempt:
+                    continue
+                try:
+                    if failures >= 3:
+                        self._refresh_session_if_needed()
+                    connected = self._stream.connect(timeout=10.0, quiet=True)
+                except Exception:
+                    log.exception("SmartStream reconnect attempt failed.")
+                    connected = False
+                if connected:
+                    failures = 0
+                    self._resubscribe_all()
+                    log.info("SmartStream reconnected; active tokens resubscribed.")
+                    continue
+                failures += 1
+                self._next_connect_attempt = time.monotonic() + self.RECONNECT_COOLDOWN_SECONDS
+                log.warning(
+                    "SmartStream reconnect attempt failed; retrying in at least %.0fs.",
+                    self.RECONNECT_COOLDOWN_SECONDS,
+                )
 
     def _refresh_session_if_needed(self):
         now = time.monotonic()

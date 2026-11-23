@@ -9,6 +9,14 @@ MCX CRUDEOIL futures and option contracts in memory. The complete master remains
 on disk for other strategies; NSE/NIFTY lookups are unchanged. The master is
 refreshed daily, and a failed refresh falls back to the existing file and retries.
 
+## SmartStream reconnects
+
+When the shared Angel One WebSocket fails, Crude continues with REST polling.
+Crude and the shared stream wait at least 90 seconds between failed reconnect
+attempts or session refreshes. The shared cooldown also affects other consumers
+of the same stream. Check for duplicate running services if Angel One reports a
+connection limit; the cooldown cannot free a connection held by another process.
+
 ## Crude entry score
 
 New Crude trades receive an `Entry AI Score` from 0 to 10 in the last column of Sheet 1.

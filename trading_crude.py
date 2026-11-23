@@ -445,6 +445,7 @@ class CrudeOptionBuyer:
         self._last_rest_poll = 0.0
         self._rest_poll_interval = 2.0
         self._next_websocket_reconnect = 0.0
+        self._awaiting_websocket_recovery = False
         self._websocket_retry_attempts = 0
         self._historical_bars_loaded = False
         self._smart_stream = AngelSmartWebSocketClient(
@@ -725,8 +726,8 @@ class CrudeOptionBuyer:
             self._position.option_symbol,
         )
 
-    def _connect_futures_stream(self):
-        if getattr(self, "_websocket_retry_attempts", 0) >= 3:
+    def _connect_futures_stream(self) -> bool:
+        if not self._smart_stream.connected and getattr(self, "_websocket_retry_attempts", 0) >= 3:
             logger.warning("MCX Crude websocket reached max retries; refreshing Angel One session before reconnect.")
             self._auto_login()
             self._websocket_retry_attempts = 0
@@ -735,11 +736,11 @@ class CrudeOptionBuyer:
             if not self._auto_login():
                 level = logger.info if self.settings.execution_mode.upper() == "PAPER" else logger.warning
                 level("Angel One auto-login failed; running in simulation mode.")
-                return
+                return False
 
         if not self.settings.angel_api_key or not self.settings.angel_client_code:
             logger.warning("Angel One API key/client code missing; running in simulation mode.")
-            return
+            return False
 
         token = self._resolve_futures_token()
         if token:
@@ -751,12 +752,15 @@ class CrudeOptionBuyer:
         if not connected:
             self._websocket_retry_attempts = getattr(self, "_websocket_retry_attempts", 0) + 1
             self._enable_rest_fallback("websocket connection failed")
-            return
+            return False
 
         self._websocket_retry_attempts = 0
 
+        subscribed = False
         if token:
-            self._smart_stream.subscribe_futures(str(token), exchange=self.instrument.exchange)
+            subscribed = self._smart_stream.subscribe_futures(str(token), exchange=self.instrument.exchange)
+            if not subscribed:
+                self._enable_rest_fallback("futures subscription failed")
         else:
             logger.warning(
                 "Unable to resolve the MCX Crude futures token automatically; switching to REST ticker fallback."
@@ -773,6 +777,7 @@ class CrudeOptionBuyer:
                 self._smart_stream.subscribe_futures(
                     option_token, exchange=self.settings.option_exchange
                 )
+        return subscribed
 
     def _subscribe_ppo_training_pair(self, signal: Dict[str, Any]) -> None:
         """Capture same-strike, same-expiry CE/PE quotes for the PPO dataset."""
@@ -924,6 +929,10 @@ class CrudeOptionBuyer:
 
     def _enable_rest_fallback(self, reason: str) -> None:
         """Prepare REST polling without allowing broker errors to stop the engine."""
+        if not self._rest_fallback:
+            self._next_websocket_reconnect = time.monotonic() + 90.0
+        if not self._smart_stream.connected:
+            self._awaiting_websocket_recovery = True
         self._rest_fallback = True
         logger.warning("Using Angel One REST ticker fallback: %s.", reason)
 
@@ -2769,7 +2778,7 @@ class CrudeOptionBuyer:
         if not self._smart_stream.connected and not self._rest_fallback:
             self._enable_rest_fallback("websocket disconnected")
 
-        if not self._smart_stream.connected:
+        if not self._smart_stream.connected or self._rest_fallback:
             self._reconnect_websocket_if_due()
 
         self._process_latest_websocket_ticks()
@@ -2940,17 +2949,23 @@ class CrudeOptionBuyer:
     def _reconnect_websocket_if_due(self) -> None:
         """Reconnect a closed SmartStream socket without interrupting REST fallback scans."""
         now = time.monotonic()
-        if now < self._next_websocket_reconnect:
+        recovered = self._smart_stream.connected and self._awaiting_websocket_recovery
+        if not recovered and now < self._next_websocket_reconnect:
             return
 
-        self._next_websocket_reconnect = now + self.settings.websocket_reconnect_seconds
         try:
-            self._connect_futures_stream()
+            subscribed = self._connect_futures_stream()
         except Exception as exc:  # pragma: no cover
-            logger.debug("MCX Crude websocket reconnect attempt failed: %s", exc)
+            logger.warning("MCX Crude websocket reconnect attempt failed: %s", exc)
             return
+        finally:
+            if self._smart_stream.connected:
+                self._awaiting_websocket_recovery = False
+            self._next_websocket_reconnect = time.monotonic() + max(
+                90.0, self.settings.websocket_reconnect_seconds
+            )
 
-        if self._smart_stream.connected:
+        if self._smart_stream.connected and subscribed:
             self._rest_fallback = False
             logger.info("MCX Crude websocket reconnected; live scanning resumed.")
 

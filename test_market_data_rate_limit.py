@@ -284,6 +284,7 @@ def test_stream_recovery_closes_stale_socket_before_opening_replacement():
     store._ticks = {}
     store._reconnect_wakeup = Mock()
     store._last_tick_at = time.monotonic()
+    store._next_connect_attempt = 0.0
     refreshed = SimpleNamespace(
         api_key="key",
         user_id="client",
@@ -299,6 +300,100 @@ def test_stream_recovery_closes_stale_socket_before_opening_replacement():
 
     assert events == ["close", "connect"]
     assert store._stream.connected
+
+
+def test_shared_stream_retries_and_refresh_respect_cooldown_even_on_wakeup():
+    store = LiveTickStore(Mock())
+    clock = [0.0]
+    attempts = []
+    refreshes = []
+    stopped = [False]
+
+    class StopEvent:
+        def is_set(self):
+            return stopped[0]
+
+    class Wakeup:
+        def __init__(self):
+            self.early_wakeup = True
+
+        def wait(self, delay):
+            if self.early_wakeup:
+                self.early_wakeup = False
+                clock[0] += 10.0
+            else:
+                clock[0] += delay
+
+        def clear(self):
+            pass
+
+    def connect(**kwargs):
+        attempts.append(clock[0])
+        if len(attempts) == 4:
+            stopped[0] = True
+        return False
+
+    store._stop_event = StopEvent()
+    store._reconnect_wakeup = Wakeup()
+    store._stream = Mock(connected=False)
+    store._stream.connect.side_effect = connect
+    store._next_connect_attempt = 90.0
+    store._refresh_session_if_needed = Mock(side_effect=lambda: refreshes.append(clock[0]))
+
+    with patch("angel_one.smart_stream.time.monotonic", side_effect=lambda: clock[0]):
+        store._reconnect_loop_inner()
+
+    assert attempts == [90.0, 180.0, 270.0, 360.0]
+    assert refreshes == [360.0]
+
+
+def test_watchdog_recovery_waits_between_failed_attempts():
+    from types import SimpleNamespace
+    import angel_one.smart_stream as smart_stream
+
+    clock = [0.0]
+    logins = []
+    connects = []
+    refreshed = SimpleNamespace(api_key="key", user_id="client", feed_token="feed", access_token="jwt")
+
+    class StopEvent:
+        def is_set(self):
+            return False
+
+        def wait(self, delay):
+            clock[0] += delay
+            return False
+
+    class FakeStream:
+        def __init__(self, *args, **kwargs):
+            self.connected = False
+
+        def connect(self, **kwargs):
+            connects.append(clock[0])
+            self.connected = len(connects) == 3
+            return self.connected
+
+        def close(self):
+            self.connected = False
+
+    store = LiveTickStore(SimpleNamespace())
+    store._stop_event = StopEvent()
+    store._stream = FakeStream()
+    store._resubscribe_all = Mock()
+
+    def login():
+        logins.append(clock[0])
+        return refreshed
+
+    with (
+        patch.object(AngelOneLogin, "connect_from_env", side_effect=login),
+        patch.object(smart_stream, "AngelSmartWebSocketClient", FakeStream),
+        patch("angel_one.smart_stream.time.monotonic", side_effect=lambda: clock[0]),
+    ):
+        assert store._recover_stream()
+
+    assert logins == [0.0, 90.0, 180.0]
+    assert connects == [0.0, 90.0, 180.0]
 
 
 def test_normal_websocket_close_is_not_logged_as_transport_error(caplog):

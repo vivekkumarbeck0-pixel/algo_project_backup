@@ -24,6 +24,7 @@ def _engine_for_feed_tests():
     engine._smart_stream = Mock(connected=False)
     engine._rest_fallback = True
     engine._next_websocket_reconnect = 0.0
+    engine._awaiting_websocket_recovery = True
     return engine
 
 
@@ -109,6 +110,7 @@ def test_closed_websocket_reconnects_and_disables_rest_fallback():
 
     def reconnect():
         engine._smart_stream.connected = True
+        return True
 
     engine._connect_futures_stream = Mock(side_effect=reconnect)
 
@@ -116,6 +118,79 @@ def test_closed_websocket_reconnects_and_disables_rest_fallback():
 
     engine._connect_futures_stream.assert_called_once()
     assert engine._rest_fallback is False
+
+
+def test_rest_fallback_delays_crude_retries_and_session_refresh():
+    engine = _engine_for_feed_tests()
+    engine._rest_fallback = False
+    engine._connect_futures_stream = Mock()
+
+    with patch("trading_crude.time.monotonic", return_value=100.0):
+        engine._enable_rest_fallback("websocket disconnected")
+    with patch("trading_crude.time.monotonic", return_value=189.9):
+        engine._reconnect_websocket_if_due()
+    engine._connect_futures_stream.assert_not_called()
+
+    with patch("trading_crude.time.monotonic", return_value=190.0):
+        engine._reconnect_websocket_if_due()
+    engine._connect_futures_stream.assert_called_once()
+    with patch("trading_crude.time.monotonic", return_value=279.9):
+        engine._reconnect_websocket_if_due()
+    engine._connect_futures_stream.assert_called_once()
+
+
+def test_session_refresh_waits_for_crude_fallback_cooldown():
+    engine = _engine_for_feed_tests()
+    engine._rest_fallback = False
+    engine._websocket_retry_attempts = 3
+    engine.settings.angel_jwt_token = "jwt"
+    engine.settings.angel_feed_token = "feed"
+    engine.settings.angel_api_key = "key"
+    engine.settings.angel_client_code = "client"
+    engine._auto_login = Mock(return_value=True)
+    engine._resolve_futures_token = Mock(return_value="999")
+    engine._bootstrap_futures_bars = Mock()
+    engine._smart_stream.connect.return_value = False
+
+    with patch("trading_crude.time.monotonic", return_value=100.0):
+        engine._enable_rest_fallback("websocket disconnected")
+    with patch("trading_crude.time.monotonic", return_value=189.9):
+        engine._reconnect_websocket_if_due()
+    engine._auto_login.assert_not_called()
+    engine._smart_stream.connect.assert_not_called()
+
+    with patch("trading_crude.time.monotonic", return_value=190.0):
+        engine._reconnect_websocket_if_due()
+    engine._auto_login.assert_called_once()
+    engine._smart_stream.connect.assert_called_once()
+
+
+def test_recovered_shared_stream_resumes_without_waiting_for_crude_retry():
+    engine = _engine_for_feed_tests()
+    engine._smart_stream.connected = True
+    engine._next_websocket_reconnect = 1000.0
+    engine._connect_futures_stream = Mock()
+
+    with patch("trading_crude.time.monotonic", return_value=100.0):
+        engine._reconnect_websocket_if_due()
+
+    engine._connect_futures_stream.assert_called_once()
+    assert engine._rest_fallback is False
+
+
+def test_failed_subscription_keeps_rest_and_is_not_retried_each_cycle():
+    engine = _engine_for_feed_tests()
+    engine._smart_stream.connected = True
+    engine._next_websocket_reconnect = 1000.0
+    engine._connect_futures_stream = Mock(return_value=False)
+
+    with patch("trading_crude.time.monotonic", return_value=100.0):
+        engine._reconnect_websocket_if_due()
+    with patch("trading_crude.time.monotonic", return_value=101.0):
+        engine._reconnect_websocket_if_due()
+
+    engine._connect_futures_stream.assert_called_once()
+    assert engine._rest_fallback is True
 
 
 def _shared_client(store):
